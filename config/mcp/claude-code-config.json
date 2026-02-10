@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "mcp-devops-lab": {
+      "command": "bash",
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run.sh"],
+      "env": {
+        "USER_API_URL": "http://localhost:8001",
+        "GITEA_URL": "http://localhost:3000",
+        "GITEA_TOKEN": "YOUR_GITEA_TOKEN_HERE",
+        "DEV_REGISTRY_URL": "http://localhost:5001",
+        "PROD_REGISTRY_URL": "http://localhost:5002",
+        "PROMOTION_SERVICE_URL": "http://localhost:8002",
+        "GITEA_MCP_ENABLED": "true",
+        "REGISTRY_MCP_ENABLED": "true",
+        "PROMOTION_MCP_ENABLED": "true"
+      }
+    }
+  }
+}

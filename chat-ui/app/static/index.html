@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP DevOps Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>MCP DevOps Lab</h1>
+    <div class="header-controls">
+      <span class="status-dot" id="mcp-status"></span>
+      <span id="tool-count">Loading tools...</span>
+    </div>
+  </header>
+
+  <div class="config-panel">
+    <label>Provider:</label>
+    <select id="provider-select">
+      <option value="ollama">Ollama (Local)</option>
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="google">Google Gemini</option>
+    </select>
+
+    <label>Model:</label>
+    <input type="text" id="model-input" placeholder="llama3.1" value="llama3.1">
+
+    <div id="api-key-group">
+      <label>API Key:</label>
+      <input type="password" id="api-key-input" placeholder="sk-...">
+    </div>
+
+    <button id="apply-btn">Apply</button>
+  </div>
+
+  <div class="tools-list" id="tools-bar">
+    MCP Tools: <span>loading...</span>
+  </div>
+
+  <div class="chat-area" id="chat-area">
+    <div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions.</div>
+  </div>
+
+  <div class="typing-indicator" id="typing">Thinking...</div>
+
+  <div class="input-area">
+    <textarea id="user-input" placeholder="Ask me anything about your DevOps systems..." rows="1"></textarea>
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

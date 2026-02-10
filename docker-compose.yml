@@ -1,0 +1,172 @@
+services:
+  user-api:
+    build: ./user-api
+    ports:
+      - "8001:8001"
+    volumes:
+      - user-api-data:/app/data
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  gitea:
+    image: gitea/gitea:latest
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    environment:
+      - GITEA__server__ROOT_URL=http://localhost:3000
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__service__DISABLE_REGISTRATION=false
+    volumes:
+      - gitea-data:/data
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  registry-dev:
+    image: registry:2
+    ports:
+      - "5001:5000"
+    volumes:
+      - registry-dev-data:/var/lib/registry
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  registry-prod:
+    image: registry:2
+    ports:
+      - "5002:5000"
+    volumes:
+      - registry-prod-data:/var/lib/registry
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  promotion-service:
+    build: ./promotion-service
+    ports:
+      - "8002:8002"
+    environment:
+      - USER_API_URL=http://user-api:8001
+      - DEV_REGISTRY_URL=http://registry-dev:5000
+      - PROD_REGISTRY_URL=http://registry-prod:5000
+    volumes:
+      - promotion-data:/app/data
+    networks:
+      - mcp-lab-net
+    depends_on:
+      user-api:
+        condition: service_healthy
+      registry-dev:
+        condition: service_healthy
+      registry-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8002/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-server:
+    build: ./mcp-server
+    ports:
+      - "8003:8003"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - USER_API_URL=http://user-api:8001
+      - GITEA_URL=http://gitea:3000
+      - GITEA_TOKEN=${GITEA_TOKEN:-}
+      - DEV_REGISTRY_URL=http://registry-dev:5000
+      - PROD_REGISTRY_URL=http://registry-prod:5000
+      - PROMOTION_SERVICE_URL=http://promotion-service:8002
+      - GITEA_MCP_ENABLED=${GITEA_MCP_ENABLED:-false}
+      - REGISTRY_MCP_ENABLED=${REGISTRY_MCP_ENABLED:-false}
+      - PROMOTION_MCP_ENABLED=${PROMOTION_MCP_ENABLED:-false}
+    networks:
+      - mcp-lab-net
+    depends_on:
+      user-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://localhost:8003/mcp',data=json.dumps({'jsonrpc':'2.0','id':0,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'hc','version':'1'}}}).encode(),headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'})); r.read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  chat-ui:
+    build: ./chat-ui
+    ports:
+      - "3001:3001"
+    environment:
+      - MCP_SERVER_URL=http://mcp-server:8003
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
+    networks:
+      - mcp-lab-net
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  bootstrap:
+    image: alpine:3.19
+    volumes:
+      - ./scripts:/scripts:ro
+    networks:
+      - mcp-lab-net
+    depends_on:
+      user-api:
+        condition: service_healthy
+      gitea:
+        condition: service_healthy
+      registry-dev:
+        condition: service_healthy
+      registry-prod:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    restart: "no"
+
+volumes:
+  user-api-data:
+  gitea-data:
+  registry-dev-data:
+  registry-prod-data:
+  promotion-data:
+
+networks:
+  mcp-lab-net:
+    driver: bridge
