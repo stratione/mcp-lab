@@ -8,10 +8,24 @@ from .llm_providers import get_provider
 
 app = FastAPI(title="MCP DevOps Lab Chat UI", version="1.0.0")
 
+# Per-provider API keys from environment
+_API_KEYS: dict = {
+    "anthropic": os.environ.get("ANTHROPIC_API_KEY", ""),
+    "openai": os.environ.get("OPENAI_API_KEY", ""),
+    "google": os.environ.get("GOOGLE_API_KEY", ""),
+}
+
+def _resolve_api_key(provider: str, explicit_key: str = "") -> str:
+    """Return the explicit key if provided, otherwise look up the env-based key."""
+    if explicit_key:
+        return explicit_key
+    return _API_KEYS.get(provider, "")
+
 # In-memory provider config (session only)
+_default_provider = os.environ.get("LLM_PROVIDER", "ollama")
 _provider_config: dict = {
-    "provider": os.environ.get("LLM_PROVIDER", "ollama"),
-    "api_key": os.environ.get("LLM_API_KEY", ""),
+    "provider": _default_provider,
+    "api_key": _resolve_api_key(_default_provider),
     "model": os.environ.get("LLM_MODEL", ""),
     "base_url": os.environ.get("OLLAMA_URL", "http://host.containers.internal:11434"),
 }
@@ -34,10 +48,10 @@ async def health():
 async def get_providers():
     return {
         "providers": [
-            {"id": "ollama", "name": "Ollama (Local)", "requires_key": False, "default_model": "llama3.1:8b"},
-            {"id": "openai", "name": "OpenAI", "requires_key": True, "default_model": "gpt-4o"},
-            {"id": "anthropic", "name": "Anthropic", "requires_key": True, "default_model": "claude-sonnet-4-5-20250929"},
-            {"id": "google", "name": "Google Gemini", "requires_key": True, "default_model": "gemini-2.0-flash"},
+            {"id": "ollama", "name": "Ollama (Local)", "requires_key": False, "default_model": "llama3.1:8b", "has_key": True},
+            {"id": "openai", "name": "OpenAI", "requires_key": True, "default_model": "gpt-4o", "has_key": bool(_API_KEYS.get("openai"))},
+            {"id": "anthropic", "name": "Anthropic", "requires_key": True, "default_model": "claude-sonnet-4-5-20250929", "has_key": bool(_API_KEYS.get("anthropic"))},
+            {"id": "google", "name": "Google Gemini", "requires_key": True, "default_model": "gemini-2.0-flash", "has_key": bool(_API_KEYS.get("google"))},
         ],
         "active": _provider_config,
     }
@@ -49,6 +63,10 @@ async def set_provider(config: ProviderConfig):
     _provider_config = config.model_dump()
     if not _provider_config.get("base_url"):
         _provider_config["base_url"] = os.environ.get("OLLAMA_URL", "http://host.containers.internal:11434")
+    # Auto-resolve API key from env if not explicitly provided
+    provider = _provider_config.get("provider", "ollama")
+    if not _provider_config.get("api_key"):
+        _provider_config["api_key"] = _resolve_api_key(provider)
     return {"status": "ok", "config": _provider_config}
 
 

@@ -5,8 +5,9 @@ from .tools import user_tools, gitea_tools, registry_tools, promotion_tools
 
 mcp = FastMCP("mcp-devops-lab", host="0.0.0.0", port=8003, stateless_http=True)
 
-# Always register user tools
-user_tools.register(mcp)
+# Conditionally register user tools
+if config.USER_MCP_ENABLED:
+    user_tools.register(mcp)
 
 # Conditionally register feature-switched tools
 if config.GITEA_MCP_ENABLED:

@@ -105,6 +105,7 @@ services:
       - DEV_REGISTRY_URL=http://registry-dev:5000
       - PROD_REGISTRY_URL=http://registry-prod:5000
       - PROMOTION_SERVICE_URL=http://promotion-service:8002
+      - USER_MCP_ENABLED=${USER_MCP_ENABLED:-false}
       - GITEA_MCP_ENABLED=${GITEA_MCP_ENABLED:-false}
       - REGISTRY_MCP_ENABLED=${REGISTRY_MCP_ENABLED:-false}
       - PROMOTION_MCP_ENABLED=${PROMOTION_MCP_ENABLED:-false}
@@ -124,11 +125,11 @@ services:
     build: ./chat-ui
     ports:
       - "3001:3001"
+    env_file:
+      - .env
+      - .env.secrets
     environment:
       - MCP_SERVER_URL=http://mcp-server:8003
-      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
-      - LLM_API_KEY=${LLM_API_KEY:-}
-      - LLM_MODEL=${LLM_MODEL:-}
       - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
     networks:
       - mcp-lab-net

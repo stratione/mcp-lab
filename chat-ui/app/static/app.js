@@ -12,19 +12,36 @@ const toolCount = document.getElementById("tool-count");
 const toolsBar = document.getElementById("tools-bar");
 
 let history = [];
+let providerInfo = {}; // tracks has_key per provider
 
 const defaultModels = {
-  ollama: "llama3.1",
+  ollama: "llama3.1:8b",
   openai: "gpt-4o",
   anthropic: "claude-sonnet-4-5-20250929",
   google: "gemini-2.0-flash",
 };
 
-providerSelect.addEventListener("change", () => {
+function updateApiKeyField() {
   const p = providerSelect.value;
-  apiKeyGroup.style.display = p === "ollama" ? "none" : "flex";
+  if (p === "ollama") {
+    apiKeyGroup.style.display = "none";
+  } else {
+    apiKeyGroup.style.display = "flex";
+    const info = providerInfo[p];
+    if (info && info.has_key) {
+      apiKeyInput.value = "";
+      apiKeyInput.placeholder = "Loaded from server";
+      apiKeyInput.disabled = true;
+    } else {
+      apiKeyInput.value = "";
+      apiKeyInput.placeholder = "sk-...";
+      apiKeyInput.disabled = false;
+    }
+  }
   modelInput.value = defaultModels[p] || "";
-});
+}
+
+providerSelect.addEventListener("change", updateApiKeyField);
 
 applyBtn.addEventListener("click", async () => {
   const config = {
@@ -32,7 +49,11 @@ applyBtn.addEventListener("click", async () => {
     model: modelInput.value || defaultModels[providerSelect.value],
   };
   if (providerSelect.value !== "ollama") {
-    config.api_key = apiKeyInput.value;
+    const info = providerInfo[providerSelect.value];
+    // Only send key if user typed one (not pre-loaded)
+    if (!info || !info.has_key) {
+      config.api_key = apiKeyInput.value;
+    }
   }
   try {
     const resp = await fetch("/api/provider", {
@@ -47,6 +68,25 @@ applyBtn.addEventListener("click", async () => {
     addMessage("error", "Failed to set provider: " + e.message);
   }
 });
+
+async function loadProviders() {
+  try {
+    const resp = await fetch("/api/providers");
+    const data = await resp.json();
+    const providers = data.providers || [];
+    providers.forEach((p) => {
+      providerInfo[p.id] = p;
+    });
+    // Set active provider from server
+    if (data.active) {
+      providerSelect.value = data.active.provider || "ollama";
+      modelInput.value = data.active.model || defaultModels[data.active.provider] || "";
+    }
+    updateApiKeyField();
+  } catch (e) {
+    console.error("Failed to load providers:", e);
+  }
+}
 
 async function loadTools() {
   try {
@@ -161,5 +201,6 @@ userInput.addEventListener("keydown", (e) => {
 });
 
 // Init
+loadProviders();
 loadTools();
 setInterval(loadTools, 30000);

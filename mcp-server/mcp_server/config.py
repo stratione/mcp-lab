@@ -14,6 +14,7 @@ PROD_REGISTRY_URL = os.environ.get("PROD_REGISTRY_URL", "http://registry-prod:50
 PROMOTION_SERVICE_URL = os.environ.get("PROMOTION_SERVICE_URL", "http://promotion-service:8002")
 
 # Feature switches
+USER_MCP_ENABLED = _bool_env("USER_MCP_ENABLED")
 GITEA_MCP_ENABLED = _bool_env("GITEA_MCP_ENABLED")
 REGISTRY_MCP_ENABLED = _bool_env("REGISTRY_MCP_ENABLED")
 PROMOTION_MCP_ENABLED = _bool_env("PROMOTION_MCP_ENABLED")
