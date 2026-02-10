@@ -16,7 +16,7 @@ class LLMProvider(ABC):
 
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, base_url: str = "http://host.containers.internal:11434", model: str = "llama3.1"):
+    def __init__(self, base_url: str = "http://host.containers.internal:11434", model: str = "llama3.1:8b"):
         self.base_url = base_url.rstrip("/")
         self.model = model
 
@@ -238,7 +238,7 @@ def get_provider(config: dict) -> LLMProvider:
     if provider_type == "ollama":
         return OllamaProvider(
             base_url=config.get("base_url", "http://host.containers.internal:11434"),
-            model=config.get("model", "llama3.1"),
+            model=config.get("model", "llama3.1:8b"),
         )
     elif provider_type == "openai":
         return OpenAIProvider(

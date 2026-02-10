@@ -34,7 +34,7 @@ async def health():
 async def get_providers():
     return {
         "providers": [
-            {"id": "ollama", "name": "Ollama (Local)", "requires_key": False, "default_model": "llama3.1"},
+            {"id": "ollama", "name": "Ollama (Local)", "requires_key": False, "default_model": "llama3.1:8b"},
             {"id": "openai", "name": "OpenAI", "requires_key": True, "default_model": "gpt-4o"},
             {"id": "anthropic", "name": "Anthropic", "requires_key": True, "default_model": "claude-sonnet-4-5-20250929"},
             {"id": "google", "name": "Google Gemini", "requires_key": True, "default_model": "gemini-2.0-flash"},
