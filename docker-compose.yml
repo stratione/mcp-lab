@@ -93,22 +93,15 @@ services:
       retries: 5
     restart: unless-stopped
 
-  mcp-server:
+  mcp-user:
     build: ./mcp-server
+    profiles: ["user"]
     ports:
       - "8003:8003"
     environment:
       - MCP_TRANSPORT=streamable-http
       - USER_API_URL=http://user-api:8001
-      - GITEA_URL=http://gitea:3000
-      - GITEA_TOKEN=${GITEA_TOKEN:-}
-      - DEV_REGISTRY_URL=http://registry-dev:5000
-      - PROD_REGISTRY_URL=http://registry-prod:5000
-      - PROMOTION_SERVICE_URL=http://promotion-service:8002
-      - USER_MCP_ENABLED=${USER_MCP_ENABLED:-false}
-      - GITEA_MCP_ENABLED=${GITEA_MCP_ENABLED:-false}
-      - REGISTRY_MCP_ENABLED=${REGISTRY_MCP_ENABLED:-false}
-      - PROMOTION_MCP_ENABLED=${PROMOTION_MCP_ENABLED:-false}
+    command: ["python", "-m", "mcp_server.server_user"]
     networks:
       - mcp-lab-net
     depends_on:
@@ -116,6 +109,73 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://localhost:8003/mcp',data=json.dumps({'jsonrpc':'2.0','id':0,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'hc','version':'1'}}}).encode(),headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'})); r.read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-gitea:
+    build: ./mcp-server
+    profiles: ["gitea"]
+    ports:
+      - "8004:8004"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - GITEA_URL=http://gitea:3000
+      - GITEA_TOKEN=${GITEA_TOKEN:-}
+    command: ["python", "-m", "mcp_server.server_gitea"]
+    networks:
+      - mcp-lab-net
+    depends_on:
+      gitea:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://localhost:8004/mcp',data=json.dumps({'jsonrpc':'2.0','id':0,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'hc','version':'1'}}}).encode(),headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'})); r.read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-registry:
+    build: ./mcp-server
+    profiles: ["registry"]
+    ports:
+      - "8005:8005"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - DEV_REGISTRY_URL=http://registry-dev:5000
+      - PROD_REGISTRY_URL=http://registry-prod:5000
+    command: ["python", "-m", "mcp_server.server_registry"]
+    networks:
+      - mcp-lab-net
+    depends_on:
+      registry-dev:
+        condition: service_healthy
+      registry-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://localhost:8005/mcp',data=json.dumps({'jsonrpc':'2.0','id':0,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'hc','version':'1'}}}).encode(),headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'})); r.read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mcp-promotion:
+    build: ./mcp-server
+    profiles: ["promotion"]
+    ports:
+      - "8006:8006"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - PROMOTION_SERVICE_URL=http://promotion-service:8002
+    command: ["python", "-m", "mcp_server.server_promotion"]
+    networks:
+      - mcp-lab-net
+    depends_on:
+      promotion-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,json; r=urllib.request.urlopen(urllib.request.Request('http://localhost:8006/mcp',data=json.dumps({'jsonrpc':'2.0','id':0,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'hc','version':'1'}}}).encode(),headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream'})); r.read()\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -129,13 +189,10 @@ services:
       - .env
       - .env.secrets
     environment:
-      - MCP_SERVER_URL=http://mcp-server:8003
+      - MCP_SERVERS=http://mcp-user:8003,http://mcp-gitea:8004,http://mcp-registry:8005,http://mcp-promotion:8006
       - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
     networks:
       - mcp-lab-net
-    depends_on:
-      mcp-server:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3001/health')\""]
       interval: 10s

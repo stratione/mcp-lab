@@ -1,21 +1,31 @@
 import httpx
 import json
 import os
+import asyncio
+import logging
 
-MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://mcp-server:8003")
-MCP_ENDPOINT = f"{MCP_SERVER_URL}/mcp"
+logger = logging.getLogger(__name__)
+
+# Parse MCP_SERVERS (comma-separated) or fall back to single MCP_SERVER_URL
+_raw = os.environ.get(
+    "MCP_SERVERS",
+    os.environ.get("MCP_SERVER_URL", "http://mcp-user:8003"),
+)
+MCP_SERVER_URLS: list[str] = [u.strip() for u in _raw.split(",") if u.strip()]
 
 HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream",
 }
 
+# tool_name -> server_base_url mapping, rebuilt on each list_tools() call
+_tool_server_map: dict[str, str] = {}
+
 
 def _parse_response(resp: httpx.Response) -> dict:
     """Parse MCP response — handles both JSON and SSE formats."""
     content_type = resp.headers.get("content-type", "")
     if "text/event-stream" in content_type:
-        # Parse SSE: look for data lines containing JSON-RPC
         for line in resp.text.strip().split("\n"):
             if line.startswith("data: "):
                 try:
@@ -27,11 +37,12 @@ def _parse_response(resp: httpx.Response) -> dict:
         return resp.json()
 
 
-async def _mcp_request(method: str, params: dict = None) -> dict:
-    """Send a JSON-RPC request to the MCP server."""
+async def _mcp_request(server_url: str, method: str, params: dict = None) -> dict:
+    """Send a JSON-RPC request to a specific MCP server."""
+    endpoint = f"{server_url}/mcp"
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            MCP_ENDPOINT,
+            endpoint,
             json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}},
             headers=HEADERS,
             timeout=60.0,
@@ -40,27 +51,56 @@ async def _mcp_request(method: str, params: dict = None) -> dict:
         return _parse_response(resp)
 
 
-async def _initialize() -> dict:
-    """Send initialize request to the MCP server."""
-    return await _mcp_request("initialize", {
+async def _initialize(server_url: str) -> dict:
+    """Send initialize request to a specific MCP server."""
+    return await _mcp_request(server_url, "initialize", {
         "protocolVersion": "2024-11-05",
         "capabilities": {},
         "clientInfo": {"name": "mcp-lab-chat-ui", "version": "1.0.0"},
     })
 
 
+async def _list_tools_from_server(server_url: str) -> list[dict]:
+    """List tools from a single server. Returns empty list if unreachable."""
+    try:
+        await _initialize(server_url)
+        data = await _mcp_request(server_url, "tools/list")
+        return data.get("result", {}).get("tools", [])
+    except Exception as e:
+        logger.warning("MCP server %s unreachable: %s", server_url, e)
+        return []
+
+
 async def list_tools() -> list[dict]:
-    """List available tools from the MCP server."""
-    # Initialize first (stateless mode requires this per-session)
-    await _initialize()
-    data = await _mcp_request("tools/list")
-    return data.get("result", {}).get("tools", [])
+    """List tools from ALL configured MCP servers. Rebuilds tool->server map."""
+    global _tool_server_map
+    new_map: dict[str, str] = {}
+    all_tools: list[dict] = []
+
+    results = await asyncio.gather(
+        *[_list_tools_from_server(url) for url in MCP_SERVER_URLS]
+    )
+
+    for server_url, tools in zip(MCP_SERVER_URLS, results):
+        for tool in tools:
+            new_map[tool["name"]] = server_url
+            all_tools.append(tool)
+
+    _tool_server_map = new_map
+    return all_tools
 
 
 async def call_tool(name: str, arguments: dict) -> str:
-    """Call a tool on the MCP server and return the result."""
-    await _initialize()
-    data = await _mcp_request("tools/call", {"name": name, "arguments": arguments})
+    """Call a tool, routing to the correct MCP server."""
+    server_url = _tool_server_map.get(name)
+    if not server_url:
+        await list_tools()
+        server_url = _tool_server_map.get(name)
+    if not server_url:
+        return json.dumps({"error": f"Unknown tool: {name}"})
+
+    await _initialize(server_url)
+    data = await _mcp_request(server_url, "tools/call", {"name": name, "arguments": arguments})
     result = data.get("result", {})
     content = result.get("content", [])
     texts = [c.get("text", "") for c in content if c.get("type") == "text"]

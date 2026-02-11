@@ -1,18 +1,33 @@
 {
   "mcpServers": {
-    "mcp-devops-lab": {
+    "mcp-user": {
       "command": "bash",
-      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run.sh"],
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run_user.sh"],
       "env": {
-        "USER_API_URL": "http://localhost:8001",
+        "USER_API_URL": "http://localhost:8001"
+      }
+    },
+    "mcp-gitea": {
+      "command": "bash",
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run_gitea.sh"],
+      "env": {
         "GITEA_URL": "http://localhost:3000",
-        "GITEA_TOKEN": "YOUR_GITEA_TOKEN_HERE",
+        "GITEA_TOKEN": "YOUR_GITEA_TOKEN_HERE"
+      }
+    },
+    "mcp-registry": {
+      "command": "bash",
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run_registry.sh"],
+      "env": {
         "DEV_REGISTRY_URL": "http://localhost:5001",
-        "PROD_REGISTRY_URL": "http://localhost:5002",
-        "PROMOTION_SERVICE_URL": "http://localhost:8002",
-        "GITEA_MCP_ENABLED": "true",
-        "REGISTRY_MCP_ENABLED": "true",
-        "PROMOTION_MCP_ENABLED": "true"
+        "PROD_REGISTRY_URL": "http://localhost:5002"
+      }
+    },
+    "mcp-promotion": {
+      "command": "bash",
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run_promotion.sh"],
+      "env": {
+        "PROMOTION_SERVICE_URL": "http://localhost:8002"
       }
     }
   }
