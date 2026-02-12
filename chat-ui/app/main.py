@@ -60,10 +60,11 @@ async def health():
 async def get_providers():
     return {
         "providers": [
-            {"id": "ollama", "name": "Ollama (Local)", "requires_key": False, "default_model": "llama3.1:8b", "has_key": True},
-            {"id": "openai", "name": "OpenAI", "requires_key": True, "default_model": "gpt-4o", "has_key": bool(_API_KEYS.get("openai"))},
-            {"id": "anthropic", "name": "Anthropic", "requires_key": True, "default_model": "claude-sonnet-4-5-20250929", "has_key": bool(_API_KEYS.get("anthropic"))},
-            {"id": "google", "name": "Google Gemini", "requires_key": True, "default_model": "gemini-2.0-flash", "has_key": bool(_API_KEYS.get("google"))},
+            {"id": "ollama",   "name": "Ollama (Local)",       "requires_key": False, "default_model": "llama3.1:8b",            "has_key": True},
+            {"id": "openai",   "name": "OpenAI",               "requires_key": True,  "default_model": "gpt-4o",                 "has_key": bool(_API_KEYS.get("openai"))},
+            {"id": "anthropic","name": "Anthropic",            "requires_key": True,  "default_model": "claude-sonnet-4-5-20250929", "has_key": bool(_API_KEYS.get("anthropic"))},
+            {"id": "google",   "name": "Google Gemini",        "requires_key": True,  "default_model": "gemini-2.0-flash",       "has_key": bool(_API_KEYS.get("google"))},
+            {"id": "pretend",  "name": "Demo LLM (no key needed)", "requires_key": False, "default_model": "demo", "has_key": True},
         ],
         "active": _provider_config,
     }

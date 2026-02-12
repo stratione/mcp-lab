@@ -55,15 +55,19 @@ async function loadSavedChat() {
 }
 
 const defaultModels = {
-  ollama: "llama3.1:8b",
-  openai: "gpt-4o",
-  anthropic: "claude-sonnet-4-5-20250929",
-  google: "gemini-2.0-flash",
+  ollama:   "llama3.1:8b",
+  openai:   "gpt-4o",
+  anthropic:"claude-sonnet-4-5-20250929",
+  google:   "gemini-2.0-flash",
+  pretend:  "",   // no model selection for Demo LLM
 };
+
+// Providers that need neither an API key nor a model field
+const _NO_KEY_NO_MODEL = new Set(["ollama", "pretend"]);
 
 function updateApiKeyField() {
   const p = providerSelect.value;
-  if (p === "ollama") {
+  if (_NO_KEY_NO_MODEL.has(p)) {
     apiKeyGroup.style.display = "none";
   } else {
     apiKeyGroup.style.display = "flex";
@@ -78,18 +82,26 @@ function updateApiKeyField() {
       apiKeyInput.disabled = false;
     }
   }
-  modelInput.value = defaultModels[p] || "";
+  // Hide model label+input for Demo LLM — it's irrelevant
+  const modelGroup = document.getElementById("model-group");
+  if (p === "pretend") {
+    modelGroup.style.display = "none";
+  } else {
+    modelGroup.style.display = "contents";
+    modelInput.value = defaultModels[p] || "";
+  }
 }
 
 providerSelect.addEventListener("change", updateApiKeyField);
 
 applyBtn.addEventListener("click", async () => {
+  const p = providerSelect.value;
   const config = {
-    provider: providerSelect.value,
-    model: modelInput.value || defaultModels[providerSelect.value],
+    provider: p,
+    model: p === "pretend" ? "demo" : (modelInput.value || defaultModels[p]),
   };
-  if (providerSelect.value !== "ollama") {
-    const info = providerInfo[providerSelect.value];
+  if (!_NO_KEY_NO_MODEL.has(p)) {
+    const info = providerInfo[p];
     // Only send key if user typed one (not pre-loaded)
     if (!info || !info.has_key) {
       config.api_key = apiKeyInput.value;
@@ -102,7 +114,10 @@ applyBtn.addEventListener("click", async () => {
       body: JSON.stringify(config),
     });
     if (resp.ok) {
-      addMessage("assistant", `Provider set to ${config.provider} (model: ${config.model})`);
+      const label = p === "pretend"
+        ? "Demo LLM — type **help** to see available scripted commands"
+        : `Provider set to ${config.provider} (model: ${config.model})`;
+      addMessage("assistant", label);
     }
   } catch (e) {
     addMessage("error", "Failed to set provider: " + e.message);

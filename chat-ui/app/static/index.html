@@ -23,10 +23,13 @@
       <option value="openai">OpenAI</option>
       <option value="anthropic">Anthropic</option>
       <option value="google">Google Gemini</option>
+      <option value="pretend">Demo LLM (no key needed)</option>
     </select>
 
-    <label>Model:</label>
-    <input type="text" id="model-input" placeholder="llama3.1" value="llama3.1">
+    <div id="model-group" style="display:contents">
+      <label>Model:</label>
+      <input type="text" id="model-input" placeholder="llama3.1" value="llama3.1">
+    </div>
 
     <div id="api-key-group">
       <label>API Key:</label>
