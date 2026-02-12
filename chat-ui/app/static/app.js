@@ -171,13 +171,25 @@ function buildMcpModal() {
     const dotClass = s.status === "online" ? "active" : "inactive";
     const statusText = s.status === "online" ? "Online" : "Offline";
     const port = s.port || "—";
+    const svcName = `mcp-${s.name}`;
+
+    let ctrlHtml = "";
+    if (easyModeEnabled) {
+      if (s.status === "online") {
+        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-stop" data-svc="${svcName}">Stop</button>`;
+      } else {
+        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-start" data-svc="${svcName}">Start</button>`;
+      }
+    }
+
     html += `
       <div class="mcp-server-card">
         <div class="mcp-server-header">
           <span class="status-dot ${dotClass}"></span>
-          <span class="mcp-server-name">mcp-${s.name}</span>
+          <span class="mcp-server-name">${svcName}</span>
           <span class="mcp-server-status">${statusText}</span>
           <code class="mcp-server-url">http://${h}:${port}/mcp</code>
+          ${ctrlHtml}
         </div>`;
 
     if (s.tools.length > 0) {
@@ -186,6 +198,10 @@ function buildMcpModal() {
       html += `<div class="mcp-server-tools"><span class="mcp-no-tools">no tools</span></div>`;
     }
     html += `</div>`;
+  }
+
+  if (easyModeEnabled) {
+    html += `<p class="mcp-easymode-hint">🎮 Easy Mode active — type <kbd>easymode</kbd> anywhere to toggle</p>`;
   }
 
   // Show how to start offline servers (uses detected engine)
@@ -201,6 +217,34 @@ function buildMcpModal() {
 
   document.getElementById("mcp-modal-close").addEventListener("click", () => {
     document.getElementById("mcp-modal").style.display = "none";
+  });
+
+  body.querySelectorAll(".mcp-ctrl-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const svc = btn.dataset.svc;
+      const action = btn.classList.contains("mcp-ctrl-start") ? "start" : "stop";
+      btn.disabled = true;
+      btn.textContent = action === "start" ? "Starting…" : "Stopping…";
+      try {
+        const resp = await fetch("/api/mcp-control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ service: svc, action }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          btn.textContent = "Error";
+          btn.title = err.detail || "unknown error";
+          return;
+        }
+        // Refresh status and rebuild the modal
+        await loadTools();
+        buildMcpModal();
+      } catch (e) {
+        btn.textContent = "Error";
+        btn.title = e.message;
+      }
+    });
   });
 }
 
@@ -619,7 +663,39 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   document.getElementById("token-session-total").textContent = "0 tokens";
 });
 
-// Init
+// ─── Easter egg: type "easymode" anywhere (not in an input) to unlock GUI controls ───
+let easyModeEnabled = localStorage.getItem("easyMode") === "true";
+let _easyBuf = "";
+const _EASY_SEQ = "easymode";
+
+function showEasyModeToast(enabled) {
+  const t = document.createElement("div");
+  t.className = "easymode-toast";
+  t.textContent = enabled
+    ? "🎮 Easy Mode unlocked — GUI controls enabled"
+    : "🔒 Easy Mode off — CLI mode restored";
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("visible"));
+  setTimeout(() => {
+    t.classList.remove("visible");
+    setTimeout(() => t.remove(), 400);
+  }, 2800);
+}
+
+document.addEventListener("keydown", (e) => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (e.key.length !== 1) return;
+  _easyBuf = (_easyBuf + e.key.toLowerCase()).slice(-_EASY_SEQ.length);
+  if (_easyBuf === _EASY_SEQ) {
+    easyModeEnabled = !easyModeEnabled;
+    localStorage.setItem("easyMode", easyModeEnabled);
+    showEasyModeToast(easyModeEnabled);
+    _easyBuf = "";
+  }
+});
+
+// ─── Init ───
 loadProviders();
 loadTools();
 loadSavedChat();

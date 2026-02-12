@@ -1,7 +1,8 @@
 import json
 import os
 import pathlib
-from fastapi import FastAPI, Request
+import subprocess
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from .models import (
@@ -100,6 +101,43 @@ async def mcp_status():
         return {"servers": servers, "total_tools": total, "online_count": online, "engine": _CONTAINER_ENGINE}
     except Exception as e:
         return {"servers": [], "total_tools": 0, "online_count": 0, "engine": _CONTAINER_ENGINE, "error": str(e)}
+
+
+_ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion"}
+_COMPOSE_FILES = [
+    pathlib.Path("/workspace/docker-compose.yml"),
+    pathlib.Path("/workspace/compose.yml"),
+]
+
+
+def _compose_file_args() -> list[str]:
+    for p in _COMPOSE_FILES:
+        if p.exists():
+            return ["-f", str(p)]
+    return []
+
+
+@app.post("/api/mcp-control")
+async def mcp_control(request: Request):
+    body = await request.json()
+    service = body.get("service", "")
+    action = body.get("action", "")
+
+    if service not in _ALLOWED_MCP_SERVICES:
+        raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
+    if action not in ("start", "stop"):
+        raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+
+    base_cmd = [_CONTAINER_ENGINE, "compose"] + _compose_file_args()
+    cmd = base_cmd + (["up", "-d", service] if action == "start" else ["stop", service])
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=result.stderr.strip() or "compose command failed")
+        return {"ok": True, "service": service, "action": action}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="compose command timed out")
 
 
 @app.get("/api/chat-history")

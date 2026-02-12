@@ -89,7 +89,7 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ## Low Priority / Nice-to-Have
 
-- [ ] **Easy-mode MCP toggles** — opt-in `ENABLE_MCP_CONTROLS=true` flag that adds Start/Stop buttons to the MCP status modal for users who are not comfortable with the CLI. Default off; the existing `docker/podman compose up -d` hint in the modal stays as-is so compose commands remain the primary learning path. Uses Docker socket + Python SDK, no shell access, allowlisted to the 4 known MCP services only.
+- [x] **Easy-mode MCP toggles** — easter egg: type `easymode` anywhere on the page (not in the chat input) to toggle GUI Start/Stop buttons on the MCP status modal. A toast confirms activation. State persists in `localStorage`. CLI hint stays visible so compose commands remain the primary learning path. Backend `POST /api/mcp-control` allowlisted to the 4 known MCP services.
 
 ---
 
