@@ -890,44 +890,6 @@ const _API_DOCS = [
   { label: "Gitea Swagger",          url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
 ];
 
-const _PHASES = [
-  {
-    num: "1",
-    title: "Orient — Ollama + endpoints, no MCP",
-    color: "#60a5fa",
-    steps: [
-      'Select <strong>Ollama (Local)</strong> in the provider bar — Ollama ships with most setups',
-      'Browse the <strong>Lab Services</strong> links below to see what is running',
-      'Ask Ollama a free-form question: <em>"What services are running in this lab?"</em>',
-      'It can chat but has <strong>no knowledge of your actual systems</strong> — it can only guess',
-      '<em>Notice:</em> without tool access the LLM cannot list real users, repos, or images',
-    ],
-  },
-  {
-    num: "2",
-    title: "Manual context — paste API docs into the LLM",
-    color: "#a78bfa",
-    steps: [
-      'Open the <strong>API Documentation</strong> links below — these are the raw Swagger schemas',
-      'Copy a schema and paste it into the chat with a question like:<br><em>"Here is the User API. Create a user named bob with email bob@lab.com"</em>',
-      'The LLM can now reason about the API and construct HTTP calls — but only because you pasted the schema',
-      '<em>Notice:</em> you must paste docs every session, keep them up to date, and hope the LLM reads the format correctly',
-      'This is the state of most LLM integrations today — manual, fragile context management',
-    ],
-  },
-  {
-    num: "3",
-    title: "MCP enabled — LLM knows automatically",
-    color: "#34d399",
-    steps: [
-      'Start one or more MCP servers using the <strong>MCP strip</strong> at the top of the page',
-      'The LLM now receives structured tool definitions automatically — no pasting, no prompt engineering',
-      'Ask the same questions: <em>"List all users"</em>, <em>"Create a repo called demo"</em>, <em>"Promote nginx:latest"</em>',
-      'Compare: same LLM, same question, zero manual context — and it actually calls the APIs and returns real data',
-      '<em>This is what MCP does</em> — the API contract lives in the protocol layer, not your clipboard',
-    ],
-  },
-];
 
 function _dashCard(s, extraClass = "") {
   // In Easy Mode: add a ▶ probe button below the URL; the card itself stays a link.
@@ -953,23 +915,8 @@ function buildDashboardModal() {
     ? `<p class="dash-easy-banner">🎮 Easy Mode active — <strong>▶</strong> buttons probe each endpoint live</p>`
     : `<p class="dash-easy-hint">Tip: type <kbd>easymode</kbd> anywhere to add live <strong>▶</strong> probe buttons to every endpoint</p>`;
 
-  // ── Section 1: Lab Services ──────────────────────────────────────────
   const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
-
-  // ── Section 2: API Docs ──────────────────────────────────────────────
   const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
-
-  // ── Section 3: Learning progression ─────────────────────────────────
-  const phasesHtml = _PHASES.map((p) => `
-    <div class="dash-phase" style="--phase-color:${p.color}">
-      <div class="dash-phase-header">
-        <span class="dash-phase-num">${p.num}</span>
-        <span class="dash-phase-title">${p.title}</span>
-      </div>
-      <ol class="dash-phase-steps">
-        ${p.steps.map((s) => `<li>${s}</li>`).join("")}
-      </ol>
-    </div>`).join("");
 
   body.innerHTML = `
     <button id="dashboard-modal-close" class="modal-close">&times;</button>
@@ -977,24 +924,10 @@ function buildDashboardModal() {
     ${easyBanner}
 
     <h3 class="dash-section-heading">Lab Services</h3>
-    <p class="dash-section-sub">Click any link to open in a new tab — re-running the setup script won't re-open these.</p>
     <div class="dash-link-grid">${servicesHtml}</div>
 
     <h3 class="dash-section-heading">API Documentation</h3>
-    <p class="dash-section-sub">Swagger / OpenAPI pages. Open these during Phase 2 to copy schema context into your LLM.</p>
     <div class="dash-link-grid">${docsHtml}</div>
-
-    <h3 class="dash-section-heading">Learning Progression</h3>
-    <p class="dash-section-sub">Follow these phases in order — each one shows <em>why</em> the next exists.</p>
-    <div class="dash-phases">${phasesHtml}</div>
-
-    <div class="dash-fallback-note">
-      <strong>No Ollama and no API key?</strong>
-      The <strong>Demo LLM (no key needed)</strong> provider is available as a last resort.
-      It uses hard-coded scripted responses and won't work for Phase 2 — but it lets you
-      explore the MCP tool flow in Phase 3 without any external LLM.
-      Type <code>help</code> after selecting it to see what it understands.
-    </div>
   `;
 
   document.getElementById("dashboard-modal-close").addEventListener("click", () => {
