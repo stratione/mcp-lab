@@ -130,17 +130,6 @@ async function loadProviders() {
 
 let mcpServers = []; // latest server status data
 let containerEngine = "docker"; // detected from backend
-let mcpControlsEnabled = false; // whether start/stop buttons are available
-
-async function loadMcpControls() {
-  try {
-    const resp = await fetch("/api/mcp-controls");
-    const data = await resp.json();
-    mcpControlsEnabled = data.enabled === true;
-  } catch (e) {
-    mcpControlsEnabled = false;
-  }
-}
 
 async function loadTools() {
   try {
@@ -188,18 +177,8 @@ function buildMcpModal() {
           <span class="status-dot ${dotClass}"></span>
           <span class="mcp-server-name">mcp-${s.name}</span>
           <span class="mcp-server-status">${statusText}</span>
-          <code class="mcp-server-url">http://${h}:${port}/mcp</code>`;
-
-    // Start/Stop button — only rendered when the backend has controls enabled
-    if (mcpControlsEnabled) {
-      if (s.status === "online") {
-        html += `<button class="mcp-toggle-btn mcp-stop-btn" data-service="${s.name}" data-action="stop">Stop</button>`;
-      } else {
-        html += `<button class="mcp-toggle-btn mcp-start-btn" data-service="${s.name}" data-action="start">Start</button>`;
-      }
-    }
-
-    html += `</div>`;
+          <code class="mcp-server-url">http://${h}:${port}/mcp</code>
+        </div>`;
 
     if (s.tools.length > 0) {
       html += `<div class="mcp-server-tools">${s.tools.map((t) => `<span>${t}</span>`).join("")}</div>`;
@@ -209,8 +188,8 @@ function buildMcpModal() {
     html += `</div>`;
   }
 
-  // Show CLI hint for offline servers only when controls are NOT enabled
-  if (!mcpControlsEnabled && offline.length > 0) {
+  // Show how to start offline servers (uses detected engine)
+  if (offline.length > 0) {
     html += `<div class="mcp-hint"><strong>Start a server:</strong><pre>`;
     for (const s of offline) {
       html += `${containerEngine} compose up -d mcp-${s.name}\n`;
@@ -219,35 +198,6 @@ function buildMcpModal() {
   }
 
   body.innerHTML = html;
-
-  // Wire toggle buttons after innerHTML is set
-  body.querySelectorAll(".mcp-toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const service = btn.dataset.service;
-      const action = btn.dataset.action;
-      btn.disabled = true;
-      btn.textContent = action === "start" ? "Starting…" : "Stopping…";
-      try {
-        const resp = await fetch("/api/mcp/toggle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ service, action }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json();
-          btn.textContent = "Error";
-          btn.title = err.error || "Unknown error";
-          return;
-        }
-        // Refresh status then rebuild the modal in-place
-        await loadTools();
-        buildMcpModal();
-      } catch (e) {
-        btn.textContent = "Error";
-        btn.title = e.message;
-      }
-    });
-  });
 
   document.getElementById("mcp-modal-close").addEventListener("click", () => {
     document.getElementById("mcp-modal").style.display = "none";
@@ -671,7 +621,6 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 
 // Init
 loadProviders();
-loadMcpControls();
 loadTools();
 loadSavedChat();
 setInterval(loadTools, 30000);

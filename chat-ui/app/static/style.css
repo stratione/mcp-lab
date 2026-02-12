@@ -358,48 +358,9 @@ header h1 {
 }
 
 .mcp-server-url {
+  margin-left: auto;
   font-size: 11px;
   color: #4b5563;
-}
-
-/* MCP start/stop toggle buttons (shown when ENABLE_MCP_CONTROLS=true) */
-.mcp-toggle-btn {
-  margin-left: auto;
-  padding: 3px 10px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-  letter-spacing: 0.02em;
-}
-
-.mcp-start-btn {
-  background: #14532d;
-  border-color: #166534;
-  color: #86efac;
-}
-
-.mcp-start-btn:hover {
-  background: #166534;
-  border-color: #22c55e;
-}
-
-.mcp-stop-btn {
-  background: #450a0a;
-  border-color: #7f1d1d;
-  color: #fca5a5;
-}
-
-.mcp-stop-btn:hover {
-  background: #7f1d1d;
-  border-color: #ef4444;
-}
-
-.mcp-toggle-btn:disabled {
-  opacity: 0.5;
-  cursor: wait;
 }
 
 .mcp-server-tools {

@@ -193,15 +193,8 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
       - CHAT_DATA_DIR=/app/data
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
-      # Optional: set to "true" to enable start/stop buttons for MCP servers in the UI.
-      # Requires the Docker socket mount below to be active.
-      - ENABLE_MCP_CONTROLS=${ENABLE_MCP_CONTROLS:-false}
     volumes:
       - chat-ui-data:/app/data
-      # Optional socket mount — needed only when ENABLE_MCP_CONTROLS=true.
-      # Gives the chat-ui the ability to start/stop MCP containers.
-      # Remove or comment this line if you prefer not to grant socket access.
-      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - mcp-lab-net
     healthcheck:

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 import pathlib
@@ -90,78 +89,6 @@ async def get_tools():
 
 
 _CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
-
-# MCP server controls — opt-in via ENABLE_MCP_CONTROLS=true in .env.
-# Requires /var/run/docker.sock to be mounted into this container.
-# Only the four known MCP service names can be started or stopped; no
-# arbitrary container or shell access is possible through this endpoint.
-_MCP_CONTROLS_ENABLED = os.environ.get("ENABLE_MCP_CONTROLS", "false").lower() == "true"
-_ALLOWED_MCP_SERVICES = {"user", "gitea", "registry", "promotion"}
-
-
-def _get_docker_client():
-    """Return a docker.DockerClient connected via the local socket, or None."""
-    try:
-        import docker
-        return docker.from_env()
-    except Exception:
-        return None
-
-
-@app.get("/api/mcp-controls")
-async def mcp_controls_status():
-    """Report whether in-UI MCP start/stop controls are available."""
-    if not _MCP_CONTROLS_ENABLED:
-        return {"enabled": False, "reason": "ENABLE_MCP_CONTROLS not set"}
-    client = _get_docker_client()
-    if client is None:
-        return {"enabled": False, "reason": "Docker socket not accessible"}
-    try:
-        client.ping()
-        return {"enabled": True}
-    except Exception as exc:
-        return {"enabled": False, "reason": str(exc)}
-
-
-@app.post("/api/mcp/toggle")
-async def toggle_mcp_server(request: Request):
-    """Start or stop a single MCP server container.
-
-    Body: {"service": "user"|"gitea"|"registry"|"promotion", "action": "start"|"stop"}
-    """
-    if not _MCP_CONTROLS_ENABLED:
-        return JSONResponse(status_code=403, content={"error": "MCP controls not enabled"})
-
-    data = await request.json()
-    service = data.get("service", "")
-    action = data.get("action", "")
-
-    if service not in _ALLOWED_MCP_SERVICES or action not in ("start", "stop"):
-        return JSONResponse(status_code=400, content={"error": "Invalid service or action"})
-
-    def _do_toggle():
-        client = _get_docker_client()
-        if client is None:
-            raise RuntimeError("Docker socket not accessible")
-        # Locate by the compose service label so the project-name prefix doesn't matter
-        containers = client.containers.list(
-            all=True,
-            filters={"label": f"com.docker.compose.service=mcp-{service}"},
-        )
-        if not containers:
-            raise RuntimeError(f"Container mcp-{service} not found")
-        container = containers[0]
-        if action == "start":
-            container.start()
-        else:
-            container.stop(timeout=10)
-
-    try:
-        # Run the blocking SDK calls in a thread so we don't block the event loop
-        await asyncio.get_event_loop().run_in_executor(None, _do_toggle)
-        return {"status": "ok", "service": service, "action": action}
-    except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
 @app.get("/api/mcp-status")
