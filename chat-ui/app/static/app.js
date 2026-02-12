@@ -692,9 +692,6 @@ function buildHelpModal() {
         <pre>${containerEngine} compose up -d mcp-user        # +6 user tools\n${containerEngine} compose up -d mcp-gitea       # +7 git/repo tools\n${containerEngine} compose up -d mcp-registry    # +3 registry tools\n${containerEngine} compose up -d mcp-promotion   # +3 promotion tools</pre>
       </li>
       <li>Stop an MCP server: <code>${containerEngine} compose stop mcp-user</code></li>
-      <li>Enable all at once:
-        <pre>${containerEngine} compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion</pre>
-      </li>
       <li>Check what's running:
         <pre>${containerEngine} compose ps\ncurl http://${h}:3001/api/tools</pre>
         ${easyModeEnabled ? `<button class="probe-btn probe-btn-inline" data-url="http://${h}:3001/api/tools" title="Run curl">&#9654; run curl</button><span class="probe-result" data-url="http://${h}:3001/api/tools"></span>` : ""}

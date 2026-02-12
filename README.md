@@ -224,8 +224,7 @@ docker compose up -d mcp-registry
 # Enable Promotion tools (+3 tools → 19 total)
 docker compose up -d mcp-promotion
 
-# Enable ALL at once (all 19 tools)
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+# Enable servers one at a time — work through each phase before starting the next
 ```
 
 ### Disable MCP servers
@@ -501,10 +500,13 @@ Compare to Phase 1:
 
 > **Goal:** Express complex multi-system intents in natural language. All 19 tools ON.
 
-Make sure all MCP servers are running:
+Enable MCP servers one at a time as you progress through each phase:
 
 ```bash
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose up -d mcp-user        # start here
+docker compose up -d mcp-gitea       # after exploring user tools
+docker compose up -d mcp-registry    # after exploring git tools
+docker compose up -d mcp-promotion   # after exploring registry tools
 ```
 
 #### Exercise 1: Full Onboarding
@@ -687,8 +689,7 @@ docker compose up -d mcp-gitea
 # Stop an MCP server (disables its tools in Chat UI)
 docker compose stop mcp-gitea
 
-# Start all MCP servers at once
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+# Start servers one at a time as you progress through the lab phases
 
 # View logs
 docker compose logs -f chat-ui

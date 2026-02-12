@@ -52,11 +52,7 @@ cat <<EOF
 
      $COMPOSE stop mcp-user
 
-  5. Enable all at once:
-
-     $COMPOSE up -d mcp-user mcp-gitea mcp-registry mcp-promotion
-
-  6. Check what's running:
+  5. Check what's running:
 
      $COMPOSE ps
      curl http://localhost:3001/api/tools
