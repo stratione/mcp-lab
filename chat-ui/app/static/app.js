@@ -932,27 +932,38 @@ const _PHASES = [
   },
 ];
 
+function _dashCard(s, extraClass = "") {
+  // In Easy Mode: add a ▶ probe button below the URL; the card itself stays a link.
+  const probeHtml = easyModeEnabled
+    ? `<button class="probe-btn dash-probe-btn" data-url="${s.url}" title="Probe endpoint">&#9654;</button>
+       <span class="probe-result" data-url="${s.url}"></span>`
+    : "";
+  return `
+    <div class="dash-link-card-wrap">
+      <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card ${extraClass}">
+        <span class="dash-link-label">${s.label}</span>
+        <span class="dash-link-url">${s.url}</span>
+        <span class="dash-link-note">${s.note}</span>
+      </a>
+      ${probeHtml}
+    </div>`;
+}
+
 function buildDashboardModal() {
   const body = document.getElementById("dashboard-modal-body");
 
+  const easyBanner = easyModeEnabled
+    ? `<p class="dash-easy-banner">🎮 Easy Mode active — <strong>▶</strong> buttons probe each endpoint live</p>`
+    : `<p class="dash-easy-hint">Tip: type <kbd>easymode</kbd> anywhere to add live <strong>▶</strong> probe buttons to every endpoint</p>`;
+
   // ── Section 1: Lab Services ──────────────────────────────────────────
-  let servicesHtml = _LAB_SERVICES.map((s) => `
-    <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card">
-      <span class="dash-link-label">${s.label}</span>
-      <span class="dash-link-url">${s.url}</span>
-      <span class="dash-link-note">${s.note}</span>
-    </a>`).join("");
+  const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
 
   // ── Section 2: API Docs ──────────────────────────────────────────────
-  let docsHtml = _API_DOCS.map((s) => `
-    <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card dash-link-card--docs">
-      <span class="dash-link-label">${s.label}</span>
-      <span class="dash-link-url">${s.url}</span>
-      <span class="dash-link-note">${s.note}</span>
-    </a>`).join("");
+  const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
 
   // ── Section 3: Learning progression ─────────────────────────────────
-  let phasesHtml = _PHASES.map((p) => `
+  const phasesHtml = _PHASES.map((p) => `
     <div class="dash-phase" style="--phase-color:${p.color}">
       <div class="dash-phase-header">
         <span class="dash-phase-num">${p.num}</span>
@@ -966,6 +977,7 @@ function buildDashboardModal() {
   body.innerHTML = `
     <button id="dashboard-modal-close" class="modal-close">&times;</button>
     <h2>Lab Dashboard</h2>
+    ${easyBanner}
 
     <h3 class="dash-section-heading">Lab Services</h3>
     <p class="dash-section-sub">Click any link to open in a new tab — re-running the setup script won't re-open these.</p>
@@ -991,6 +1003,18 @@ function buildDashboardModal() {
   document.getElementById("dashboard-modal-close").addEventListener("click", () => {
     document.getElementById("dashboard-modal").style.display = "none";
   });
+
+  // Wire probe buttons if Easy Mode is active
+  if (easyModeEnabled) {
+    body.querySelectorAll(".dash-probe-btn").forEach((btn) => {
+      const url = btn.dataset.url;
+      const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        runProbe(url, resultEl, btn);
+      });
+    });
+  }
 }
 
 document.getElementById("dashboard-btn").addEventListener("click", () => {

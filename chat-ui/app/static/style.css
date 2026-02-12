@@ -872,12 +872,55 @@ header h1 {
   margin: 0 0 12px;
 }
 
+/* Easy Mode banners inside dashboard */
+.dash-easy-banner {
+  margin: 4px 0 14px;
+  padding: 7px 12px;
+  background: #0d1f14;
+  border: 1px solid #166534;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #86efac;
+}
+
+.dash-easy-hint {
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.dash-easy-hint kbd {
+  background: #1a1b23;
+  border: 1px solid #374151;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
 /* Link card grid — two columns */
 .dash-link-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 4px;
+}
+
+/* Wrap holds the card + probe button/result below it */
+.dash-link-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dash-probe-btn {
+  align-self: flex-start;
+  margin-left: 2px;
+}
+
+.dash-link-card-wrap .probe-result {
+  font-size: 11px;
+  margin-left: 2px;
 }
 
 .dash-link-card {
