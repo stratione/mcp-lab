@@ -8,6 +8,7 @@ build/
 *.egg
 .env
 .env.secrets
+.engine
 *.db
 *.sqlite
 .venv/

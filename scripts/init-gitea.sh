@@ -40,7 +40,7 @@ if [ -n "$TOKEN" ]; then
 else
   echo "    WARNING: Could not create Gitea API token."
   echo "    You may need to create the admin user manually:"
-  echo "    podman compose exec -u git gitea gitea admin user create --admin --username mcpadmin --password mcpadmin123 --email mcpadmin@lab.local --must-change-password=false"
+  echo "    docker compose exec -u git gitea gitea admin user create --admin --username mcpadmin --password mcpadmin123 --email mcpadmin@lab.local --must-change-password=false"
 fi
 
 echo "  [3/4] Creating sample-app repository..."

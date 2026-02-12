@@ -11,6 +11,15 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
+SEED_USERS = [
+    ("alice", "alice@example.com", "Alice Johnson", "admin"),
+    ("bob", "bob@example.com", "Bob Smith", "dev"),
+    ("charlie", "charlie@example.com", "Charlie Davis", "dev"),
+    ("diana", "diana@example.com", "Diana Lee", "viewer"),
+    ("eve", "eve@example.com", "Eve Martinez", "admin"),
+]
+
+
 def init_db():
     conn = get_db()
     conn.execute("""
@@ -19,11 +28,18 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             email TEXT NOT NULL,
             full_name TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'developer',
+            role TEXT NOT NULL DEFAULT 'dev',
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    # Seed default users if table is empty
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
+        conn.executemany(
+            "INSERT INTO users (username, email, full_name, role) VALUES (?, ?, ?, ?)",
+            SEED_USERS,
+        )
     conn.commit()
     conn.close()

@@ -36,7 +36,7 @@ def init_db():
 
 
 async def check_policy(username: str) -> tuple[bool, str]:
-    """Verify user exists and has reviewer or admin role."""
+    """Verify user exists and has admin role."""
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(f"{USER_API_URL}/users/by-username/{username}", timeout=10.0)
@@ -46,8 +46,8 @@ async def check_policy(username: str) -> tuple[bool, str]:
             user = resp.json()
             if not user.get("is_active"):
                 return False, f"User '{username}' is deactivated"
-            if user.get("role") not in ("reviewer", "admin"):
-                return False, f"User '{username}' has role '{user.get('role')}' — must be reviewer or admin"
+            if user.get("role") != "admin":
+                return False, f"User '{username}' has role '{user.get('role')}' — must be admin"
             return True, "passed"
         except httpx.HTTPStatusError as e:
             return False, f"User API error: {e.response.status_code}"

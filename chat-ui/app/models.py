@@ -25,6 +25,30 @@ class ToolCall(BaseModel):
     result: Optional[str] = None
 
 
+class TokenUsage(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+
+
+class VerificationResult(BaseModel):
+    status: str = "unverified"  # "verified", "uncertain", "unverified"
+    details: str = ""
+
+
+class VerifyRequest(BaseModel):
+    reply: str
+    tool_calls: list[ToolCall] = []
+
+
+class VerifyResponse(BaseModel):
+    status: str  # "verified", "uncertain", "hallucination"
+    explanation: str
+    token_usage: TokenUsage = TokenUsage()
+
+
 class ChatResponse(BaseModel):
     reply: str
     tool_calls: list[ToolCall] = []
+    token_usage: TokenUsage = TokenUsage()
+    verification: VerificationResult = VerificationResult()

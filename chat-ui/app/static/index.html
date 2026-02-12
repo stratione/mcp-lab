@@ -12,6 +12,8 @@
     <div class="header-controls">
       <span class="status-dot" id="mcp-status"></span>
       <span id="tool-count">Loading tools...</span>
+      <span id="token-session-total" class="token-session-total">0 tokens</span>
+      <button id="help-btn" class="help-btn" title="Quick Reference">?</button>
     </div>
   </header>
 
@@ -48,6 +50,10 @@
   <div class="input-area">
     <textarea id="user-input" placeholder="Ask me anything about your DevOps systems..." rows="1"></textarea>
     <button id="send-btn">Send</button>
+  </div>
+
+  <div id="help-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" id="help-modal-body"></div>
   </div>
 
   <script src="/static/app.js"></script>

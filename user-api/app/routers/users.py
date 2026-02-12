@@ -20,8 +20,8 @@ def _row_to_dict(row) -> dict:
 
 @router.post("", response_model=UserResponse, status_code=201)
 def create_user(user: UserCreate):
-    if user.role not in ("developer", "reviewer", "admin"):
-        raise HTTPException(status_code=400, detail="Role must be developer, reviewer, or admin")
+    if user.role not in ("admin", "dev", "viewer"):
+        raise HTTPException(status_code=400, detail="Role must be admin, dev, or viewer")
     db = get_db()
     try:
         cursor = db.execute(
@@ -81,9 +81,9 @@ def update_user(user_id: int, user: UserUpdate):
     if user.full_name is not None:
         updates["full_name"] = user.full_name
     if user.role is not None:
-        if user.role not in ("developer", "reviewer", "admin"):
+        if user.role not in ("admin", "dev", "viewer"):
             db.close()
-            raise HTTPException(status_code=400, detail="Role must be developer, reviewer, or admin")
+            raise HTTPException(status_code=400, detail="Role must be admin, dev, or viewer")
         updates["role"] = user.role
     if user.is_active is not None:
         updates["is_active"] = int(user.is_active)

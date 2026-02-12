@@ -23,6 +23,8 @@ class OllamaProvider(LLMProvider):
     async def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         openai_tools = mcp_tools_to_openai_format(tools)
         tool_calls_made = []
+        total_input = 0
+        total_output = 0
 
         # Conversation loop — handle tool calls iteratively
         for _ in range(10):
@@ -39,6 +41,10 @@ class OllamaProvider(LLMProvider):
                 resp.raise_for_status()
                 data = resp.json()
 
+            usage = data.get("usage") or {}
+            total_input += usage.get("prompt_tokens", 0)
+            total_output += usage.get("completion_tokens", 0)
+
             choice = data["choices"][0]
             msg = choice["message"]
 
@@ -51,9 +57,17 @@ class OllamaProvider(LLMProvider):
                     tool_calls_made.append({"name": fn["name"], "arguments": args, "result": result})
                     messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
             else:
-                return {"reply": msg.get("content", ""), "tool_calls": tool_calls_made}
+                return {
+                    "reply": msg.get("content", ""),
+                    "tool_calls": tool_calls_made,
+                    "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+                }
 
-        return {"reply": msg.get("content", "Max tool iterations reached."), "tool_calls": tool_calls_made}
+        return {
+            "reply": msg.get("content", "Max tool iterations reached."),
+            "tool_calls": tool_calls_made,
+            "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+        }
 
 
 class OpenAIProvider(LLMProvider):
@@ -66,6 +80,8 @@ class OpenAIProvider(LLMProvider):
         client = AsyncOpenAI(api_key=self.api_key)
         openai_tools = mcp_tools_to_openai_format(tools)
         tool_calls_made = []
+        total_input = 0
+        total_output = 0
 
         for _ in range(10):
             kwargs = {"model": self.model, "messages": messages}
@@ -73,6 +89,9 @@ class OpenAIProvider(LLMProvider):
                 kwargs["tools"] = openai_tools
 
             response = await client.chat.completions.create(**kwargs)
+            if response.usage:
+                total_input += response.usage.prompt_tokens or 0
+                total_output += response.usage.completion_tokens or 0
             choice = response.choices[0]
 
             if choice.message.tool_calls:
@@ -89,9 +108,17 @@ class OpenAIProvider(LLMProvider):
                     messages.append(msg_dict)
                     messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
             else:
-                return {"reply": choice.message.content or "", "tool_calls": tool_calls_made}
+                return {
+                    "reply": choice.message.content or "",
+                    "tool_calls": tool_calls_made,
+                    "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+                }
 
-        return {"reply": "Max tool iterations reached.", "tool_calls": tool_calls_made}
+        return {
+            "reply": "Max tool iterations reached.",
+            "tool_calls": tool_calls_made,
+            "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+        }
 
 
 class AnthropicProvider(LLMProvider):
@@ -104,6 +131,8 @@ class AnthropicProvider(LLMProvider):
         client = anthropic.AsyncAnthropic(api_key=self.api_key)
         anthropic_tools = mcp_tools_to_anthropic_format(tools)
         tool_calls_made = []
+        total_input = 0
+        total_output = 0
 
         # Convert from OpenAI message format to Anthropic format
         anthropic_messages = []
@@ -122,6 +151,9 @@ class AnthropicProvider(LLMProvider):
                 kwargs["system"] = system_text
 
             response = await client.messages.create(**kwargs)
+            if response.usage:
+                total_input += response.usage.input_tokens or 0
+                total_output += response.usage.output_tokens or 0
 
             # Check for tool use
             tool_use_blocks = [b for b in response.content if b.type == "tool_use"]
@@ -144,9 +176,17 @@ class AnthropicProvider(LLMProvider):
                 anthropic_messages.append({"role": "user", "content": tool_results})
             else:
                 reply = " ".join(b.text for b in text_blocks) if text_blocks else ""
-                return {"reply": reply, "tool_calls": tool_calls_made}
+                return {
+                    "reply": reply,
+                    "tool_calls": tool_calls_made,
+                    "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+                }
 
-        return {"reply": "Max tool iterations reached.", "tool_calls": tool_calls_made}
+        return {
+            "reply": "Max tool iterations reached.",
+            "tool_calls": tool_calls_made,
+            "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+        }
 
 
 class GoogleProvider(LLMProvider):
@@ -194,6 +234,8 @@ class GoogleProvider(LLMProvider):
             contents.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
 
         tool_calls_made = []
+        total_input = 0
+        total_output = 0
 
         for _ in range(10):
             config = types.GenerateContentConfig(tools=gemini_tools) if gemini_tools else None
@@ -202,6 +244,9 @@ class GoogleProvider(LLMProvider):
                 contents=contents,
                 config=config,
             )
+            if response.usage_metadata:
+                total_input += response.usage_metadata.prompt_token_count or 0
+                total_output += response.usage_metadata.candidates_token_count or 0
 
             # Check for function calls
             has_function_call = False
@@ -227,9 +272,17 @@ class GoogleProvider(LLMProvider):
 
             if not has_function_call:
                 reply = response.text if response.text else ""
-                return {"reply": reply, "tool_calls": tool_calls_made}
+                return {
+                    "reply": reply,
+                    "tool_calls": tool_calls_made,
+                    "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+                }
 
-        return {"reply": "Max tool iterations reached.", "tool_calls": tool_calls_made}
+        return {
+            "reply": "Max tool iterations reached.",
+            "tool_calls": tool_calls_made,
+            "token_usage": {"input_tokens": total_input, "output_tokens": total_output, "total_tokens": total_input + total_output},
+        }
 
 
 def get_provider(config: dict) -> LLMProvider:

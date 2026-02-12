@@ -278,3 +278,250 @@ header h1 {
   font-family: monospace;
   font-size: 11px;
 }
+
+.token-session-total {
+  font-size: 12px;
+  color: #6b7280;
+  background: #252636;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.token-badge {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 3px 10px;
+  margin-top: -10px;
+  margin-bottom: 2px;
+}
+
+.token-badge-label {
+  color: #4b5563;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.token-badge-detail { font-family: monospace; }
+.token-in    { color: #818cf8; }
+.token-out   { color: #34d399; }
+.token-total { color: #e4e4e7; font-weight: 600; }
+
+/* Hallucination verification */
+.verification-badge {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 3px 10px;
+  margin-top: -10px;
+  margin-bottom: 2px;
+}
+
+.verification-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.verification-dot.verified { background: #22c55e; }
+.verification-dot.uncertain { background: #eab308; }
+.verification-dot.unverified { background: #6b7280; }
+.verification-dot.hallucination { background: #ef4444; }
+
+.verification-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: default;
+}
+
+.verify-wrapper {
+  align-self: flex-start;
+  margin-top: -4px;
+  margin-bottom: 4px;
+  padding-left: 10px;
+}
+
+.verify-btn {
+  background: transparent;
+  color: #818cf8;
+  border: 1px solid #2a2b35;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s;
+}
+
+.verify-btn:hover {
+  background: #1e1f2a;
+  border-color: #818cf8;
+}
+
+.verify-btn:disabled {
+  color: #6b7280;
+  cursor: wait;
+}
+
+.verify-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.verify-status {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.verify-explanation {
+  font-size: 12px;
+  color: #9ca3af;
+  padding: 4px 0 0 14px;
+  max-width: 600px;
+  line-height: 1.4;
+}
+
+/* Help button */
+.help-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #2a2b35;
+  background: #252636;
+  color: #818cf8;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.help-btn:hover {
+  background: #1e1f2a;
+  border-color: #818cf8;
+}
+
+/* Help modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1b23;
+  border: 1px solid #2a2b35;
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 680px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  color: #e4e4e7;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #e4e4e7;
+}
+
+.modal-content h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 18px;
+}
+
+.modal-content h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #818cf8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.modal-content p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.modal-content code {
+  background: #252636;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.modal-content pre {
+  background: #0f1117;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  color: #9ca3af;
+  overflow-x: auto;
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.modal-content ol {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.modal-content ol li {
+  margin-bottom: 6px;
+}
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.help-table td {
+  padding: 4px 10px 4px 0;
+  vertical-align: top;
+  border-bottom: 1px solid #1e1f2a;
+}
+
+.help-table tr:last-child td {
+  border-bottom: none;
+}

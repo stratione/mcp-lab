@@ -50,7 +50,11 @@ The preflight script checks everything below and prints install instructions if 
 
 You need **one** of these container runtimes:
 
-**Option A — Podman (recommended)**
+**Option A — Docker Desktop**
+
+Download and install from https://www.docker.com/products/docker-desktop — no extra setup needed.
+
+**Option B — Podman**
 
 ```bash
 # macOS
@@ -65,9 +69,7 @@ sudo apt-get install -y podman docker-compose
 sudo dnf install -y podman docker-compose
 ```
 
-**Option B — Docker Desktop**
-
-Download and install from https://www.docker.com/products/docker-desktop — no extra setup needed.
+> **Note:** All `docker compose` commands in this guide work identically with `docker compose`. The setup and teardown scripts auto-detect your engine.
 
 ### Optional (for free local LLM)
 
@@ -123,7 +125,7 @@ If you prefer a cloud LLM, add an API key to `.env.secrets` (OpenAI, Anthropic, 
               +--------+   +-------+   +----------+   +--------------+
 ```
 
-**11 services** on a single Docker bridge network (`mcp-lab-net`):
+**11 services** on a single container network (`mcp-lab-net`):
 
 | Service | Port | Role |
 |---------|------|------|
@@ -151,19 +153,19 @@ If you prefer a cloud LLM, add an API key to `.env.secrets` (OpenAI, Anthropic, 
 git clone https://github.com/stratione/mcp-lab.git
 cd mcp-lab
 
-# Step 2: Start the lab (creates .env, starts services, seeds data)
-./scripts/2-setup-podman.sh
+# Step 1: Start the lab (creates .env, starts services, seeds data)
+./scripts/1-setup.sh
 
-# Step 3: Open all lab URLs in your browser
-./scripts/3-open-lab.sh
+# Step 2: Open all lab URLs in your browser
+./scripts/2-open-lab.sh
 
 # Optional: Open only API docs tabs
-./scripts/4-open-api-docs.sh
+./scripts/3-open-api-docs.sh
 ```
 
 The setup script will:
 1. Create `.env` from `.env.example` and `.env.secrets` from `.env.secrets.example`
-2. Run `podman compose up -d` — starts core services + `chat-ui` (MCP servers are off by default)
+2. Run `docker compose up -d` — starts core services + `chat-ui` (MCP servers are off by default)
 3. Wait for bootstrap to finish (creates Gitea admin, sample repos, pushes `sample-app:v1.0.0` to dev registry)
 4. Extract the Gitea API token and inject it into `.env` automatically
 
@@ -179,44 +181,44 @@ This is the core mechanic of the workshop. Start and stop MCP servers to enable/
 
 ```bash
 # Enable User tools (+6 tools)
-podman compose up -d mcp-user
+docker compose up -d mcp-user
 
 # Enable Gitea tools (+7 tools → 13 total)
-podman compose up -d mcp-gitea
+docker compose up -d mcp-gitea
 
 # Enable Registry tools (+3 tools → 16 total)
-podman compose up -d mcp-registry
+docker compose up -d mcp-registry
 
 # Enable Promotion tools (+3 tools → 19 total)
-podman compose up -d mcp-promotion
+docker compose up -d mcp-promotion
 
 # Enable ALL at once (all 19 tools)
-podman compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
 ```
 
 ### Disable MCP servers
 
 ```bash
 # Disable User tools
-podman compose stop mcp-user
+docker compose stop mcp-user
 
 # Disable Gitea tools
-podman compose stop mcp-gitea
+docker compose stop mcp-gitea
 
 # Disable Registry tools
-podman compose stop mcp-registry
+docker compose stop mcp-registry
 
 # Disable Promotion tools
-podman compose stop mcp-promotion
+docker compose stop mcp-promotion
 
 # Disable ALL MCP servers (back to 0 tools)
-podman compose stop mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose stop mcp-user mcp-gitea mcp-registry mcp-promotion
 ```
 
 ### Check current state
 
 ```bash
-podman compose ps              # see which containers are running
+docker compose ps              # see which containers are running
 curl http://localhost:3001/api/tools   # see which tools are available
 ```
 
@@ -224,7 +226,7 @@ After starting or stopping an MCP server, **refresh the Chat UI** (http://localh
 
 ### Persist MCP state across restarts
 
-Edit `.env` to control which servers start automatically on `podman compose up -d`:
+Edit `.env` to control which servers start automatically on `docker compose up -d`:
 
 ```bash
 COMPOSE_PROFILES=                              # no MCP servers (default)
@@ -235,7 +237,7 @@ COMPOSE_PROFILES=user,gitea,registry,promotion # all 19 tools
 After editing `.env`:
 
 ```bash
-podman compose down && podman compose up -d
+docker compose down && docker compose up -d
 ```
 
 ---
@@ -402,7 +404,7 @@ Notice the friction points:
 #### Step 2: Start User MCP Server (+6 tools)
 
 ```bash
-podman compose up -d mcp-user
+docker compose up -d mcp-user
 ```
 
 Wait ~10 seconds, then refresh the Chat UI. Try these prompts:
@@ -417,7 +419,7 @@ Each tool call appears as a collapsible card in the chat. No curl required.
 #### Step 3: Start Gitea MCP Server (+7 tools → 13 total)
 
 ```bash
-podman compose up -d mcp-gitea
+docker compose up -d mcp-gitea
 ```
 
 Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grows to 13. Try:
@@ -432,7 +434,7 @@ No credentials needed in your prompts — the MCP server handles auth injection.
 #### Step 4: Start Registry MCP Server (+3 tools → 16 total)
 
 ```bash
-podman compose up -d mcp-registry
+docker compose up -d mcp-registry
 ```
 
 Refresh the Chat UI after ~10 seconds. Try:
@@ -444,7 +446,7 @@ Refresh the Chat UI after ~10 seconds. Try:
 #### Step 5: Start Promotion MCP Server (+3 tools → 19 total)
 
 ```bash
-podman compose up -d mcp-promotion
+docker compose up -d mcp-promotion
 ```
 
 Refresh the Chat UI after ~10 seconds. Try:
@@ -470,7 +472,7 @@ Compare to Phase 1:
 Make sure all MCP servers are running:
 
 ```bash
-podman compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
 ```
 
 #### Exercise 1: Full Onboarding
@@ -528,11 +530,11 @@ What MCP provides as a control plane:
 | **Container Registry** | `mcp-registry` | 8005 | 3 | `registry_list_images`, `registry_list_tags`, `registry_get_manifest` |
 | **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promotion_promote`, `promotion_list`, `promotion_status` |
 
-Each MCP server is an independent Docker container. Start/stop them to enable/disable tool categories:
+Each MCP server is an independent container. Start/stop them to enable/disable tool categories:
 
 ```bash
-podman compose up -d mcp-user        # Start User tools
-podman compose stop mcp-user         # Stop User tools
+docker compose up -d mcp-user        # Start User tools
+docker compose stop mcp-user         # Stop User tools
 ```
 
 ---
@@ -622,15 +624,16 @@ Scripts are numbered in run order. Optional scripts are prefixed with `OPT-`.
 
 | Script | When to run | What it does |
 |--------|-------------|--------------|
-| `scripts/0-preflight.sh` | **Before everything** | Checks Podman/Docker, RAM, Ollama. Prints install instructions if anything is missing. |
-| `scripts/2-setup-podman.sh` | First time setup | Creates `.env`, starts all services, seeds data, injects Gitea token |
-| `scripts/3-open-lab.sh` | Any time | Opens core lab endpoints in your browser (no API docs tabs) |
-| `scripts/4-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
-| `scripts/OPT-teardown-podman.sh` | Cleanup | Removes containers, images, and volumes (full reset) |
-| `scripts/OPT-teardown-docker.sh` | Cleanup (Docker) | Full cleanup for Docker users |
-| `scripts/OPT-tunnel.sh` | Remote access | Expose MCP server publicly via ngrok or cloudflared |
+| `scripts/0-preflight.sh` | **Before everything** | Checks Docker/Podman, RAM, Ollama. Prints install instructions if anything is missing. |
+| `scripts/1-setup.sh` | First time setup | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token |
+| `scripts/2-open-lab.sh` | Any time | Opens core lab endpoints in your browser (no API docs tabs) |
+| `scripts/3-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
+| `scripts/4-help.sh` | Any time | Print quick reference (services, URLs, commands) |
+| `scripts/5-teardown.sh` | Cleanup | Reuses saved engine choice, removes containers, images, and volumes (full reset) |
+| `scripts/6-tunnel.sh` | Remote access | Expose MCP server publicly via ngrok or cloudflared |
 
 Internal scripts (called automatically — do not run directly):
+- `scripts/_detect-engine.sh` — shared engine detection helper; prompts if both Docker and Podman are available, saves choice to `.engine`
 - `scripts/bootstrap.sh` — one-shot init container entry point
 - `scripts/init-gitea.sh` — creates Gitea admin user, token, sample repo
 - `scripts/seed-registry.sh` — pushes `sample-app:v1.0.0` to dev registry
@@ -641,79 +644,87 @@ Internal scripts (called automatically — do not run directly):
 
 ```bash
 # Check what's running
-podman compose ps
+docker compose ps
 
 # Restart all services
-podman compose restart
+docker compose restart
 
 # Start an MCP server (enables its tools in Chat UI)
-podman compose up -d mcp-gitea
+docker compose up -d mcp-gitea
 
 # Stop an MCP server (disables its tools in Chat UI)
-podman compose stop mcp-gitea
+docker compose stop mcp-gitea
 
 # Start all MCP servers at once
-podman compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
 
 # View logs
-podman compose logs -f chat-ui
-podman compose logs -f mcp-user
-podman compose logs -f mcp-gitea
+docker compose logs -f chat-ui
+docker compose logs -f mcp-user
+docker compose logs -f mcp-gitea
 
 # Full stop/start
-podman compose down && podman compose up -d
+docker compose down && docker compose up -d
 
 # Nuclear reset (wipes all data volumes)
-podman compose down -v
+docker compose down -v
 ```
 
 ---
 
 ## Troubleshooting
 
-### Preflight fails: Podman not found
+### Preflight fails: No container runtime found
 
-Install Podman:
+Install Docker Desktop or Podman:
 
 ```bash
-# macOS
+# Docker Desktop — download from https://www.docker.com/products/docker-desktop
+
+# Or Podman (macOS):
 brew install podman docker-compose
 podman machine init && podman machine start
 
-# Ubuntu
+# Or Podman (Ubuntu):
 sudo apt-get install -y podman docker-compose
 ```
 
-### Preflight fails: Podman machine not running
+### Preflight fails: Container engine not running
 
 ```bash
+# Docker — start Docker Desktop app
+# Podman — start the machine:
 podman machine start
 ```
 
 ### Service not responding
 
 ```bash
-podman compose ps
-podman compose logs <service-name>
-podman compose restart <service-name>
+docker compose ps
+docker compose logs <service-name>
+docker compose restart <service-name>
 ```
 
 ### Registry connection issues
 
 ```bash
-# Always use --tls-verify=false for local registries
+# Podman — use --tls-verify=false for local registries
 podman push localhost:5001/image:tag --tls-verify=false
 podman pull localhost:5001/image:tag --tls-verify=false
+
+# Docker — local registries work without extra flags
+docker push localhost:5001/image:tag
+docker pull localhost:5001/image:tag
 ```
 
 ### Gitea token issues
 
 ```bash
 # Find the token in bootstrap logs
-podman compose logs bootstrap | grep GITEA_TOKEN
+docker compose logs bootstrap | grep GITEA_TOKEN
 
 # Update .env with correct token, then restart mcp-gitea
-podman compose restart mcp-gitea
+docker compose restart mcp-gitea
 ```
 
 ### Ollama connection issues
@@ -725,8 +736,10 @@ curl http://localhost:11434/api/version
 # Start Ollama
 ollama serve
 
-# For Podman on macOS, ensure .env uses:
-OLLAMA_URL=http://host.containers.internal:11434
+# Set the right OLLAMA_URL in .env for your engine:
+#   Docker Desktop (Mac/Windows): http://host.docker.internal:11434  (default)
+#   Podman on macOS:              http://host.containers.internal:11434
+#   Linux (native Docker):        http://172.17.0.1:11434
 ```
 
 ### Chat UI shows wrong tool count after starting MCP server
@@ -763,18 +776,18 @@ Then, server by server, participants start independent MCP containers and watch 
 
 ### Key Design Decisions
 
-1. **Independent MCP servers** — each tool category is its own container. `podman compose up -d mcp-gitea` is the simplest possible progressive disclosure. No config files, no restarts.
+1. **Independent MCP servers** — each tool category is its own container. A single `docker compose up -d mcp-gitea` (or `podman compose`) is the simplest possible progressive disclosure. No config files, no restarts.
 2. **Ollama as default** — free, local, no API keys. The llama3.1:8b model intentionally struggles with tool calling, making the MCP improvement dramatic.
 3. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Instructor can share screen without exposing credentials.
 4. **Real policy enforcement** — the promotion service actually checks user roles via the User API. Students see real rejections.
-5. **Dual transport** — streamable-http (Docker) and stdio (Claude Code) demonstrate MCP's transport flexibility.
+5. **Dual transport** — streamable-http (containers) and stdio (Claude Code) demonstrate MCP's transport flexibility.
 
 ### Workshop Timing
 
 | Phase | Duration | Description |
 |-------|----------|-------------|
-| Pre-work | Before lab | Run `0-preflight.sh`, install Podman/Ollama if needed |
-| Setup | 10 min | Clone, `./scripts/2-setup-podman.sh`, verify Chat UI |
+| Pre-work | Before lab | Run `0-preflight.sh`, install Docker or Podman, Ollama if needed |
+| Setup | 10 min | Clone, `./scripts/1-setup.sh`, verify Chat UI |
 | Phase 1: The Struggle | 20 min | Hallucination, manual curl, friction |
 | Phase 2: Progressive Enablement | 30 min | Start MCP servers, watch tool count grow |
 | Phase 3: Intent-Based DevOps | 20 min | Multi-system orchestration, policy enforcement |

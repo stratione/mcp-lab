@@ -1,5 +1,5 @@
 #!/bin/bash
-# MCP DevOps Lab — One-command setup
+# MCP DevOps Lab — One-command setup (works with Docker or Podman)
 # Creates .env, starts services, grabs the Gitea token, and injects it into .env
 
 set -e
@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$PROJECT_DIR/.env"
 ENV_EXAMPLE="$PROJECT_DIR/.env.example"
+
+# ── Detect container engine (prompts user if both are available) ──
+source "$SCRIPT_DIR/_detect-engine.sh"
 
 # Render a simple terminal progress bar.
 # Args: current total label
@@ -40,7 +43,7 @@ render_progress_bar() {
 }
 
 echo "========================================"
-echo "  MCP DevOps Lab — Setup"
+echo "  MCP DevOps Lab — Setup ($ENGINE)"
 echo "========================================"
 echo ""
 
@@ -55,7 +58,7 @@ fi
 # 2. Start all services
 echo "[2/4] Starting services (this may take a minute on first run)..."
 cd "$PROJECT_DIR"
-podman compose up -d
+$COMPOSE up -d
 
 # 3. Wait for bootstrap to finish and grab the Gitea token
 echo "[3/4] Waiting for bootstrap to complete..."
@@ -63,24 +66,24 @@ ATTEMPTS=0
 MAX_ATTEMPTS=120
 TOKEN=""
 STATUS=""
-BOOTSTRAP_CID="$(podman compose ps -q bootstrap 2>/dev/null | head -1)"
+BOOTSTRAP_CID="$($COMPOSE ps -q bootstrap 2>/dev/null | head -1)"
 
 render_progress_bar 0 "$MAX_ATTEMPTS" "Waiting for bootstrap"
 
 while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
   # Resolve bootstrap container id once (can be empty for the first moments).
   if [ -z "$BOOTSTRAP_CID" ]; then
-    BOOTSTRAP_CID="$(podman compose ps -q bootstrap 2>/dev/null | head -1)"
+    BOOTSTRAP_CID="$($COMPOSE ps -q bootstrap 2>/dev/null | head -1)"
   fi
 
-  # Check bootstrap state with podman inspect (faster than repeated compose parsing).
+  # Check bootstrap state (faster than repeated compose parsing).
   if [ -n "$BOOTSTRAP_CID" ]; then
-    STATUS="$(podman inspect -f '{{.State.Status}}' "$BOOTSTRAP_CID" 2>/dev/null || true)"
+    STATUS="$($ENGINE inspect -f '{{.State.Status}}' "$BOOTSTRAP_CID" 2>/dev/null || true)"
   fi
 
   if [ "$STATUS" = "exited" ]; then
     # Parse token from bootstrap logs
-    TOKEN=$(podman compose logs bootstrap 2>/dev/null | grep "GITEA_TOKEN=" | tail -1 | sed 's/.*GITEA_TOKEN=//')
+    TOKEN=$($COMPOSE logs bootstrap 2>/dev/null | grep "GITEA_TOKEN=" | tail -1 | sed 's/.*GITEA_TOKEN=//')
     render_progress_bar "$MAX_ATTEMPTS" "$MAX_ATTEMPTS" "Bootstrap complete"
     echo ""
     break
@@ -98,7 +101,7 @@ fi
 
 if [ -z "$TOKEN" ]; then
   echo "    WARNING: Could not grab Gitea token automatically."
-  echo "    Run 'podman compose logs bootstrap' and copy the token manually."
+  echo "    Run '$COMPOSE logs bootstrap' and copy the token manually."
   echo ""
 else
   echo "    Got Gitea token: ${TOKEN:0:8}..."
@@ -118,10 +121,10 @@ else
   echo "    .env updated with GITEA_TOKEN"
 
   # Restart mcp-gitea only if it's currently running.
-  MCP_GITEA_STATE=$(podman compose ps mcp-gitea --format json 2>/dev/null | grep -o '"State":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+  MCP_GITEA_STATE=$($COMPOSE ps mcp-gitea --format json 2>/dev/null | grep -o '"State":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
   if [ "$MCP_GITEA_STATE" = "running" ]; then
     echo "    Restarting mcp-gitea to pick up token..."
-    podman compose restart mcp-gitea > /dev/null 2>&1 || true
+    $COMPOSE restart mcp-gitea > /dev/null 2>&1 || true
   fi
 fi
 
@@ -162,22 +165,22 @@ echo "  1. Open the Chat UI:  http://localhost:3001"
 echo "  2. All MCP servers start OFF by default."
 echo "  3. Enable MCP servers one at a time as you progress:"
 echo ""
-echo "     podman compose up -d mcp-user        # +6 user tools"
-echo "     podman compose up -d mcp-gitea       # +7 git/repo tools"
-echo "     podman compose up -d mcp-registry    # +3 registry tools"
-echo "     podman compose up -d mcp-promotion   # +3 promotion tools"
+echo "     $COMPOSE up -d mcp-user        # +6 user tools"
+echo "     $COMPOSE up -d mcp-gitea       # +7 git/repo tools"
+echo "     $COMPOSE up -d mcp-registry    # +3 registry tools"
+echo "     $COMPOSE up -d mcp-promotion   # +3 promotion tools"
 echo ""
 echo "  4. To stop an MCP server:"
 echo ""
-echo "     podman compose stop mcp-user"
+echo "     $COMPOSE stop mcp-user"
 echo ""
-echo "  sample-app:v1.0.0 has been pushed to the dev registry automatically."
+echo "  5 sample images have been pushed to the dev registry automatically."
 echo ""
-echo "  Re-open all URLs anytime:  ./scripts/3-open-lab.sh"
-echo "  Open API docs only:        ./scripts/4-open-api-docs.sh"
+echo "  Re-open all URLs anytime:  ./scripts/2-open-lab.sh"
+echo "  Open API docs only:        ./scripts/3-open-api-docs.sh"
 echo ""
 echo "========================================================"
 echo ""
 
 # Open all lab URLs in the browser
-"$SCRIPT_DIR/3-open-lab.sh"
+"$SCRIPT_DIR/2-open-lab.sh"

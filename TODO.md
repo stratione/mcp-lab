@@ -1,0 +1,75 @@
+# MCP DevOps Lab — Roadmap
+
+Future milestones to turn the lab into a full local DevOps ecosystem.
+Each phase builds on the previous one. The LLM orchestrates every step via MCP tools.
+
+---
+
+## Phase 1: LLM-Driven App Scaffolding
+
+> The LLM creates a working app inside Gitea and the student sees it running.
+
+- [ ] Add MCP tool: `gitea_create_file` multi-file support (scaffold multiple files in one call)
+- [ ] LLM generates a Hello World app (Python/Flask or Node/Express) via Gitea MCP tools
+- [ ] LLM creates a `Dockerfile` in the repo via `gitea_create_file`
+- [ ] LLM creates a `docker-compose.yml` (or similar) for local run
+- [ ] Add MCP tool: `app_deploy_local` — builds image from Gitea repo and runs it on a mapped port
+- [ ] Student visits `http://localhost:<port>` and sees the Hello World app running
+- [ ] Add MCP tool: `app_stop_local` — stops and removes the running app container
+
+## Phase 2: CI/CD Pipeline via Gitea Actions
+
+> The LLM creates a CI pipeline that builds and pushes images automatically on push.
+
+- [ ] Enable Gitea Actions in the Gitea container (act runner)
+- [ ] Add a local Gitea Actions runner container to `docker-compose.yml`
+- [ ] LLM creates `.gitea/workflows/build.yml` in the repo via MCP tools
+- [ ] Workflow: on push → build Docker image → push to dev registry (`localhost:5001`)
+- [ ] Add MCP tool: `gitea_list_actions` — list workflow runs and their status
+- [ ] Add MCP tool: `gitea_get_action_logs` — retrieve logs from a workflow run
+- [ ] Student pushes a change (or LLM commits via MCP) → watches pipeline run → image appears in dev registry
+- [ ] LLM can query pipeline status and registry to confirm the image was built
+
+## Phase 3: Automated Promotion Pipeline
+
+> Push to main triggers build → dev registry → promotion → prod registry, all observable via MCP.
+
+- [ ] LLM creates a promotion workflow: on tag push → call promotion API → image lands in prod registry
+- [ ] Add MCP tool: `gitea_create_tag` — tag a commit to trigger release pipeline
+- [ ] Full flow: LLM commits code → CI builds → image in dev → LLM promotes → image in prod
+- [ ] Student can see the entire chain through MCP tool calls in the Chat UI
+
+## Phase 4: Security in the Pipeline
+
+> Add security scanning and policy gates so the LLM must handle failures and vulnerabilities.
+
+- [ ] Add Trivy (or Grype) container to `docker-compose.yml` for image scanning
+- [ ] Add pipeline step: scan image after build, fail if critical CVEs found
+- [ ] Add MCP tool: `security_scan_image` — trigger a vulnerability scan on a registry image
+- [ ] Add MCP tool: `security_get_report` — retrieve scan results (CVE list, severity counts)
+- [ ] Add policy gate: promotion service rejects images that haven't passed a security scan
+- [ ] LLM workflow: build → scan → fix (if needed) → re-build → scan passes → promote
+- [ ] Add MCP tool: `security_list_policies` — show current security policies (min scan score, blocked CVEs)
+- [ ] Add secrets scanning in the pipeline (detect API keys, passwords in committed code)
+- [ ] Add SBOM (Software Bill of Materials) generation step
+
+## Phase 5: Observable Local Ecosystem
+
+> Everything runs locally, everything is observable, everything is LLM-orchestrable.
+
+- [ ] Add a simple dashboard service showing: running apps, pipeline status, registry contents, scan results
+- [ ] Add MCP tool: `ecosystem_status` — single-call overview of all systems (apps, pipelines, registries, scans)
+- [ ] Add webhook from Gitea → Chat UI so pipeline events appear in the chat automatically
+- [ ] Add rollback capability: LLM can roll back a prod deployment to a previous tag
+- [ ] Add environment promotion chain: dev → staging → prod (three registries)
+- [ ] Document the full "day in the life" DevOps workflow as a guided lab exercise
+
+---
+
+## Design Principles
+
+- **Everything local** — no cloud dependencies, works offline after initial setup
+- **LLM-first** — every action can be performed via natural language through MCP tools
+- **Observable** — every system change is visible in the Chat UI or browser
+- **Progressive** — each phase adds complexity; earlier phases work without later ones
+- **Engine-agnostic** — works identically with Docker or Podman

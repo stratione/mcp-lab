@@ -178,7 +178,7 @@ if $ALL_GOOD; then
   echo "  $PASS  All checks passed!"
   echo ""
   if [ -n "$COMPOSE_CMD" ]; then
-    echo "  Ready to run:  ./scripts/2-setup-podman.sh"
+    echo "  Ready to run:  ./scripts/1-setup.sh"
   fi
   echo ""
   echo "========================================"

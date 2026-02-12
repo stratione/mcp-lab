@@ -25,8 +25,8 @@ def register(mcp: FastMCP):
         return json.dumps(user, indent=2)
 
     @mcp.tool()
-    async def create_user(username: str, email: str, full_name: str, role: str = "developer") -> str:
-        """Create a new user. Role must be 'developer', 'reviewer', or 'admin'. Returns the created user as JSON."""
+    async def create_user(username: str, email: str, full_name: str, role: str = "dev") -> str:
+        """Create a new user. Role must be 'admin', 'dev', or 'viewer'. Returns the created user as JSON."""
         import json
         user = await user_api_client.create_user(username, email, full_name, role)
         return json.dumps(user, indent=2)

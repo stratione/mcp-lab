@@ -1,5 +1,5 @@
 #!/bin/bash
-# MCP DevOps Lab — Full teardown (Podman)
+# MCP DevOps Lab — Full teardown (works with Docker or Podman)
 # Stops the lab and removes lab containers, images, networks, and volumes.
 
 set -euo pipefail
@@ -8,21 +8,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$PROJECT_DIR")}"
 
+# ── Detect container engine (reuses saved preference from setup) ──
+source "$SCRIPT_DIR/_detect-engine.sh"
+
 echo "========================================"
-echo "  MCP DevOps Lab — Teardown (Podman)"
+echo "  MCP DevOps Lab — Teardown ($ENGINE)"
 echo "========================================"
 echo ""
 
 cd "$PROJECT_DIR"
 
 echo "[1/5] Bringing stack down (containers, volumes, images)..."
-podman compose down -v --remove-orphans --rmi all || true
+# Include all profiles so compose also stops MCP server containers
+COMPOSE_PROFILES=user,gitea,registry,promotion $COMPOSE down -v --remove-orphans --rmi all || true
 
 echo "[2/5] Removing leftover lab containers..."
-LEFTOVER_CONTAINERS="$(podman ps -a --format '{{.Names}}' | rg "^${PROJECT_NAME}[-_]" || true)"
+LEFTOVER_CONTAINERS="$($ENGINE ps -a --format '{{.Names}}' | rg "^${PROJECT_NAME}[-_]" || true)"
 if [ -n "$LEFTOVER_CONTAINERS" ]; then
   while IFS= read -r c; do
-    [ -n "$c" ] && podman rm -f "$c" >/dev/null 2>&1 || true
+    [ -n "$c" ] && $ENGINE rm -f "$c" >/dev/null 2>&1 || true
   done <<< "$LEFTOVER_CONTAINERS"
   echo "    Removed leftover containers."
 else
@@ -31,13 +35,13 @@ fi
 
 echo "[3/5] Removing leftover lab images..."
 LEFTOVER_IMAGES="$(
-  podman images --format '{{.Repository}}:{{.Tag}}' \
+  $ENGINE images --format '{{.Repository}}:{{.Tag}}' \
     | rg "(^|/)${PROJECT_NAME}-|^localhost:5001/sample-app:|^localhost:5002/sample-app:" \
     || true
 )"
 if [ -n "$LEFTOVER_IMAGES" ]; then
   while IFS= read -r img; do
-    [ -n "$img" ] && podman rmi -f "$img" >/dev/null 2>&1 || true
+    [ -n "$img" ] && $ENGINE rmi -f "$img" >/dev/null 2>&1 || true
   done <<< "$LEFTOVER_IMAGES"
   echo "    Removed leftover images."
 else
@@ -45,10 +49,10 @@ else
 fi
 
 echo "[4/5] Removing leftover lab volumes..."
-LEFTOVER_VOLUMES="$(podman volume ls --filter "label=com.docker.compose.project=${PROJECT_NAME}" --format '{{.Name}}' || true)"
+LEFTOVER_VOLUMES="$($ENGINE volume ls --filter "label=com.docker.compose.project=${PROJECT_NAME}" --format '{{.Name}}' || true)"
 if [ -n "$LEFTOVER_VOLUMES" ]; then
   while IFS= read -r vol; do
-    [ -n "$vol" ] && podman volume rm "$vol" >/dev/null 2>&1 || true
+    [ -n "$vol" ] && $ENGINE volume rm "$vol" >/dev/null 2>&1 || true
   done <<< "$LEFTOVER_VOLUMES"
   echo "    Removed leftover volumes."
 else
@@ -56,10 +60,10 @@ else
 fi
 
 echo "[5/5] Removing leftover lab networks..."
-LEFTOVER_NETWORKS="$(podman network ls --filter "label=com.docker.compose.project=${PROJECT_NAME}" --format '{{.Name}}' || true)"
+LEFTOVER_NETWORKS="$($ENGINE network ls --filter "label=com.docker.compose.project=${PROJECT_NAME}" --format '{{.Name}}' || true)"
 if [ -n "$LEFTOVER_NETWORKS" ]; then
   while IFS= read -r net; do
-    [ -n "$net" ] && podman network rm "$net" >/dev/null 2>&1 || true
+    [ -n "$net" ] && $ENGINE network rm "$net" >/dev/null 2>&1 || true
   done <<< "$LEFTOVER_NETWORKS"
   echo "    Removed leftover networks."
 else
@@ -68,5 +72,5 @@ fi
 
 echo ""
 echo "========================================"
-echo "  Podman Teardown Complete"
+echo "  Teardown Complete ($ENGINE)"
 echo "========================================"
