@@ -876,8 +876,152 @@ document.getElementById("schema-modal").addEventListener("click", (e) => {
   if (e.target.id === "schema-modal") e.target.style.display = "none";
 });
 
+// ─── Lab Dashboard modal ──────────────────────────────────────────────────────
+
+const _LAB_SERVICES = [
+  { label: "Chat UI",          url: "http://localhost:3001",             note: "this page" },
+  { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting" },
+  { label: "User API",         url: "http://localhost:8001/health",      note: "health check" },
+  { label: "Promotion Service",url: "http://localhost:8002/health",      note: "health check" },
+  { label: "Registry (dev)",   url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
+  { label: "Registry (prod)",  url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
+];
+
+const _API_DOCS = [
+  { label: "User API Swagger",       url: "http://localhost:8001/docs",        note: "copy schema → paste into LLM" },
+  { label: "Promotion API Swagger",  url: "http://localhost:8002/docs",        note: "copy schema → paste into LLM" },
+  { label: "Gitea Swagger",          url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
+];
+
+const _PHASES = [
+  {
+    num: "1",
+    title: "Orient — Ollama + endpoints, no MCP",
+    color: "#60a5fa",
+    steps: [
+      'Select <strong>Ollama (Local)</strong> in the provider bar — Ollama ships with most setups',
+      'Browse the <strong>Lab Services</strong> links below to see what is running',
+      'Ask Ollama a free-form question: <em>"What services are running in this lab?"</em>',
+      'It can chat but has <strong>no knowledge of your actual systems</strong> — it can only guess',
+      '<em>Notice:</em> without tool access the LLM cannot list real users, repos, or images',
+    ],
+  },
+  {
+    num: "2",
+    title: "Manual context — paste API docs into the LLM",
+    color: "#a78bfa",
+    steps: [
+      'Open the <strong>API Documentation</strong> links below — these are the raw Swagger schemas',
+      'Copy a schema and paste it into the chat with a question like:<br><em>"Here is the User API. Create a user named bob with email bob@lab.com"</em>',
+      'The LLM can now reason about the API and construct HTTP calls — but only because you pasted the schema',
+      '<em>Notice:</em> you must paste docs every session, keep them up to date, and hope the LLM reads the format correctly',
+      'This is the state of most LLM integrations today — manual, fragile context management',
+    ],
+  },
+  {
+    num: "3",
+    title: "MCP enabled — LLM knows automatically",
+    color: "#34d399",
+    steps: [
+      'Start one or more MCP servers using the <strong>MCP strip</strong> at the top of the page',
+      'The LLM now receives structured tool definitions automatically — no pasting, no prompt engineering',
+      'Ask the same questions: <em>"List all users"</em>, <em>"Create a repo called demo"</em>, <em>"Promote nginx:latest"</em>',
+      'Compare: same LLM, same question, zero manual context — and it actually calls the APIs and returns real data',
+      '<em>This is what MCP does</em> — the API contract lives in the protocol layer, not your clipboard',
+    ],
+  },
+];
+
+function buildDashboardModal() {
+  const body = document.getElementById("dashboard-modal-body");
+
+  // ── Section 1: Lab Services ──────────────────────────────────────────
+  let servicesHtml = _LAB_SERVICES.map((s) => `
+    <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card">
+      <span class="dash-link-label">${s.label}</span>
+      <span class="dash-link-url">${s.url}</span>
+      <span class="dash-link-note">${s.note}</span>
+    </a>`).join("");
+
+  // ── Section 2: API Docs ──────────────────────────────────────────────
+  let docsHtml = _API_DOCS.map((s) => `
+    <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card dash-link-card--docs">
+      <span class="dash-link-label">${s.label}</span>
+      <span class="dash-link-url">${s.url}</span>
+      <span class="dash-link-note">${s.note}</span>
+    </a>`).join("");
+
+  // ── Section 3: Learning progression ─────────────────────────────────
+  let phasesHtml = _PHASES.map((p) => `
+    <div class="dash-phase" style="--phase-color:${p.color}">
+      <div class="dash-phase-header">
+        <span class="dash-phase-num">${p.num}</span>
+        <span class="dash-phase-title">${p.title}</span>
+      </div>
+      <ol class="dash-phase-steps">
+        ${p.steps.map((s) => `<li>${s}</li>`).join("")}
+      </ol>
+    </div>`).join("");
+
+  body.innerHTML = `
+    <button id="dashboard-modal-close" class="modal-close">&times;</button>
+    <h2>Lab Dashboard</h2>
+
+    <h3 class="dash-section-heading">Lab Services</h3>
+    <p class="dash-section-sub">Click any link to open in a new tab — re-running the setup script won't re-open these.</p>
+    <div class="dash-link-grid">${servicesHtml}</div>
+
+    <h3 class="dash-section-heading">API Documentation</h3>
+    <p class="dash-section-sub">Swagger / OpenAPI pages. Open these during Phase 2 to copy schema context into your LLM.</p>
+    <div class="dash-link-grid">${docsHtml}</div>
+
+    <h3 class="dash-section-heading">Learning Progression</h3>
+    <p class="dash-section-sub">Follow these phases in order — each one shows <em>why</em> the next exists.</p>
+    <div class="dash-phases">${phasesHtml}</div>
+
+    <div class="dash-fallback-note">
+      <strong>No Ollama and no API key?</strong>
+      The <strong>Demo LLM (no key needed)</strong> provider is available as a last resort.
+      It uses hard-coded scripted responses and won't work for Phase 2 — but it lets you
+      explore the MCP tool flow in Phase 3 without any external LLM.
+      Type <code>help</code> after selecting it to see what it understands.
+    </div>
+  `;
+
+  document.getElementById("dashboard-modal-close").addEventListener("click", () => {
+    document.getElementById("dashboard-modal").style.display = "none";
+  });
+}
+
+document.getElementById("dashboard-btn").addEventListener("click", () => {
+  buildDashboardModal();
+  document.getElementById("dashboard-modal").style.display = "flex";
+});
+
+document.getElementById("dashboard-modal").addEventListener("click", (e) => {
+  if (e.target.id === "dashboard-modal") e.target.style.display = "none";
+});
+
+// Auto-show dashboard on first visit (no saved chat history)
+async function maybeShowDashboard() {
+  // Only auto-show once per browser session, not on every page reload
+  if (sessionStorage.getItem("dashboardShown")) return;
+  sessionStorage.setItem("dashboardShown", "1");
+  try {
+    const resp = await fetch("/api/chat-history");
+    if (!resp.ok) { buildDashboardModal(); document.getElementById("dashboard-modal").style.display = "flex"; return; }
+    const saved = await resp.json();
+    if (!saved.turns || saved.turns.length === 0) {
+      buildDashboardModal();
+      document.getElementById("dashboard-modal").style.display = "flex";
+    }
+  } catch {
+    // ignore — don't block init
+  }
+}
+
 // ─── Init ───
 loadProviders();
 loadTools();
-loadSavedChat();
+loadSavedChat().then(() => maybeShowDashboard());
 setInterval(loadTools, 30000);

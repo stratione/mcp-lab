@@ -852,3 +852,159 @@ header h1 {
 .help-table tr:last-child td {
   border-bottom: none;
 }
+
+/* ── Lab Dashboard modal ─────────────────────────────────────────────────── */
+
+.dash-section-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin: 24px 0 4px;
+}
+
+.dash-section-heading:first-of-type { margin-top: 8px; }
+
+.dash-section-sub {
+  font-size: 12px;
+  color: #4b5563;
+  margin: 0 0 12px;
+}
+
+/* Link card grid — two columns */
+.dash-link-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dash-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: #0f1117;
+  border: 1px solid #2a2b35;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dash-link-card:hover {
+  border-color: #60a5fa;
+  background: #13141c;
+}
+
+.dash-link-card--docs {
+  border-color: #312e58;
+}
+
+.dash-link-card--docs:hover { border-color: #a78bfa; }
+
+.dash-link-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.dash-link-url {
+  font-size: 11px;
+  font-family: monospace;
+  color: #60a5fa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-link-card--docs .dash-link-url { color: #a78bfa; }
+
+.dash-link-note {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+/* Phase progression cards */
+.dash-phases { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+
+.dash-phase {
+  border: 1px solid #2a2b35;
+  border-left: 3px solid var(--phase-color);
+  border-radius: 8px;
+  background: #0f1117;
+  padding: 12px 16px;
+}
+
+.dash-phase-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dash-phase-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--phase-color);
+  color: #0a0b0f;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.dash-phase-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--phase-color);
+}
+
+.dash-phase-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dash-phase-steps li {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.dash-phase-steps li em { color: #6b7280; }
+.dash-phase-steps li code {
+  background: #1a1b23;
+  border: 1px solid #2a2b35;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.dash-fallback-note {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #111215;
+  border: 1px dashed #374151;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.dash-fallback-note strong { color: #9ca3af; }
+
+.dash-fallback-note code {
+  background: #1a1b23;
+  border: 1px solid #2a2b35;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #e2e8f0;
+}
