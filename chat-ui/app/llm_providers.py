@@ -5,6 +5,7 @@ from .mcp_client import (
     mcp_tools_to_openai_format,
     mcp_tools_to_anthropic_format,
     call_tool,
+    check_servers,
 )
 
 
@@ -319,6 +320,8 @@ class PretendProvider(LLMProvider):
         (["list images", "show images", "registry"],          "_h_list_images",      "list images"),
         (["list promotions", "show promotions", "promotions"],"_h_list_promotions",  "list promotions"),
         (["promote"],                                          "_h_promote",          'promote <image>:<tag>  — e.g. "promote nginx:latest"'),
+        (["show me the endpoints", "list endpoints", "show endpoints",
+          "what endpoints", "endpoints"],                      "_h_endpoints",        "show me the endpoints"),
         (["mcp status", "server status", "status"],           "_h_mcp_status",       "mcp status"),
         (["hello", "hi ", "hey", "greet"],                    "_h_greet",            "hello / hi"),
         (["help", "?", "what can you do", "commands"],        "_h_help",             "help"),
@@ -432,6 +435,45 @@ class PretendProvider(LLMProvider):
                                           f"Promoting **{image}:{tag}**…")
         return {
             "reply": 'Usage: `promote <image>:<tag>`\n\nExample: `promote nginx:latest`',
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_endpoints(self, needle, tools):
+        """Show MCP server base URLs, their MCP protocol paths, and per-server tool list."""
+        try:
+            servers = await check_servers()
+        except Exception as e:
+            return {
+                "reply": f"Could not reach MCP servers: {e}",
+                "tool_calls": [],
+                "token_usage": self._zero_usage(),
+            }
+
+        lines = ["## MCP Server Endpoints", ""]
+        for s in servers:
+            status_icon = "🟢" if s["status"] == "online" else "🔴"
+            lines.append(f"### {status_icon} {s['name']}  (port {s['port']})")
+            lines.append("")
+            lines.append(f"| Path | Method | Purpose |")
+            lines.append(f"|------|--------|---------|")
+            lines.append(f"| `{s['url']}/tools/list` | POST | List all tools this server exposes |")
+            lines.append(f"| `{s['url']}/tools/call` | POST | Invoke a tool |")
+            lines.append(f"| `{s['url']}/initialize` | POST | MCP handshake (sent automatically) |")
+            lines.append("")
+            if s["tools"]:
+                lines.append(f"**Tools ({s['tool_count']}):** " + ", ".join(f"`{t}`" for t in s["tools"]))
+            else:
+                lines.append("*No tools available (server offline or no tools registered)*")
+            lines.append("")
+
+        lines += [
+            "---",
+            "**Protocol note:** all paths use JSON-RPC 2.0 over HTTP POST.  "
+            "The chat-ui adds `Content-Type: application/json` and handles SSE responses automatically.",
+        ]
+        return {
+            "reply": "\n".join(lines),
             "tool_calls": [],
             "token_usage": self._zero_usage(),
         }
