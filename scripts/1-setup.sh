@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$PROJECT_DIR/.env"
 ENV_EXAMPLE="$PROJECT_DIR/.env.example"
+ENV_SECRETS_FILE="$PROJECT_DIR/.env.secrets"
 
 # ── Detect container engine (prompts user if both are available) ──
 source "$SCRIPT_DIR/_detect-engine.sh"
@@ -53,6 +54,40 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 else
   echo "[1/4] .env already exists (keeping it)"
+fi
+
+# Create .env.secrets if it doesn't exist.
+# This file holds optional API keys for cloud LLM providers.
+# Ollama (local) works without any keys — fill these in only if you want
+# to use OpenAI, Anthropic, or Google Gemini from the Chat UI.
+if [ ! -f "$ENV_SECRETS_FILE" ]; then
+  echo "[1/4] Creating .env.secrets with empty API key placeholders..."
+  cat > "$ENV_SECRETS_FILE" << 'EOF'
+# MCP DevOps Lab — Secret Keys  ⚠️  DO NOT SHARE / SCREEN-SHARE THIS FILE
+# =========================================================================
+# This file is gitignored and never committed. It stays on your machine only.
+#
+# All keys are OPTIONAL — the lab runs fully on Ollama (local) with no keys.
+# Fill in a key only when you want to switch the Chat UI to that provider.
+# You can change the active provider and model live from the Chat UI settings.
+
+# ──── Anthropic (Claude models) ───────────────────────────────────────────
+# Used when LLM_PROVIDER=anthropic in .env or selected in the Chat UI.
+# Get your key at: https://console.anthropic.com/settings/keys
+ANTHROPIC_API_KEY=
+
+# ──── OpenAI (GPT-4o and friends) ─────────────────────────────────────────
+# Used when LLM_PROVIDER=openai in .env or selected in the Chat UI.
+# Get your key at: https://platform.openai.com/api-keys
+OPENAI_API_KEY=
+
+# ──── Google Gemini ────────────────────────────────────────────────────────
+# Used when LLM_PROVIDER=google in .env or selected in the Chat UI.
+# Get your key at: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=
+EOF
+else
+  echo "[1/4] .env.secrets already exists (keeping it)"
 fi
 
 # Inject detected container engine into .env so the Chat UI can show correct commands
