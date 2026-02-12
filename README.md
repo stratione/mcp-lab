@@ -7,8 +7,11 @@ A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transf
 ## Table of Contents
 
 - [System Requirements](#system-requirements)
+  - [Disk Breakdown](#disk-breakdown)
+  - [Ollama (Install Before the Workshop)](#ollama-install-before-the-workshop)
 - [Learning Objectives](#learning-objectives)
 - [Architecture](#architecture)
+  - [Chat UI Features](#chat-ui-features)
 - [Quick Start](#quick-start)
 - [MCP On/Off — Quick Toggle](#mcp-onoff--quick-toggle)
 - [Environment Configuration](#environment-configuration)
@@ -43,8 +46,19 @@ The preflight script checks everything below and prints install instructions if 
 |-------------|---------|-------------|
 | RAM | 8 GB | 16 GB |
 | CPU | 4 cores | 8+ cores |
-| Disk | 10 GB free | 20 GB free |
+| Disk (without Ollama) | 2 GB free | 4 GB free |
+| Disk (with Ollama) | 8 GB free | 10 GB free |
 | OS | macOS 12+, Linux, Windows (WSL2) | macOS 14+ or Ubuntu 22+ |
+
+### Disk Breakdown
+
+| Component | Size |
+|-----------|------|
+| Container images (all services) | ~650 MB |
+| Container runtime + volumes | ~150 MB |
+| Ollama `llama3.1:8b` model | ~4.9 GB |
+| **Total without Ollama** | **~1 GB** |
+| **Total with Ollama** | **~6 GB** |
 
 ### Required Software
 
@@ -71,22 +85,24 @@ sudo dnf install -y podman docker-compose
 
 > **Note:** All `docker compose` commands in this guide work identically with `docker compose`. The setup and teardown scripts auto-detect your engine.
 
-### Optional (for free local LLM)
+### Ollama (Install Before the Workshop)
 
-[Ollama](https://ollama.ai) runs the LLM locally without any API key:
+The workshop starts with [Ollama](https://ollama.ai) — a free local LLM that runs without API keys. **Install and pull the model before arriving** so you're not waiting on a 4.9 GB download during the lab:
 
 ```bash
 # macOS
 brew install ollama
 ollama serve &
-ollama pull llama3.1:8b
+ollama pull llama3.1:8b    # ~4.9 GB download
 
 # Linux
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull llama3.1:8b
 ```
 
-If you prefer a cloud LLM, add an API key to `.env.secrets` (OpenAI, Anthropic, or Google — see [LLM Providers](#llm-providers)).
+> **Note:** Ollama must be running on your host machine before starting the lab (`ollama serve`). The `0-preflight.sh` script will check for this.
+
+**Alternative: Cloud LLM only (no Ollama).** If you don't want to install Ollama, add an API key to `.env.secrets` for OpenAI, Anthropic, or Google instead (see [LLM Providers](#llm-providers)). This skips the ~4.9 GB model download but requires a paid API key.
 
 ---
 
@@ -125,6 +141,20 @@ If you prefer a cloud LLM, add an API key to `.env.secrets` (OpenAI, Anthropic, 
               +--------+   +-------+   +----------+   +--------------+
 ```
 
+### Chat UI Features
+
+The web-based Chat UI (http://localhost:3001) includes:
+
+- **Multi-provider support** — switch between Ollama, OpenAI, Anthropic, and Google Gemini from the UI
+- **MCP status panel** — click the MCP strip bar to see which servers are online/offline and their tools
+- **Tool call cards** — every MCP tool call shows as a collapsible card with arguments and results
+- **Hallucination detection** — automatic heuristic badge (verified/uncertain/unverified) on every response
+- **LLM verification** — on-demand "Verify with LLM" button for deeper fact-checking against tool results
+- **Token tracking** — per-turn and session-wide token counter
+- **Copy button** — hover over any assistant message to copy the prompt + response for debugging
+- **Server-side chat history** — chat is persisted in a Docker volume (not browser localStorage), so tearing down the lab wipes all data cleanly
+- **Quick reference** — click the `?` button for URLs, credentials, and commands
+
 **11 services** on a single container network (`mcp-lab-net`):
 
 | Service | Port | Role |
@@ -153,10 +183,10 @@ If you prefer a cloud LLM, add an API key to `.env.secrets` (OpenAI, Anthropic, 
 git clone https://github.com/stratione/mcp-lab.git
 cd mcp-lab
 
-# Step 1: Start the lab (creates .env, starts services, seeds data)
+# Step 2: Start the lab (creates .env, starts services, seeds data)
 ./scripts/1-setup.sh
 
-# Step 2: Open all lab URLs in your browser
+# Step 3: Open all lab URLs in your browser
 ./scripts/2-open-lab.sh
 
 # Optional: Open only API docs tabs
@@ -166,8 +196,10 @@ cd mcp-lab
 The setup script will:
 1. Create `.env` from `.env.example` and `.env.secrets` from `.env.secrets.example`
 2. Run `docker compose up -d` — starts core services + `chat-ui` (MCP servers are off by default)
-3. Wait for bootstrap to finish (creates Gitea admin, sample repos, pushes `sample-app:v1.0.0` to dev registry)
+3. Wait for bootstrap to finish (creates Gitea admin, sample repos, pushes 5 sample images to dev registry)
 4. Extract the Gitea API token and inject it into `.env` automatically
+
+> **Important:** The setup script does **not** install or pull Ollama models. Make sure `ollama pull llama3.1:8b` is done before running setup (see [Ollama](#ollama-install-before-the-workshop)).
 
 > **Default state after setup:** All MCP servers are OFF (0 tools). Enable them one at a time as you progress through the lab.
 
@@ -666,7 +698,7 @@ docker compose logs -f mcp-gitea
 # Full stop/start
 docker compose down && docker compose up -d
 
-# Nuclear reset (wipes all data volumes)
+# Nuclear reset (wipes all data volumes including chat history)
 docker compose down -v
 ```
 
@@ -746,6 +778,22 @@ ollama serve
 
 The Chat UI polls for new tools every 30 seconds. Hard-refresh the page (`Cmd+Shift+R` / `Ctrl+Shift+R`) if you don't want to wait.
 
+### Docker Hub pull error: "unauthorized" or "invalid username/password"
+
+This is usually a transient Docker Hub rate-limit error, especially with Podman:
+
+```bash
+# Pull the base image manually first, then re-run setup
+podman pull docker.io/library/python:3.12-slim
+./scripts/1-setup.sh
+```
+
+If it persists, log in to Docker Hub (free account): `podman login docker.io`
+
+### Data and chat history
+
+Chat history is stored server-side in a Docker volume (`chat-ui-data`), not in your browser. Running `docker compose down -v` removes all data including chat history, Gitea repos, registry images, and user data. This is intentional — the lab is designed to be fully disposable.
+
 ---
 
 ## Claude Code (stdio mode)
@@ -786,7 +834,7 @@ Then, server by server, participants start independent MCP containers and watch 
 
 | Phase | Duration | Description |
 |-------|----------|-------------|
-| Pre-work | Before lab | Run `0-preflight.sh`, install Docker or Podman, Ollama if needed |
+| Pre-work | Before lab | Install Docker or Podman, install Ollama + pull `llama3.1:8b` (~4.9 GB), run `0-preflight.sh` |
 | Setup | 10 min | Clone, `./scripts/1-setup.sh`, verify Chat UI |
 | Phase 1: The Struggle | 20 min | Hallucination, manual curl, friction |
 | Phase 2: Progressive Enablement | 30 min | Start MCP servers, watch tool count grow |

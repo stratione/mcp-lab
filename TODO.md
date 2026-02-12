@@ -5,6 +5,26 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ---
 
+## Completed — Chat UI & Infrastructure
+
+- [x] Copy button on assistant messages (copies prompt + response for debugging)
+- [x] Dynamic system prompt — injects live MCP server status into LLM context
+- [x] Synthetic `list_mcp_servers` tool — real callable tool handled by chat-ui backend, not hardcoded
+- [x] MCP status panel — clickable strip bar showing online/offline servers and their tools
+- [x] Hallucination detection — automatic heuristic badge (verified/uncertain/unverified) per response
+- [x] LLM verification — on-demand "Verify with LLM" button for deeper fact-checking against tool results
+- [x] Token tracking — per-turn and session-wide token counter
+- [x] Server-side chat history — persisted in Docker volume (`chat-ui-data`), not browser localStorage
+- [x] Container engine auto-detection — setup script writes `CONTAINER_ENGINE` to `.env`, UI shows correct `docker`/`podman` commands
+- [x] Help modal (`?` button) with URLs, credentials, and commands (engine-aware)
+- [x] Clear chat button with server-side deletion
+- [x] README overhaul — disk breakdown, Ollama pre-install instructions, Chat UI features section, troubleshooting additions
+- [x] Multi-provider LLM support — Ollama, OpenAI, Anthropic, Google Gemini switchable from UI
+- [x] Per-provider API keys via `.env.secrets` (screen-safe split)
+- [x] Verify-yourself links — after uncertain/hallucination detection, shows direct links to source APIs
+
+---
+
 ## Phase 1: LLM-Driven App Scaffolding
 
 > The LLM creates a working app inside Gitea and the student sees it running.

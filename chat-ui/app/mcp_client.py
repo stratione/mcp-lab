@@ -21,6 +21,15 @@ HEADERS = {
 # tool_name -> server_base_url mapping, rebuilt on each list_tools() call
 _tool_server_map: dict[str, str] = {}
 
+# Synthetic tools handled locally by the chat-ui backend (not routed to MCP servers)
+_LOCAL_TOOLS: list[dict] = [
+    {
+        "name": "list_mcp_servers",
+        "description": "List all configured MCP servers and their status (online/offline), including which tools each server provides.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+]
+
 
 def _parse_response(resp: httpx.Response) -> dict:
     """Parse MCP response — handles both JSON and SSE formats."""
@@ -87,11 +96,64 @@ async def list_tools() -> list[dict]:
             all_tools.append(tool)
 
     _tool_server_map = new_map
+    # Append synthetic local tools
+    all_tools.extend(_LOCAL_TOOLS)
     return all_tools
 
 
+def _server_label(url: str) -> str:
+    """Extract a friendly name from a server URL like http://mcp-user:8003."""
+    try:
+        host = url.split("//")[1].split(":")[0]
+        return host.replace("mcp-", "")
+    except Exception:
+        return url
+
+
+def _server_port(url: str) -> int:
+    """Extract port from a server URL."""
+    try:
+        return int(url.rstrip("/").split(":")[-1])
+    except Exception:
+        return 0
+
+
+async def check_servers() -> list[dict]:
+    """Check each MCP server's status and return per-server info."""
+    results = await asyncio.gather(
+        *[_list_tools_from_server(url) for url in MCP_SERVER_URLS]
+    )
+
+    servers = []
+    for server_url, tools in zip(MCP_SERVER_URLS, results):
+        label = _server_label(server_url)
+        port = _server_port(server_url)
+        servers.append({
+            "name": label,
+            "url": server_url,
+            "port": port,
+            "status": "online" if tools else "offline",
+            "tools": [t["name"] for t in tools],
+            "tool_count": len(tools),
+        })
+    return servers
+
+
+async def _handle_local_tool(name: str, arguments: dict) -> str | None:
+    """Handle synthetic local tools. Returns None if not a local tool."""
+    if name == "list_mcp_servers":
+        servers = await check_servers()
+        return json.dumps(servers, indent=2)
+    return None
+
+
 async def call_tool(name: str, arguments: dict) -> str:
-    """Call a tool, routing to the correct MCP server."""
+    """Call a tool, routing to the correct MCP server or handling locally."""
+    # Check local tools first
+    local_result = await _handle_local_tool(name, arguments)
+    if local_result is not None:
+        return local_result
+
     server_url = _tool_server_map.get(name)
     if not server_url:
         await list_tools()

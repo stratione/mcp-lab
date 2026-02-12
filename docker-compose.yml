@@ -191,6 +191,10 @@ services:
     environment:
       - MCP_SERVERS=http://mcp-user:8003,http://mcp-gitea:8004,http://mcp-registry:8005,http://mcp-promotion:8006
       - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
+      - CHAT_DATA_DIR=/app/data
+      - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
+    volumes:
+      - chat-ui-data:/app/data
     networks:
       - mcp-lab-net
     healthcheck:
@@ -224,6 +228,7 @@ volumes:
   registry-dev-data:
   registry-prod-data:
   promotion-data:
+  chat-ui-data:
 
 networks:
   mcp-lab-net:

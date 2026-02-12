@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -7,10 +8,14 @@ from .models import (
     ChatRequest, ProviderConfig, ChatResponse, TokenUsage,
     VerificationResult, VerifyRequest, VerifyResponse,
 )
-from .mcp_client import list_tools
+from .mcp_client import list_tools, check_servers
 from .llm_providers import get_provider
 
 app = FastAPI(title="MCP DevOps Lab Chat UI", version="1.0.0")
+
+# Server-side chat history storage (persisted in Docker volume)
+CHAT_DATA_DIR = pathlib.Path(os.environ.get("CHAT_DATA_DIR", "/app/data"))
+CHAT_HISTORY_FILE = CHAT_DATA_DIR / "chat_history.json"
 
 # Per-provider API keys from environment
 _API_KEYS: dict = {
@@ -83,6 +88,51 @@ async def get_tools():
         return {"tools": [], "error": str(e)}
 
 
+_CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
+
+
+@app.get("/api/mcp-status")
+async def mcp_status():
+    try:
+        servers = await check_servers()
+        total = sum(s["tool_count"] for s in servers)
+        online = sum(1 for s in servers if s["status"] == "online")
+        return {"servers": servers, "total_tools": total, "online_count": online, "engine": _CONTAINER_ENGINE}
+    except Exception as e:
+        return {"servers": [], "total_tools": 0, "online_count": 0, "engine": _CONTAINER_ENGINE, "error": str(e)}
+
+
+@app.get("/api/chat-history")
+async def get_chat_history():
+    try:
+        if CHAT_HISTORY_FILE.exists():
+            return JSONResponse(content=json.loads(CHAT_HISTORY_FILE.read_text()))
+        return JSONResponse(content={"turns": [], "history": [], "sessionTokens": 0})
+    except Exception:
+        return JSONResponse(content={"turns": [], "history": [], "sessionTokens": 0})
+
+
+@app.post("/api/chat-history")
+async def save_chat_history(request: Request):
+    try:
+        data = await request.json()
+        CHAT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        CHAT_HISTORY_FILE.write_text(json.dumps(data))
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@app.delete("/api/chat-history")
+async def clear_chat_history():
+    try:
+        if CHAT_HISTORY_FILE.exists():
+            CHAT_HISTORY_FILE.unlink()
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
 def _extract_checkable_values(data, values=None):
     """Recursively extract string/number leaf values from parsed JSON."""
     if values is None:
@@ -141,29 +191,57 @@ def _verify_with_heuristics(reply: str, tool_calls: list[dict]) -> dict:
         return {"status": "uncertain", "details": f"Reply only references {matched}/{total_checks} data points from tool results"}
 
 
-SYSTEM_PROMPT = """You are a helpful DevOps assistant. You have access to tools that let you manage users, Git repositories (Gitea), container registries, and image promotions.
+SYSTEM_PROMPT_BASE = """You are a helpful DevOps assistant in the MCP DevOps Lab. You have access to tools provided by MCP (Model Context Protocol) servers that let you manage users, Git repositories (Gitea), container registries, and image promotions.
 
-When asked to perform tasks, use the available tools. Be concise in your responses and explain what you did after completing actions."""
+When asked to perform tasks, use the available tools. Be concise in your responses and explain what you did after completing actions.
+
+{mcp_context}"""
+
+
+def _build_system_prompt(servers: list[dict], tools: list[dict]) -> str:
+    """Build system prompt with live MCP server and tool context."""
+    if not servers:
+        mcp_context = "No MCP servers are currently connected."
+    else:
+        online = [s for s in servers if s["status"] == "online"]
+        offline = [s for s in servers if s["status"] == "offline"]
+        lines = [f"You are connected to {len(online)} of {len(servers)} MCP servers:"]
+        for s in servers:
+            status = "ONLINE" if s["status"] == "online" else "OFFLINE"
+            tool_names = ", ".join(s["tools"]) if s["tools"] else "none"
+            lines.append(f"  - mcp-{s['name']} ({status}): {s['tool_count']} tools [{tool_names}]")
+        if tools:
+            lines.append(f"\nTotal available tools: {len(tools)}")
+        mcp_context = "\n".join(lines)
+    return SYSTEM_PROMPT_BASE.format(mcp_context=mcp_context)
 
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
-        # Get available MCP tools
+        # Get available MCP tools and server status
         try:
-            tools = await list_tools()
-        except Exception:
+            servers = await check_servers()
             tools = []
+            for s in servers:
+                if s["status"] == "online":
+                    for t_name in s["tools"]:
+                        tools.append(t_name)
+            all_tools = await list_tools()
+        except Exception:
+            servers = []
+            all_tools = []
 
-        # Build conversation
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        # Build conversation with dynamic system prompt
+        system_prompt = _build_system_prompt(servers, all_tools)
+        messages = [{"role": "system", "content": system_prompt}]
         for msg in req.history:
             messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": req.message})
 
         # Call LLM
         provider = get_provider(_provider_config)
-        result = await provider.chat(messages, tools)
+        result = await provider.chat(messages, all_tools)
 
         usage_data = result.get("token_usage", {})
         tool_calls_data = [

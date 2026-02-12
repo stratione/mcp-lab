@@ -10,9 +10,8 @@
   <header>
     <h1>MCP DevOps Lab</h1>
     <div class="header-controls">
-      <span class="status-dot" id="mcp-status"></span>
-      <span id="tool-count">Loading tools...</span>
       <span id="token-session-total" class="token-session-total">0 tokens</span>
+      <button id="clear-btn" class="help-btn" title="Clear chat history">&times;</button>
       <button id="help-btn" class="help-btn" title="Quick Reference">?</button>
     </div>
   </header>
@@ -37,8 +36,14 @@
     <button id="apply-btn">Apply</button>
   </div>
 
-  <div class="tools-list" id="tools-bar">
-    MCP Tools: <span>loading...</span>
+  <div class="mcp-strip" id="mcp-strip">
+    <span class="status-dot" id="mcp-strip-dot"></span>
+    <span id="mcp-strip-label">Loading MCP servers...</span>
+    <span class="mcp-strip-hint">click for details</span>
+  </div>
+
+  <div id="mcp-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" id="mcp-modal-body"></div>
   </div>
 
   <div class="chat-area" id="chat-area">

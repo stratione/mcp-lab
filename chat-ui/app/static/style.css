@@ -129,6 +129,40 @@ header h1 {
   border-bottom-left-radius: 4px;
 }
 
+.message.assistant {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: #4b5563;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.message.assistant:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: #252636;
+  color: #818cf8;
+}
+
+.copy-btn.copied {
+  color: #22c55e;
+  opacity: 1;
+}
+
 .message.error {
   background: #7f1d1d;
   border: 1px solid #991b1b;
@@ -260,23 +294,104 @@ header h1 {
 
 .typing-indicator.visible { display: block; }
 
-.tools-list {
+.mcp-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
-  color: #6b7280;
-  padding: 4px 20px 8px;
+  color: #9ca3af;
+  padding: 6px 20px;
   background: #1a1b23;
   border-bottom: 1px solid #2a2b35;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
 }
 
-.tools-list span {
+.mcp-strip:hover {
+  background: #1e1f2a;
+}
+
+.mcp-strip-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* MCP status modal */
+.mcp-summary {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.mcp-server-card {
+  background: #0f1117;
+  border: 1px solid #2a2b35;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.mcp-server-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mcp-server-name {
+  font-weight: 600;
+  font-family: monospace;
+  font-size: 14px;
+  color: #e4e4e7;
+}
+
+.mcp-server-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.mcp-server-url {
+  margin-left: auto;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.mcp-server-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mcp-server-tools span {
   display: inline-block;
   background: #252636;
   padding: 2px 8px;
   border-radius: 4px;
-  margin: 2px;
   font-family: monospace;
   font-size: 11px;
+  color: #a78bfa;
+}
+
+.mcp-no-tools {
+  color: #4b5563 !important;
+  font-style: italic;
+}
+
+.mcp-hint {
+  margin-top: 16px;
+  padding: 12px;
+  background: #0f1117;
+  border: 1px dashed #2a2b35;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .token-session-total {
@@ -393,6 +508,21 @@ header h1 {
   padding: 4px 0 0 14px;
   max-width: 600px;
   line-height: 1.4;
+}
+
+.verify-hint {
+  font-size: 11px;
+  color: #6b7280;
+  padding: 4px 0 0 14px;
+}
+
+.verify-hint a {
+  color: #818cf8;
+  text-decoration: none;
+}
+
+.verify-hint a:hover {
+  text-decoration: underline;
 }
 
 /* Help button */

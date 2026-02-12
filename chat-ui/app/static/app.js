@@ -7,13 +7,52 @@ const apiKeyInput = document.getElementById("api-key-input");
 const apiKeyGroup = document.getElementById("api-key-group");
 const applyBtn = document.getElementById("apply-btn");
 const typing = document.getElementById("typing");
-const mcpStatus = document.getElementById("mcp-status");
-const toolCount = document.getElementById("tool-count");
-const toolsBar = document.getElementById("tools-bar");
+const mcpStrip = document.getElementById("mcp-strip");
+const mcpStripDot = document.getElementById("mcp-strip-dot");
+const mcpStripLabel = document.getElementById("mcp-strip-label");
 
 let history = [];
+let turns = []; // structured turn data for localStorage
 let providerInfo = {}; // tracks has_key per provider
 let sessionTokens = 0;
+
+function saveTurns() {
+  fetch("/api/chat-history", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ turns, history, sessionTokens }),
+  }).catch(() => { /* silently ignore save errors */ });
+}
+
+async function loadSavedChat() {
+  try {
+    const resp = await fetch("/api/chat-history");
+    if (!resp.ok) return;
+    const saved = await resp.json();
+    if (!saved.turns || saved.turns.length === 0) return;
+
+    history = saved.history || [];
+    sessionTokens = saved.sessionTokens || 0;
+    turns = saved.turns;
+
+    // Replay turns into the UI
+    for (const turn of turns) {
+      if (turn.user) addMessage("user", turn.user);
+      if (turn.tool_calls) addToolCalls(turn.tool_calls);
+      if (turn.reply) addMessage("assistant", turn.reply);
+      if (turn.verification) addVerificationBadge(turn.verification);
+      if (turn.token_usage) addTokenBadge(turn.token_usage);
+      if (turn.reply && turn.tool_calls && turn.tool_calls.length > 0) {
+        addVerifyButton(turn.reply, turn.tool_calls);
+      }
+    }
+
+    document.getElementById("token-session-total").textContent =
+      sessionTokens.toLocaleString() + " tokens";
+  } catch (e) {
+    console.error("Failed to load saved chat:", e);
+  }
+}
 
 const defaultModels = {
   ollama: "llama3.1:8b",
@@ -89,32 +128,128 @@ async function loadProviders() {
   }
 }
 
+let mcpServers = []; // latest server status data
+let containerEngine = "docker"; // detected from backend
+
 async function loadTools() {
   try {
-    const resp = await fetch("/api/tools");
+    const resp = await fetch("/api/mcp-status");
     const data = await resp.json();
-    const tools = data.tools || [];
-    if (tools.length > 0) {
-      mcpStatus.className = "status-dot active";
-      toolCount.textContent = `${tools.length} tools`;
-      toolsBar.innerHTML =
-        "MCP Tools: " + tools.map((t) => `<span>${t.name}</span>`).join("");
+    mcpServers = data.servers || [];
+    containerEngine = data.engine || "docker";
+    const total = data.total_tools || 0;
+    const online = data.online_count || 0;
+
+    if (total > 0) {
+      mcpStripDot.className = "status-dot active";
+      mcpStripLabel.textContent = `${online} of ${mcpServers.length} MCP servers online — ${total} tools available`;
     } else {
-      mcpStatus.className = "status-dot inactive";
-      toolCount.textContent = "No tools";
-      toolsBar.innerHTML = "MCP Tools: <span>none available</span>";
+      mcpStripDot.className = "status-dot inactive";
+      mcpStripLabel.textContent = "No MCP servers online — click to see how to start them";
     }
   } catch (e) {
-    mcpStatus.className = "status-dot inactive";
-    toolCount.textContent = "MCP offline";
-    toolsBar.innerHTML = "MCP Tools: <span>server unreachable</span>";
+    mcpStripDot.className = "status-dot inactive";
+    mcpStripLabel.textContent = "MCP servers unreachable";
   }
 }
+
+function buildMcpModal() {
+  const h = window.location.hostname || "localhost";
+  const body = document.getElementById("mcp-modal-body");
+
+  const online = mcpServers.filter((s) => s.status === "online");
+  const offline = mcpServers.filter((s) => s.status === "offline");
+  const total = mcpServers.reduce((n, s) => n + s.tool_count, 0);
+
+  let html = `
+    <button id="mcp-modal-close" class="modal-close">&times;</button>
+    <h2>MCP Server Status</h2>
+    <p class="mcp-summary">${online.length} of ${mcpServers.length} servers online &mdash; ${total} tools available</p>
+  `;
+
+  for (const s of mcpServers) {
+    const dotClass = s.status === "online" ? "active" : "inactive";
+    const statusText = s.status === "online" ? "Online" : "Offline";
+    const port = s.port || "—";
+    html += `
+      <div class="mcp-server-card">
+        <div class="mcp-server-header">
+          <span class="status-dot ${dotClass}"></span>
+          <span class="mcp-server-name">mcp-${s.name}</span>
+          <span class="mcp-server-status">${statusText}</span>
+          <code class="mcp-server-url">http://${h}:${port}/mcp</code>
+        </div>`;
+
+    if (s.tools.length > 0) {
+      html += `<div class="mcp-server-tools">${s.tools.map((t) => `<span>${t}</span>`).join("")}</div>`;
+    } else {
+      html += `<div class="mcp-server-tools"><span class="mcp-no-tools">no tools</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Show how to start offline servers (uses detected engine)
+  if (offline.length > 0) {
+    html += `<div class="mcp-hint"><strong>Start a server:</strong><pre>`;
+    for (const s of offline) {
+      html += `${containerEngine} compose up -d mcp-${s.name}\n`;
+    }
+    html += `</pre></div>`;
+  }
+
+  body.innerHTML = html;
+
+  document.getElementById("mcp-modal-close").addEventListener("click", () => {
+    document.getElementById("mcp-modal").style.display = "none";
+  });
+}
+
+function openMcpModal() {
+  buildMcpModal();
+  document.getElementById("mcp-modal").style.display = "flex";
+}
+
+mcpStrip.addEventListener("click", openMcpModal);
+
+document.getElementById("mcp-modal").addEventListener("click", (e) => {
+  if (e.target.id === "mcp-modal") {
+    e.target.style.display = "none";
+  }
+});
 
 function addMessage(role, content) {
   const div = document.createElement("div");
   div.className = `message ${role}`;
   div.textContent = content;
+
+  if (role === "assistant") {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy-btn";
+    copyBtn.title = "Copy prompt + response";
+    copyBtn.innerHTML = "&#128203;";
+    copyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // Walk backwards to find the preceding user message
+      let userText = "";
+      let el = div.previousElementSibling;
+      while (el) {
+        if (el.classList.contains("message") && el.classList.contains("user")) {
+          userText = el.textContent;
+          break;
+        }
+        el = el.previousElementSibling;
+      }
+      const copyText = (userText ? "Prompt:\n" + userText + "\n\nResponse:\n" : "") + content;
+      navigator.clipboard.writeText(copyText).then(() => {
+        copyBtn.innerHTML = "&#10003;";
+        copyBtn.classList.add("copied");
+        setTimeout(() => { copyBtn.innerHTML = "&#128203;"; copyBtn.classList.remove("copied"); }, 1500);
+      });
+    });
+    div.style.position = "relative";
+    div.appendChild(copyBtn);
+  }
+
   chatArea.appendChild(div);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
@@ -206,6 +341,41 @@ function addVerificationBadge(verification) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
+const TOOL_VERIFY_URLS = {
+  list_users:       { url: "/users",      host: "localhost:8001", label: "User API" },
+  get_user:         { url: "/users",      host: "localhost:8001", label: "User API" },
+  create_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
+  update_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
+  delete_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
+  deactivate_user:  { url: "/users",      host: "localhost:8001", label: "User API" },
+  list_registry_images:    { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
+  list_image_tags:         { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
+  get_image_manifest:      { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
+  list_promotions:         { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
+  promote_image:           { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
+  get_promotion:           { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
+  list_gitea_repos:        { url: "",              host: "localhost:3000", label: "Gitea" },
+  get_gitea_repo:          { url: "",              host: "localhost:3000", label: "Gitea" },
+  create_gitea_repo:       { url: "",              host: "localhost:3000", label: "Gitea" },
+  list_gitea_files:        { url: "",              host: "localhost:3000", label: "Gitea" },
+  get_gitea_file_content:  { url: "",              host: "localhost:3000", label: "Gitea" },
+  create_gitea_file:       { url: "",              host: "localhost:3000", label: "Gitea" },
+  search_gitea_repos:      { url: "",              host: "localhost:3000", label: "Gitea" },
+};
+
+function getVerifyLinks(toolCalls) {
+  const seen = new Set();
+  const links = [];
+  for (const tc of toolCalls) {
+    const info = TOOL_VERIFY_URLS[tc.name];
+    if (info && !seen.has(info.host)) {
+      seen.add(info.host);
+      links.push({ href: `http://${info.host}${info.url}`, label: info.label });
+    }
+  }
+  return links;
+}
+
 function addVerifyButton(reply, toolCalls) {
   if (!toolCalls || toolCalls.length === 0) return;
 
@@ -265,6 +435,18 @@ function addVerifyButton(reply, toolCalls) {
       wrapper.appendChild(result);
       wrapper.appendChild(explanation);
 
+      if (data.status !== "verified") {
+        const links = getVerifyLinks(toolCalls);
+        if (links.length > 0) {
+          const hint = document.createElement("div");
+          hint.className = "verify-hint";
+          hint.innerHTML = "Verify yourself: " + links.map(
+            (l) => `<a href="${l.href}" target="_blank">${l.label}</a>`
+          ).join(" | ");
+          wrapper.appendChild(hint);
+        }
+      }
+
       if (data.token_usage) {
         sessionTokens += data.token_usage.total_tokens || 0;
         document.getElementById("token-session-total").textContent =
@@ -320,6 +502,16 @@ async function sendMessage() {
     }
 
     addVerifyButton(data.reply, data.tool_calls);
+
+    // Persist turn to localStorage
+    turns.push({
+      user: text,
+      reply: data.reply,
+      tool_calls: data.tool_calls || [],
+      verification: data.verification || null,
+      token_usage: data.token_usage || null,
+    });
+    saveTurns();
   } catch (e) {
     addMessage("error", `Network error: ${e.message}`);
   } finally {
@@ -373,15 +565,14 @@ function buildHelpModal() {
       <li>Open the Chat UI: <code>http://${h}:3001</code></li>
       <li>All MCP servers start <strong>OFF</strong> by default.</li>
       <li>Enable MCP servers one at a time:
-        <pre>docker compose up -d mcp-user        # +6 user tools\ndocker compose up -d mcp-gitea       # +7 git/repo tools\ndocker compose up -d mcp-registry    # +3 registry tools\ndocker compose up -d mcp-promotion   # +3 promotion tools</pre>
-        <p style="font-size:11px;color:#6b7280;margin-top:4px;">Podman users: replace <code>docker</code> with <code>podman</code></p>
+        <pre>${containerEngine} compose up -d mcp-user        # +6 user tools\n${containerEngine} compose up -d mcp-gitea       # +7 git/repo tools\n${containerEngine} compose up -d mcp-registry    # +3 registry tools\n${containerEngine} compose up -d mcp-promotion   # +3 promotion tools</pre>
       </li>
-      <li>Stop an MCP server: <code>docker compose stop mcp-user</code></li>
+      <li>Stop an MCP server: <code>${containerEngine} compose stop mcp-user</code></li>
       <li>Enable all at once:
-        <pre>docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion</pre>
+        <pre>${containerEngine} compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion</pre>
       </li>
       <li>Check what's running:
-        <pre>docker compose ps\ncurl http://${h}:3001/api/tools</pre>
+        <pre>${containerEngine} compose ps\ncurl http://${h}:3001/api/tools</pre>
       </li>
     </ol>
 
@@ -416,7 +607,20 @@ helpModal.addEventListener("click", (e) => {
   }
 });
 
+// Clear chat button
+document.getElementById("clear-btn").addEventListener("click", () => {
+  if (!confirm("Clear chat history?")) return;
+  history = [];
+  turns = [];
+  sessionTokens = 0;
+  fetch("/api/chat-history", { method: "DELETE" }).catch(() => {});
+  chatArea.innerHTML =
+    '<div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions.</div>';
+  document.getElementById("token-session-total").textContent = "0 tokens";
+});
+
 // Init
 loadProviders();
 loadTools();
+loadSavedChat();
 setInterval(loadTools, 30000);

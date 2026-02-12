@@ -55,6 +55,17 @@ else
   echo "[1/4] .env already exists (keeping it)"
 fi
 
+# Inject detected container engine into .env so the Chat UI can show correct commands
+if grep -q "^CONTAINER_ENGINE=" "$ENV_FILE"; then
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s|^CONTAINER_ENGINE=.*|CONTAINER_ENGINE=$ENGINE|" "$ENV_FILE"
+  else
+    sed -i "s|^CONTAINER_ENGINE=.*|CONTAINER_ENGINE=$ENGINE|" "$ENV_FILE"
+  fi
+else
+  echo "CONTAINER_ENGINE=$ENGINE" >> "$ENV_FILE"
+fi
+
 # 2. Start all services
 echo "[2/4] Starting services (this may take a minute on first run)..."
 cd "$PROJECT_DIR"
