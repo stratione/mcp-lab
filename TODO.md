@@ -87,6 +87,12 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ---
 
+## Low Priority / Nice-to-Have
+
+- [x] **Easy-mode MCP toggles** — easter egg: type `easymode` anywhere on the page (not in the chat input) to toggle GUI Start/Stop buttons on the MCP status modal. A toast confirms activation. State persists in `localStorage`. CLI hint stays visible so compose commands remain the primary learning path. Backend `POST /api/mcp-control` allowlisted to the 4 known MCP services.
+
+---
+
 ## Design Principles
 
 - **Everything local** — no cloud dependencies, works offline after initial setup

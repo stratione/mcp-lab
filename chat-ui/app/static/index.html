@@ -12,6 +12,7 @@
     <div class="header-controls">
       <span id="token-session-total" class="token-session-total">0 tokens</span>
       <button id="clear-btn" class="help-btn" title="Clear chat history">&times;</button>
+      <button id="dashboard-btn" class="help-btn" title="Lab Dashboard">&#9783;</button>
       <button id="help-btn" class="help-btn" title="Quick Reference">?</button>
     </div>
   </header>
@@ -23,10 +24,13 @@
       <option value="openai">OpenAI</option>
       <option value="anthropic">Anthropic</option>
       <option value="google">Google Gemini</option>
+      <option value="pretend">Demo LLM (no key needed)</option>
     </select>
 
-    <label>Model:</label>
-    <input type="text" id="model-input" placeholder="llama3.1" value="llama3.1">
+    <div id="model-group" style="display:contents">
+      <label>Model:</label>
+      <input type="text" id="model-input" placeholder="llama3.1" value="llama3.1">
+    </div>
 
     <div id="api-key-group">
       <label>API Key:</label>
@@ -59,6 +63,14 @@
 
   <div id="help-modal" class="modal-overlay" style="display:none;">
     <div class="modal-content" id="help-modal-body"></div>
+  </div>
+
+  <div id="schema-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content modal-content-wide" id="schema-modal-body"></div>
+  </div>
+
+  <div id="dashboard-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content modal-content-wide" id="dashboard-modal-body"></div>
   </div>
 
   <script src="/static/app.js"></script>

@@ -186,8 +186,8 @@ cd mcp-lab
 # Step 2: Start the lab (creates .env, starts services, seeds data)
 ./scripts/1-setup.sh
 
-# Step 3: Open all lab URLs in your browser
-./scripts/2-open-lab.sh
+# Step 3: Navigate to the lab dashboard
+# http://localhost:3001  (opens automatically after setup)
 
 # Optional: Open only API docs tabs
 ./scripts/3-open-api-docs.sh
@@ -224,8 +224,7 @@ docker compose up -d mcp-registry
 # Enable Promotion tools (+3 tools → 19 total)
 docker compose up -d mcp-promotion
 
-# Enable ALL at once (all 19 tools)
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+# Enable servers one at a time — work through each phase before starting the next
 ```
 
 ### Disable MCP servers
@@ -501,10 +500,13 @@ Compare to Phase 1:
 
 > **Goal:** Express complex multi-system intents in natural language. All 19 tools ON.
 
-Make sure all MCP servers are running:
+Enable MCP servers one at a time as you progress through each phase:
 
 ```bash
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose up -d mcp-user        # start here
+docker compose up -d mcp-gitea       # after exploring user tools
+docker compose up -d mcp-registry    # after exploring git tools
+docker compose up -d mcp-promotion   # after exploring registry tools
 ```
 
 #### Exercise 1: Full Onboarding
@@ -658,7 +660,7 @@ Scripts are numbered in run order. Optional scripts are prefixed with `OPT-`.
 |--------|-------------|--------------|
 | `scripts/0-preflight.sh` | **Before everything** | Checks Docker/Podman, RAM, Ollama. Prints install instructions if anything is missing. |
 | `scripts/1-setup.sh` | First time setup | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token |
-| `scripts/2-open-lab.sh` | Any time | Opens core lab endpoints in your browser (no API docs tabs) |
+| `scripts/2-restart-lab.sh` | After code changes | Rebuilds and restarts core services (`chat-ui`, `user-api`, `promotion-service`). Add `--full` to also restart Gitea and registries. MCP servers are left alone. |
 | `scripts/3-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
 | `scripts/4-help.sh` | Any time | Print quick reference (services, URLs, commands) |
 | `scripts/5-teardown.sh` | Cleanup | Reuses saved engine choice, removes containers, images, and volumes (full reset) |
@@ -687,8 +689,7 @@ docker compose up -d mcp-gitea
 # Stop an MCP server (disables its tools in Chat UI)
 docker compose stop mcp-gitea
 
-# Start all MCP servers at once
-docker compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion
+# Start servers one at a time as you progress through the lab phases
 
 # View logs
 docker compose logs -f chat-ui

@@ -37,7 +37,9 @@ cat <<EOF
   Getting Started
   ────────────────────────────────────────────────────
 
-  1. Open the Chat UI:  http://localhost:3001
+  1. Navigate to:  http://localhost:3001
+     The dashboard opens automatically and shows all service links,
+     API docs, and the three-phase learning progression.
   2. All MCP servers start OFF by default.
   3. Enable MCP servers one at a time as you progress:
 
@@ -50,11 +52,7 @@ cat <<EOF
 
      $COMPOSE stop mcp-user
 
-  5. Enable all at once:
-
-     $COMPOSE up -d mcp-user mcp-gitea mcp-registry mcp-promotion
-
-  6. Check what's running:
+  5. Check what's running:
 
      $COMPOSE ps
      curl http://localhost:3001/api/tools
@@ -69,8 +67,9 @@ cat <<EOF
 
   ./scripts/0-preflight.sh          Check system requirements
   ./scripts/1-setup.sh              First-time setup
-  ./scripts/2-open-lab.sh           Open lab URLs in browser
-  ./scripts/3-open-api-docs.sh      Open API docs in browser
+  ./scripts/2-restart-lab.sh        Rebuild + restart core services after changes
+  ./scripts/2-restart-lab.sh --full Same + restart Gitea and registries too
+  ./scripts/3-open-api-docs.sh      Open API docs in browser (Phase 2)
   ./scripts/4-help.sh               Show this help
   ./scripts/5-teardown.sh           Full cleanup (removes everything)
   ./scripts/6-tunnel.sh [port]      Expose MCP server via tunnel

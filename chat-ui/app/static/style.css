@@ -394,6 +394,108 @@ header h1 {
   color: #6b7280;
 }
 
+/* ── Easy Mode controls ── */
+.mcp-ctrl-btn {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 5px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.mcp-ctrl-btn:disabled { opacity: 0.45; cursor: default; }
+.mcp-ctrl-start { background: #0d2b1a; border-color: #22c55e; color: #22c55e; }
+.mcp-ctrl-start:hover:not(:disabled) { background: #14532d; }
+.mcp-ctrl-stop  { background: #2b0d0d; border-color: #ef4444; color: #ef4444; }
+.mcp-ctrl-stop:hover:not(:disabled)  { background: #450a0a; }
+
+.mcp-easymode-hint {
+  margin-top: 14px;
+  font-size: 11px;
+  color: #4b5563;
+  text-align: center;
+}
+.mcp-easymode-hint kbd {
+  background: #1e1f2a;
+  border: 1px solid #374151;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+/* ── Easter-egg toast ── */
+.easymode-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1e1f2a;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: #e2e8f0;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+.easymode-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Help modal easy-mode enhancements ── */
+.help-easymode-banner {
+  font-size: 11px;
+  color: #6b7280;
+  background: #0f1117;
+  border: 1px dashed #374151;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+
+.help-url-link code { color: #60a5fa; text-decoration: none; }
+.help-url-link:hover code { text-decoration: underline; }
+
+.probe-btn {
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: #1e1f2a;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #9ca3af;
+  font-size: 11px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 0.15s, border-color 0.15s;
+}
+.probe-btn:hover:not(:disabled) { color: #e2e8f0; border-color: #6b7280; }
+.probe-btn:disabled { opacity: 0.4; cursor: default; }
+.probe-btn-inline { margin-top: 6px; display: inline-block; }
+
+.probe-result {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 140px;
+  overflow-y: auto;
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+.probe-result:empty { display: none; }
+.probe-running { color: #9ca3af; background: #0f1117; }
+.probe-ok      { color: #22c55e; background: #0d2b1a; border: 1px solid #14532d; }
+.probe-error   { color: #ef4444; background: #2b0d0d; border: 1px solid #450a0a; }
+
 .token-session-total {
   font-size: 12px;
   color: #6b7280;
@@ -571,6 +673,101 @@ header h1 {
   color: #e4e4e7;
 }
 
+/* Wider variant for the schema browser */
+.modal-content-wide { max-width: 860px; }
+
+/* ── rawtools easter egg ── */
+.raw-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: #1c2a3a;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #60a5fa;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+.raw-result {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-left: 2px solid #3b82f6;
+  padding-left: 8px;
+}
+
+/* ── schema modal ── */
+.schema-tool-card {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #0f1117;
+  border: 1px solid #2a2b35;
+  border-radius: 8px;
+}
+
+.schema-tool-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.schema-tool-desc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.schema-no-params {
+  font-size: 12px;
+  color: #4b5563;
+  font-style: italic;
+  margin: 0;
+}
+
+.schema-props-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.schema-props-table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: #6b7280;
+  font-weight: 600;
+  border-bottom: 1px solid #2a2b35;
+}
+
+.schema-props-table td { padding: 5px 8px; vertical-align: top; }
+.schema-props-table tr:hover td { background: #13141c; }
+
+.schema-prop-name code { color: #e2e8f0; font-size: 12px; }
+
+.schema-required {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #f59e0b;
+  background: #1c1a08;
+  border: 1px solid #92400e;
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.schema-prop-type { color: #a78bfa; font-family: monospace; white-space: nowrap; }
+.schema-prop-desc { color: #9ca3af; line-height: 1.4; }
+
 .modal-close {
   position: absolute;
   top: 12px;
@@ -654,4 +851,203 @@ header h1 {
 
 .help-table tr:last-child td {
   border-bottom: none;
+}
+
+/* ── Lab Dashboard modal ─────────────────────────────────────────────────── */
+
+.dash-section-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin: 24px 0 4px;
+}
+
+.dash-section-heading:first-of-type { margin-top: 8px; }
+
+.dash-section-sub {
+  font-size: 12px;
+  color: #4b5563;
+  margin: 0 0 12px;
+}
+
+/* Easy Mode banners inside dashboard */
+.dash-easy-banner {
+  margin: 4px 0 14px;
+  padding: 7px 12px;
+  background: #0d1f14;
+  border: 1px solid #166534;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #86efac;
+}
+
+.dash-easy-hint {
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.dash-easy-hint kbd {
+  background: #1a1b23;
+  border: 1px solid #374151;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* Link card grid — two columns */
+.dash-link-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Wrap holds the card + probe button/result below it */
+.dash-link-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dash-probe-btn {
+  align-self: flex-start;
+  margin-left: 2px;
+}
+
+.dash-link-card-wrap .probe-result {
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.dash-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: #0f1117;
+  border: 1px solid #2a2b35;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dash-link-card:hover {
+  border-color: #60a5fa;
+  background: #13141c;
+}
+
+.dash-link-card--docs {
+  border-color: #312e58;
+}
+
+.dash-link-card--docs:hover { border-color: #a78bfa; }
+
+.dash-link-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.dash-link-url {
+  font-size: 11px;
+  font-family: monospace;
+  color: #60a5fa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-link-card--docs .dash-link-url { color: #a78bfa; }
+
+.dash-link-note {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+/* Phase progression cards */
+.dash-phases { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+
+.dash-phase {
+  border: 1px solid #2a2b35;
+  border-left: 3px solid var(--phase-color);
+  border-radius: 8px;
+  background: #0f1117;
+  padding: 12px 16px;
+}
+
+.dash-phase-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dash-phase-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--phase-color);
+  color: #0a0b0f;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.dash-phase-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--phase-color);
+}
+
+.dash-phase-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dash-phase-steps li {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.dash-phase-steps li em { color: #6b7280; }
+.dash-phase-steps li code {
+  background: #1a1b23;
+  border: 1px solid #2a2b35;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.dash-fallback-note {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #111215;
+  border: 1px dashed #374151;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.dash-fallback-note strong { color: #9ca3af; }
+
+.dash-fallback-note code {
+  background: #1a1b23;
+  border: 1px solid #2a2b35;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #e2e8f0;
 }

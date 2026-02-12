@@ -55,15 +55,19 @@ async function loadSavedChat() {
 }
 
 const defaultModels = {
-  ollama: "llama3.1:8b",
-  openai: "gpt-4o",
-  anthropic: "claude-sonnet-4-5-20250929",
-  google: "gemini-2.0-flash",
+  ollama:   "llama3.1:8b",
+  openai:   "gpt-4o",
+  anthropic:"claude-sonnet-4-5-20250929",
+  google:   "gemini-2.0-flash",
+  pretend:  "",   // no model selection for Demo LLM
 };
+
+// Providers that need neither an API key nor a model field
+const _NO_KEY_NO_MODEL = new Set(["ollama", "pretend"]);
 
 function updateApiKeyField() {
   const p = providerSelect.value;
-  if (p === "ollama") {
+  if (_NO_KEY_NO_MODEL.has(p)) {
     apiKeyGroup.style.display = "none";
   } else {
     apiKeyGroup.style.display = "flex";
@@ -78,18 +82,26 @@ function updateApiKeyField() {
       apiKeyInput.disabled = false;
     }
   }
-  modelInput.value = defaultModels[p] || "";
+  // Hide model label+input for Demo LLM — it's irrelevant
+  const modelGroup = document.getElementById("model-group");
+  if (p === "pretend") {
+    modelGroup.style.display = "none";
+  } else {
+    modelGroup.style.display = "contents";
+    modelInput.value = defaultModels[p] || "";
+  }
 }
 
 providerSelect.addEventListener("change", updateApiKeyField);
 
 applyBtn.addEventListener("click", async () => {
+  const p = providerSelect.value;
   const config = {
-    provider: providerSelect.value,
-    model: modelInput.value || defaultModels[providerSelect.value],
+    provider: p,
+    model: p === "pretend" ? "demo" : (modelInput.value || defaultModels[p]),
   };
-  if (providerSelect.value !== "ollama") {
-    const info = providerInfo[providerSelect.value];
+  if (!_NO_KEY_NO_MODEL.has(p)) {
+    const info = providerInfo[p];
     // Only send key if user typed one (not pre-loaded)
     if (!info || !info.has_key) {
       config.api_key = apiKeyInput.value;
@@ -102,7 +114,10 @@ applyBtn.addEventListener("click", async () => {
       body: JSON.stringify(config),
     });
     if (resp.ok) {
-      addMessage("assistant", `Provider set to ${config.provider} (model: ${config.model})`);
+      const label = p === "pretend"
+        ? "Demo LLM — type **help** to see available scripted commands"
+        : `Provider set to ${config.provider} (model: ${config.model})`;
+      addMessage("assistant", label);
     }
   } catch (e) {
     addMessage("error", "Failed to set provider: " + e.message);
@@ -171,13 +186,25 @@ function buildMcpModal() {
     const dotClass = s.status === "online" ? "active" : "inactive";
     const statusText = s.status === "online" ? "Online" : "Offline";
     const port = s.port || "—";
+    const svcName = `mcp-${s.name}`;
+
+    let ctrlHtml = "";
+    if (easyModeEnabled) {
+      if (s.status === "online") {
+        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-stop" data-svc="${svcName}">Stop</button>`;
+      } else {
+        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-start" data-svc="${svcName}">Start</button>`;
+      }
+    }
+
     html += `
       <div class="mcp-server-card">
         <div class="mcp-server-header">
           <span class="status-dot ${dotClass}"></span>
-          <span class="mcp-server-name">mcp-${s.name}</span>
+          <span class="mcp-server-name">${svcName}</span>
           <span class="mcp-server-status">${statusText}</span>
           <code class="mcp-server-url">http://${h}:${port}/mcp</code>
+          ${ctrlHtml}
         </div>`;
 
     if (s.tools.length > 0) {
@@ -186,6 +213,10 @@ function buildMcpModal() {
       html += `<div class="mcp-server-tools"><span class="mcp-no-tools">no tools</span></div>`;
     }
     html += `</div>`;
+  }
+
+  if (easyModeEnabled) {
+    html += `<p class="mcp-easymode-hint">🎮 Easy Mode active — type <kbd>easymode</kbd> anywhere to toggle</p>`;
   }
 
   // Show how to start offline servers (uses detected engine)
@@ -201,6 +232,34 @@ function buildMcpModal() {
 
   document.getElementById("mcp-modal-close").addEventListener("click", () => {
     document.getElementById("mcp-modal").style.display = "none";
+  });
+
+  body.querySelectorAll(".mcp-ctrl-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const svc = btn.dataset.svc;
+      const action = btn.classList.contains("mcp-ctrl-start") ? "start" : "stop";
+      btn.disabled = true;
+      btn.textContent = action === "start" ? "Starting…" : "Stopping…";
+      try {
+        const resp = await fetch("/api/mcp-control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ service: svc, action }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          btn.textContent = "Error";
+          btn.title = err.detail || "unknown error";
+          return;
+        }
+        // Refresh status and rebuild the modal
+        await loadTools();
+        buildMcpModal();
+      } catch (e) {
+        btn.textContent = "Error";
+        btn.title = e.message;
+      }
+    });
   });
 }
 
@@ -265,16 +324,31 @@ function addToolCalls(toolCalls) {
 
     const header = document.createElement("div");
     header.className = "tool-card-header";
-    header.innerHTML = `<span class="tool-name">${tc.name}</span><span class="toggle">&#9660; details</span>`;
+
+    // rawtools: label the header so it's obvious the mode is active
+    const modeTag = rawToolsEnabled
+      ? `<span class="raw-badge">RAW</span>`
+      : "";
+    header.innerHTML = `<span class="tool-name">${tc.name}</span>${modeTag}<span class="toggle">&#9660; details</span>`;
+
+    const result = tc.result || "—";
+    // rawtools: show full result without any truncation; normal: cap display
+    const resultDisplay = rawToolsEnabled
+      ? result
+      : (result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated — type rawtools to see full output)" : result);
 
     const body = document.createElement("div");
-    body.className = "tool-card-body";
+    body.className = "tool-card-body" + (rawToolsEnabled ? " open" : "");
     body.innerHTML = `
       <div class="label">Arguments</div>
       <pre>${JSON.stringify(tc.arguments, null, 2)}</pre>
       <div class="label">Result</div>
-      <pre>${tc.result || "—"}</pre>
+      <pre class="${rawToolsEnabled ? "raw-result" : ""}">${resultDisplay}</pre>
     `;
+
+    if (rawToolsEnabled) {
+      header.querySelector(".toggle").innerHTML = "&#9650; hide";
+    }
 
     header.addEventListener("click", () => {
       body.classList.toggle("open");
@@ -532,29 +606,79 @@ userInput.addEventListener("keydown", (e) => {
 const helpBtn = document.getElementById("help-btn");
 const helpModal = document.getElementById("help-modal");
 
+// Render a URL cell: plain <code> normally; clickable link + ▶ probe button in easymode
+function _urlCell(url) {
+  if (!easyModeEnabled) return `<td><code>${url}</code></td>`;
+  return `<td>
+    <a class="help-url-link" href="${url}" target="_blank" rel="noopener"><code>${url}</code></a>
+    <button class="probe-btn" data-url="${url}" title="Probe URL">&#9654;</button>
+    <span class="probe-result" data-url="${url}"></span>
+  </td>`;
+}
+
+async function runProbe(url, resultEl, btn) {
+  btn.disabled = true;
+  btn.textContent = "…";
+  resultEl.className = "probe-result probe-running";
+  resultEl.textContent = "probing…";
+  try {
+    const resp = await fetch("/api/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json();
+    if (data.status === 0) {
+      resultEl.className = "probe-result probe-error";
+      resultEl.textContent = data.body;
+    } else if (data.status >= 200 && data.status < 300) {
+      resultEl.className = "probe-result probe-ok";
+      const preview = typeof data.body === "object"
+        ? JSON.stringify(data.body, null, 2)
+        : String(data.body);
+      resultEl.textContent = `${data.status} — ${preview.slice(0, 300)}`;
+    } else {
+      resultEl.className = "probe-result probe-error";
+      resultEl.textContent = `${data.status} — ${JSON.stringify(data.body).slice(0, 200)}`;
+    }
+  } catch (e) {
+    resultEl.className = "probe-result probe-error";
+    resultEl.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "▶";
+  }
+}
+
 function buildHelpModal() {
   const h = window.location.hostname || "localhost";
   const body = document.getElementById("help-modal-body");
+
+  const easyBanner = easyModeEnabled
+    ? `<p class="help-easymode-banner">🎮 Easy Mode — URLs are clickable &amp; <strong>▶</strong> probes the endpoint</p>`
+    : "";
+
   body.innerHTML = `
     <button id="help-modal-close" class="modal-close">&times;</button>
     <h2>MCP DevOps Lab &mdash; Quick Reference</h2>
+    ${easyBanner}
 
     <h3>Services &amp; URLs</h3>
     <table class="help-table">
-      <tr><td>Chat UI</td><td><code>http://${h}:3001</code></td></tr>
-      <tr><td>Gitea (Git hosting)</td><td><code>http://${h}:3000</code></td></tr>
-      <tr><td>User API health</td><td><code>http://${h}:8001/health</code></td></tr>
-      <tr><td>Promotion health</td><td><code>http://${h}:8002/health</code></td></tr>
-      <tr><td>Registry Dev</td><td><code>http://${h}:5001/v2/_catalog</code></td></tr>
-      <tr><td>Registry Prod</td><td><code>http://${h}:5002/v2/_catalog</code></td></tr>
+      <tr><td>Chat UI</td>${_urlCell(`http://${h}:3001`)}</tr>
+      <tr><td>Gitea (Git hosting)</td>${_urlCell(`http://${h}:3000`)}</tr>
+      <tr><td>User API health</td>${_urlCell(`http://${h}:8001/health`)}</tr>
+      <tr><td>Promotion health</td>${_urlCell(`http://${h}:8002/health`)}</tr>
+      <tr><td>Registry Dev</td>${_urlCell(`http://${h}:5001/v2/_catalog`)}</tr>
+      <tr><td>Registry Prod</td>${_urlCell(`http://${h}:5002/v2/_catalog`)}</tr>
     </table>
 
     <h3>MCP Servers</h3>
     <table class="help-table">
-      <tr><td>mcp-user</td><td><code>http://${h}:8003/mcp</code></td><td>6 tools</td></tr>
-      <tr><td>mcp-gitea</td><td><code>http://${h}:8004/mcp</code></td><td>7 tools</td></tr>
-      <tr><td>mcp-registry</td><td><code>http://${h}:8005/mcp</code></td><td>3 tools</td></tr>
-      <tr><td>mcp-promotion</td><td><code>http://${h}:8006/mcp</code></td><td>3 tools</td></tr>
+      <tr><td>mcp-user</td>${_urlCell(`http://${h}:8003/mcp`)}<td>6 tools</td></tr>
+      <tr><td>mcp-gitea</td>${_urlCell(`http://${h}:8004/mcp`)}<td>7 tools</td></tr>
+      <tr><td>mcp-registry</td>${_urlCell(`http://${h}:8005/mcp`)}<td>3 tools</td></tr>
+      <tr><td>mcp-promotion</td>${_urlCell(`http://${h}:8006/mcp`)}<td>3 tools</td></tr>
     </table>
 
     <h3>Credentials</h3>
@@ -568,11 +692,9 @@ function buildHelpModal() {
         <pre>${containerEngine} compose up -d mcp-user        # +6 user tools\n${containerEngine} compose up -d mcp-gitea       # +7 git/repo tools\n${containerEngine} compose up -d mcp-registry    # +3 registry tools\n${containerEngine} compose up -d mcp-promotion   # +3 promotion tools</pre>
       </li>
       <li>Stop an MCP server: <code>${containerEngine} compose stop mcp-user</code></li>
-      <li>Enable all at once:
-        <pre>${containerEngine} compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion</pre>
-      </li>
       <li>Check what's running:
         <pre>${containerEngine} compose ps\ncurl http://${h}:3001/api/tools</pre>
+        ${easyModeEnabled ? `<button class="probe-btn probe-btn-inline" data-url="http://${h}:3001/api/tools" title="Run curl">&#9654; run curl</button><span class="probe-result" data-url="http://${h}:3001/api/tools"></span>` : ""}
       </li>
     </ol>
 
@@ -593,6 +715,12 @@ function buildHelpModal() {
 
   document.getElementById("help-modal-close").addEventListener("click", () => {
     helpModal.style.display = "none";
+  });
+
+  body.querySelectorAll(".probe-btn").forEach((btn) => {
+    const url = btn.dataset.url;
+    const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
+    btn.addEventListener("click", () => runProbe(url, resultEl, btn));
   });
 }
 
@@ -619,8 +747,302 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   document.getElementById("token-session-total").textContent = "0 tokens";
 });
 
-// Init
+// ─── Easter eggs ─────────────────────────────────────────────────────────────
+// Type any of these sequences anywhere on the page (not while in an input):
+//   "easymode"  — toggles GUI Start/Stop buttons on the MCP modal
+//   "rawtools"  — toggles auto-expanded, untruncated tool call cards
+//   "schema"    — opens a tool schema browser modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+let easyModeEnabled  = localStorage.getItem("easyMode")     === "true";
+let rawToolsEnabled  = localStorage.getItem("rawTools")     === "true";
+
+const _EGGS = [
+  { seq: "easymode", maxLen: 8 },
+  { seq: "rawtools", maxLen: 8 },
+  { seq: "schema",   maxLen: 6 },
+];
+const _EGG_BUF_MAX = Math.max(..._EGGS.map((e) => e.seq.length));
+let _eggBuf = "";
+
+function _showToast(text) {
+  const t = document.createElement("div");
+  t.className = "easymode-toast";
+  t.textContent = text;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("visible"));
+  setTimeout(() => {
+    t.classList.remove("visible");
+    setTimeout(() => t.remove(), 400);
+  }, 2800);
+}
+
+document.addEventListener("keydown", (e) => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (e.key.length !== 1) return;
+  _eggBuf = (_eggBuf + e.key.toLowerCase()).slice(-_EGG_BUF_MAX);
+
+  if (_eggBuf.endsWith("easymode")) {
+    easyModeEnabled = !easyModeEnabled;
+    localStorage.setItem("easyMode", easyModeEnabled);
+    _showToast(easyModeEnabled
+      ? "🎮 Easy Mode unlocked — GUI controls enabled"
+      : "🔒 Easy Mode off — CLI mode restored");
+    _eggBuf = "";
+  } else if (_eggBuf.endsWith("rawtools")) {
+    rawToolsEnabled = !rawToolsEnabled;
+    localStorage.setItem("rawTools", rawToolsEnabled);
+    _showToast(rawToolsEnabled
+      ? "🔬 Raw Tools on — cards auto-expand with full output"
+      : "🔬 Raw Tools off — cards collapsed");
+    _eggBuf = "";
+  } else if (_eggBuf.endsWith("schema")) {
+    openSchemaModal();
+    _eggBuf = "";
+  }
+});
+
+// ─── Schema modal ─────────────────────────────────────────────────────────────
+
+function buildSchemaModal(tools) {
+  const body = document.getElementById("schema-modal-body");
+
+  let html = `
+    <button id="schema-modal-close" class="modal-close">&times;</button>
+    <h2>Tool Schema Browser</h2>
+    <p class="mcp-summary">${tools.length} tools loaded across all active MCP servers</p>
+  `;
+
+  for (const tool of tools) {
+    const schema = tool.inputSchema || { type: "object", properties: {} };
+    const props  = schema.properties || {};
+    const req    = new Set(schema.required || []);
+
+    let propsHtml = "";
+    for (const [pName, pDef] of Object.entries(props)) {
+      const required = req.has(pName) ? `<span class="schema-required">required</span>` : "";
+      const type     = pDef.type || "any";
+      const desc     = pDef.description || "";
+      propsHtml += `
+        <tr>
+          <td class="schema-prop-name"><code>${pName}</code>${required}</td>
+          <td class="schema-prop-type">${type}</td>
+          <td class="schema-prop-desc">${desc}</td>
+        </tr>`;
+    }
+
+    html += `
+      <div class="schema-tool-card">
+        <div class="schema-tool-name">${tool.name}</div>
+        <div class="schema-tool-desc">${tool.description || ""}</div>
+        ${propsHtml
+          ? `<table class="schema-props-table"><thead>
+               <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+             </thead><tbody>${propsHtml}</tbody></table>`
+          : `<p class="schema-no-params">No parameters</p>`}
+      </div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById("schema-modal-close").addEventListener("click", () => {
+    document.getElementById("schema-modal").style.display = "none";
+  });
+}
+
+async function openSchemaModal() {
+  const modal = document.getElementById("schema-modal");
+  const body  = document.getElementById("schema-modal-body");
+  body.innerHTML = `<button id="schema-modal-close" class="modal-close">&times;</button>
+    <p style="color:#9ca3af;padding:20px">Loading tool schemas…</p>`;
+  document.getElementById("schema-modal-close").addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+  modal.style.display = "flex";
+
+  try {
+    const resp  = await fetch("/api/tools");
+    const data  = await resp.json();
+    buildSchemaModal(data.tools || []);
+  } catch (e) {
+    body.innerHTML += `<p style="color:#ef4444">Failed to load tools: ${e.message}</p>`;
+  }
+}
+
+document.getElementById("schema-modal").addEventListener("click", (e) => {
+  if (e.target.id === "schema-modal") e.target.style.display = "none";
+});
+
+// ─── Lab Dashboard modal ──────────────────────────────────────────────────────
+
+const _LAB_SERVICES = [
+  { label: "Chat UI",          url: "http://localhost:3001",             note: "this page" },
+  { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting" },
+  { label: "User API",         url: "http://localhost:8001/health",      note: "health check" },
+  { label: "Promotion Service",url: "http://localhost:8002/health",      note: "health check" },
+  { label: "Registry (dev)",   url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
+  { label: "Registry (prod)",  url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
+];
+
+const _API_DOCS = [
+  { label: "User API Swagger",       url: "http://localhost:8001/docs",        note: "copy schema → paste into LLM" },
+  { label: "Promotion API Swagger",  url: "http://localhost:8002/docs",        note: "copy schema → paste into LLM" },
+  { label: "Gitea Swagger",          url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
+];
+
+const _PHASES = [
+  {
+    num: "1",
+    title: "Orient — Ollama + endpoints, no MCP",
+    color: "#60a5fa",
+    steps: [
+      'Select <strong>Ollama (Local)</strong> in the provider bar — Ollama ships with most setups',
+      'Browse the <strong>Lab Services</strong> links below to see what is running',
+      'Ask Ollama a free-form question: <em>"What services are running in this lab?"</em>',
+      'It can chat but has <strong>no knowledge of your actual systems</strong> — it can only guess',
+      '<em>Notice:</em> without tool access the LLM cannot list real users, repos, or images',
+    ],
+  },
+  {
+    num: "2",
+    title: "Manual context — paste API docs into the LLM",
+    color: "#a78bfa",
+    steps: [
+      'Open the <strong>API Documentation</strong> links below — these are the raw Swagger schemas',
+      'Copy a schema and paste it into the chat with a question like:<br><em>"Here is the User API. Create a user named bob with email bob@lab.com"</em>',
+      'The LLM can now reason about the API and construct HTTP calls — but only because you pasted the schema',
+      '<em>Notice:</em> you must paste docs every session, keep them up to date, and hope the LLM reads the format correctly',
+      'This is the state of most LLM integrations today — manual, fragile context management',
+    ],
+  },
+  {
+    num: "3",
+    title: "MCP enabled — LLM knows automatically",
+    color: "#34d399",
+    steps: [
+      'Start one or more MCP servers using the <strong>MCP strip</strong> at the top of the page',
+      'The LLM now receives structured tool definitions automatically — no pasting, no prompt engineering',
+      'Ask the same questions: <em>"List all users"</em>, <em>"Create a repo called demo"</em>, <em>"Promote nginx:latest"</em>',
+      'Compare: same LLM, same question, zero manual context — and it actually calls the APIs and returns real data',
+      '<em>This is what MCP does</em> — the API contract lives in the protocol layer, not your clipboard',
+    ],
+  },
+];
+
+function _dashCard(s, extraClass = "") {
+  // In Easy Mode: add a ▶ probe button below the URL; the card itself stays a link.
+  const probeHtml = easyModeEnabled
+    ? `<button class="probe-btn dash-probe-btn" data-url="${s.url}" title="Probe endpoint">&#9654;</button>
+       <span class="probe-result" data-url="${s.url}"></span>`
+    : "";
+  return `
+    <div class="dash-link-card-wrap">
+      <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card ${extraClass}">
+        <span class="dash-link-label">${s.label}</span>
+        <span class="dash-link-url">${s.url}</span>
+        <span class="dash-link-note">${s.note}</span>
+      </a>
+      ${probeHtml}
+    </div>`;
+}
+
+function buildDashboardModal() {
+  const body = document.getElementById("dashboard-modal-body");
+
+  const easyBanner = easyModeEnabled
+    ? `<p class="dash-easy-banner">🎮 Easy Mode active — <strong>▶</strong> buttons probe each endpoint live</p>`
+    : `<p class="dash-easy-hint">Tip: type <kbd>easymode</kbd> anywhere to add live <strong>▶</strong> probe buttons to every endpoint</p>`;
+
+  // ── Section 1: Lab Services ──────────────────────────────────────────
+  const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
+
+  // ── Section 2: API Docs ──────────────────────────────────────────────
+  const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
+
+  // ── Section 3: Learning progression ─────────────────────────────────
+  const phasesHtml = _PHASES.map((p) => `
+    <div class="dash-phase" style="--phase-color:${p.color}">
+      <div class="dash-phase-header">
+        <span class="dash-phase-num">${p.num}</span>
+        <span class="dash-phase-title">${p.title}</span>
+      </div>
+      <ol class="dash-phase-steps">
+        ${p.steps.map((s) => `<li>${s}</li>`).join("")}
+      </ol>
+    </div>`).join("");
+
+  body.innerHTML = `
+    <button id="dashboard-modal-close" class="modal-close">&times;</button>
+    <h2>Lab Dashboard</h2>
+    ${easyBanner}
+
+    <h3 class="dash-section-heading">Lab Services</h3>
+    <p class="dash-section-sub">Click any link to open in a new tab — re-running the setup script won't re-open these.</p>
+    <div class="dash-link-grid">${servicesHtml}</div>
+
+    <h3 class="dash-section-heading">API Documentation</h3>
+    <p class="dash-section-sub">Swagger / OpenAPI pages. Open these during Phase 2 to copy schema context into your LLM.</p>
+    <div class="dash-link-grid">${docsHtml}</div>
+
+    <h3 class="dash-section-heading">Learning Progression</h3>
+    <p class="dash-section-sub">Follow these phases in order — each one shows <em>why</em> the next exists.</p>
+    <div class="dash-phases">${phasesHtml}</div>
+
+    <div class="dash-fallback-note">
+      <strong>No Ollama and no API key?</strong>
+      The <strong>Demo LLM (no key needed)</strong> provider is available as a last resort.
+      It uses hard-coded scripted responses and won't work for Phase 2 — but it lets you
+      explore the MCP tool flow in Phase 3 without any external LLM.
+      Type <code>help</code> after selecting it to see what it understands.
+    </div>
+  `;
+
+  document.getElementById("dashboard-modal-close").addEventListener("click", () => {
+    document.getElementById("dashboard-modal").style.display = "none";
+  });
+
+  // Wire probe buttons if Easy Mode is active
+  if (easyModeEnabled) {
+    body.querySelectorAll(".dash-probe-btn").forEach((btn) => {
+      const url = btn.dataset.url;
+      const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        runProbe(url, resultEl, btn);
+      });
+    });
+  }
+}
+
+document.getElementById("dashboard-btn").addEventListener("click", () => {
+  buildDashboardModal();
+  document.getElementById("dashboard-modal").style.display = "flex";
+});
+
+document.getElementById("dashboard-modal").addEventListener("click", (e) => {
+  if (e.target.id === "dashboard-modal") e.target.style.display = "none";
+});
+
+// Auto-show dashboard on first visit (no saved chat history)
+async function maybeShowDashboard() {
+  // Only auto-show once per browser session, not on every page reload
+  if (sessionStorage.getItem("dashboardShown")) return;
+  sessionStorage.setItem("dashboardShown", "1");
+  try {
+    const resp = await fetch("/api/chat-history");
+    if (!resp.ok) { buildDashboardModal(); document.getElementById("dashboard-modal").style.display = "flex"; return; }
+    const saved = await resp.json();
+    if (!saved.turns || saved.turns.length === 0) {
+      buildDashboardModal();
+      document.getElementById("dashboard-modal").style.display = "flex";
+    }
+  } catch {
+    // ignore — don't block init
+  }
+}
+
+// ─── Init ───
 loadProviders();
 loadTools();
-loadSavedChat();
+loadSavedChat().then(() => maybeShowDashboard());
 setInterval(loadTools, 30000);

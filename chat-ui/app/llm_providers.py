@@ -5,6 +5,7 @@ from .mcp_client import (
     mcp_tools_to_openai_format,
     mcp_tools_to_anthropic_format,
     call_tool,
+    check_servers,
 )
 
 
@@ -285,6 +286,218 @@ class GoogleProvider(LLMProvider):
         }
 
 
+class PretendProvider(LLMProvider):
+    """
+    Zero-dependency demo LLM.  No API key, no Ollama required.
+
+    It matches the user's message against a catalogue of scripted intents.
+    When a match is found it actually calls the real MCP tools, so the UI
+    shows genuine tool cards and live data.  Unknown messages get a help
+    reply listing all available prompts.
+
+    Predefined prompts (case-insensitive, partial match):
+      "list users"       → list_users
+      "create user"      → create_user  (tries to parse <name> and <email>)
+      "list repos"       → list_repos
+      "create repo"      → create_repo  (tries to parse <name>)
+      "list images"      → list_images
+      "list promotions"  → list_promotions
+      "promote"          → promote_image (tries to parse <image> and <tag>)
+      "mcp status"       → mcp_server_status (synthetic tool)
+      "help" / "?"       → lists this catalogue (no tool call)
+      "hello" / "hi"     → greeting
+    """
+
+    # ------------------------------------------------------------------
+    # Catalogue: (trigger_phrases, handler_method_name, description_for_help)
+    # ------------------------------------------------------------------
+    _CATALOGUE = [
+        (["list users", "show users", "get users"],           "_h_list_users",       "list users"),
+        (["create user"],                                      "_h_create_user",      'create user <name> <email>  — e.g. "create user alice alice@example.com"'),
+        (["list repos", "show repos", "repositories", "list repo"],
+                                                              "_h_list_repos",       "list repos"),
+        (["create repo"],                                      "_h_create_repo",      'create repo <name>  — e.g. "create repo my-project"'),
+        (["list images", "show images", "registry"],          "_h_list_images",      "list images"),
+        (["list promotions", "show promotions", "promotions"],"_h_list_promotions",  "list promotions"),
+        (["promote"],                                          "_h_promote",          'promote <image>:<tag>  — e.g. "promote nginx:latest"'),
+        (["show me the endpoints", "list endpoints", "show endpoints",
+          "what endpoints", "endpoints"],                      "_h_endpoints",        "show me the endpoints"),
+        (["mcp status", "server status", "status"],           "_h_mcp_status",       "mcp status"),
+        (["hello", "hi ", "hey", "greet"],                    "_h_greet",            "hello / hi"),
+        (["help", "?", "what can you do", "commands"],        "_h_help",             "help"),
+    ]
+
+    # ------------------------------------------------------------------
+
+    async def chat(self, messages: list[dict], tools: list[dict]) -> dict:
+        user_msg = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                user_msg = m.get("content", "")
+                break
+        needle = user_msg.lower().strip()
+
+        for triggers, handler_name, _ in self._CATALOGUE:
+            if any(t in needle for t in triggers):
+                handler = getattr(self, handler_name)
+                return await handler(needle, tools)
+
+        # No match — return help
+        return await self._h_help(needle, tools)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _zero_usage(self):
+        return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+
+    def _help_text(self):
+        lines = ["I'm the **Demo LLM** — no API key or Ollama needed.", "",
+                 "I understand these scripted commands (partial match, case-insensitive):", ""]
+        for _, _, desc in self._CATALOGUE:
+            lines.append(f"  • {desc}")
+        lines += ["", "I call the **real MCP tools** when available, so you see live data.",
+                  "Switch to Ollama or a cloud provider for free-form conversation."]
+        return "\n".join(lines)
+
+    async def _tool_reply(self, tool_name: str, args: dict, reply_prefix: str):
+        """Call one MCP tool and return a formatted result dict."""
+        try:
+            result = await call_tool(tool_name, args)
+        except Exception as e:
+            result = f"Error calling {tool_name}: {e}"
+        tc = {"name": tool_name, "arguments": args, "result": result}
+        try:
+            parsed = json.loads(result)
+            pretty = json.dumps(parsed, indent=2)
+        except Exception:
+            pretty = result
+        return {
+            "reply": f"{reply_prefix}\n\n```\n{pretty}\n```",
+            "tool_calls": [tc],
+            "token_usage": self._zero_usage(),
+        }
+
+    # ------------------------------------------------------------------
+    # Handlers — each receives (needle: str, tools: list[dict])
+    # ------------------------------------------------------------------
+
+    async def _h_list_users(self, needle, tools):
+        return await self._tool_reply("list_users", {}, "Here are the current users:")
+
+    async def _h_create_user(self, needle, tools):
+        # Try to extract name and email from the message
+        # "create user alice alice@example.com"
+        import re
+        m = re.search(r"create user\s+(\S+)\s+(\S+@\S+)", needle)
+        if m:
+            name, email = m.group(1), m.group(2)
+            return await self._tool_reply("create_user", {"username": name, "email": email},
+                                          f"Creating user **{name}** ({email})…")
+        # fallback: no args — let the tool complain
+        return {
+            "reply": ('Usage: `create user <username> <email>`\n\n'
+                      'Example: `create user alice alice@example.com`'),
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_list_repos(self, needle, tools):
+        return await self._tool_reply("list_repos", {}, "Here are the Git repositories:")
+
+    async def _h_create_repo(self, needle, tools):
+        import re
+        m = re.search(r"create repo\s+(\S+)", needle)
+        if m:
+            name = m.group(1)
+            return await self._tool_reply("create_repo", {"name": name},
+                                          f"Creating repository **{name}**…")
+        return {
+            "reply": 'Usage: `create repo <name>`\n\nExample: `create repo my-project`',
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_list_images(self, needle, tools):
+        return await self._tool_reply("list_images", {}, "Here are the container images in the registry:")
+
+    async def _h_list_promotions(self, needle, tools):
+        return await self._tool_reply("list_promotions", {}, "Here are the current promotions:")
+
+    async def _h_promote(self, needle, tools):
+        import re
+        # "promote nginx:latest"  or  "promote nginx latest"
+        m = re.search(r"promote\s+(\S+):(\S+)", needle) or re.search(r"promote\s+(\S+)\s+(\S+)", needle)
+        if m:
+            image, tag = m.group(1), m.group(2)
+            return await self._tool_reply("promote_image", {"image": image, "tag": tag},
+                                          f"Promoting **{image}:{tag}**…")
+        return {
+            "reply": 'Usage: `promote <image>:<tag>`\n\nExample: `promote nginx:latest`',
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_endpoints(self, needle, tools):
+        """Show MCP server base URLs, their MCP protocol paths, and per-server tool list."""
+        try:
+            servers = await check_servers()
+        except Exception as e:
+            return {
+                "reply": f"Could not reach MCP servers: {e}",
+                "tool_calls": [],
+                "token_usage": self._zero_usage(),
+            }
+
+        lines = ["## MCP Server Endpoints", ""]
+        for s in servers:
+            status_icon = "🟢" if s["status"] == "online" else "🔴"
+            lines.append(f"### {status_icon} {s['name']}  (port {s['port']})")
+            lines.append("")
+            lines.append(f"| Path | Method | Purpose |")
+            lines.append(f"|------|--------|---------|")
+            lines.append(f"| `{s['url']}/tools/list` | POST | List all tools this server exposes |")
+            lines.append(f"| `{s['url']}/tools/call` | POST | Invoke a tool |")
+            lines.append(f"| `{s['url']}/initialize` | POST | MCP handshake (sent automatically) |")
+            lines.append("")
+            if s["tools"]:
+                lines.append(f"**Tools ({s['tool_count']}):** " + ", ".join(f"`{t}`" for t in s["tools"]))
+            else:
+                lines.append("*No tools available (server offline or no tools registered)*")
+            lines.append("")
+
+        lines += [
+            "---",
+            "**Protocol note:** all paths use JSON-RPC 2.0 over HTTP POST.  "
+            "The chat-ui adds `Content-Type: application/json` and handles SSE responses automatically.",
+        ]
+        return {
+            "reply": "\n".join(lines),
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_mcp_status(self, needle, tools):
+        return await self._tool_reply("mcp_server_status", {}, "MCP server status:")
+
+    async def _h_greet(self, needle, tools):
+        return {
+            "reply": ("👋 Hello! I'm the **Demo LLM** — a zero-dependency fallback "
+                      "that works without Ollama or an API key.\n\n"
+                      "Type **help** to see what I can do."),
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+    async def _h_help(self, needle, tools):
+        return {
+            "reply": self._help_text(),
+            "tool_calls": [],
+            "token_usage": self._zero_usage(),
+        }
+
+
 def get_provider(config: dict) -> LLMProvider:
     """Factory to create the right provider from config."""
     provider_type = config.get("provider", "ollama")
@@ -308,5 +521,7 @@ def get_provider(config: dict) -> LLMProvider:
             api_key=config.get("api_key", ""),
             model=config.get("model", "gemini-2.0-flash"),
         )
+    elif provider_type == "pretend":
+        return PretendProvider()
     else:
         raise ValueError(f"Unknown provider: {provider_type}")
