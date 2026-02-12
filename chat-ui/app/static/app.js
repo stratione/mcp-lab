@@ -576,29 +576,79 @@ userInput.addEventListener("keydown", (e) => {
 const helpBtn = document.getElementById("help-btn");
 const helpModal = document.getElementById("help-modal");
 
+// Render a URL cell: plain <code> normally; clickable link + ▶ probe button in easymode
+function _urlCell(url) {
+  if (!easyModeEnabled) return `<td><code>${url}</code></td>`;
+  return `<td>
+    <a class="help-url-link" href="${url}" target="_blank" rel="noopener"><code>${url}</code></a>
+    <button class="probe-btn" data-url="${url}" title="Probe URL">&#9654;</button>
+    <span class="probe-result" data-url="${url}"></span>
+  </td>`;
+}
+
+async function runProbe(url, resultEl, btn) {
+  btn.disabled = true;
+  btn.textContent = "…";
+  resultEl.className = "probe-result probe-running";
+  resultEl.textContent = "probing…";
+  try {
+    const resp = await fetch("/api/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json();
+    if (data.status === 0) {
+      resultEl.className = "probe-result probe-error";
+      resultEl.textContent = data.body;
+    } else if (data.status >= 200 && data.status < 300) {
+      resultEl.className = "probe-result probe-ok";
+      const preview = typeof data.body === "object"
+        ? JSON.stringify(data.body, null, 2)
+        : String(data.body);
+      resultEl.textContent = `${data.status} — ${preview.slice(0, 300)}`;
+    } else {
+      resultEl.className = "probe-result probe-error";
+      resultEl.textContent = `${data.status} — ${JSON.stringify(data.body).slice(0, 200)}`;
+    }
+  } catch (e) {
+    resultEl.className = "probe-result probe-error";
+    resultEl.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "▶";
+  }
+}
+
 function buildHelpModal() {
   const h = window.location.hostname || "localhost";
   const body = document.getElementById("help-modal-body");
+
+  const easyBanner = easyModeEnabled
+    ? `<p class="help-easymode-banner">🎮 Easy Mode — URLs are clickable &amp; <strong>▶</strong> probes the endpoint</p>`
+    : "";
+
   body.innerHTML = `
     <button id="help-modal-close" class="modal-close">&times;</button>
     <h2>MCP DevOps Lab &mdash; Quick Reference</h2>
+    ${easyBanner}
 
     <h3>Services &amp; URLs</h3>
     <table class="help-table">
-      <tr><td>Chat UI</td><td><code>http://${h}:3001</code></td></tr>
-      <tr><td>Gitea (Git hosting)</td><td><code>http://${h}:3000</code></td></tr>
-      <tr><td>User API health</td><td><code>http://${h}:8001/health</code></td></tr>
-      <tr><td>Promotion health</td><td><code>http://${h}:8002/health</code></td></tr>
-      <tr><td>Registry Dev</td><td><code>http://${h}:5001/v2/_catalog</code></td></tr>
-      <tr><td>Registry Prod</td><td><code>http://${h}:5002/v2/_catalog</code></td></tr>
+      <tr><td>Chat UI</td>${_urlCell(`http://${h}:3001`)}</tr>
+      <tr><td>Gitea (Git hosting)</td>${_urlCell(`http://${h}:3000`)}</tr>
+      <tr><td>User API health</td>${_urlCell(`http://${h}:8001/health`)}</tr>
+      <tr><td>Promotion health</td>${_urlCell(`http://${h}:8002/health`)}</tr>
+      <tr><td>Registry Dev</td>${_urlCell(`http://${h}:5001/v2/_catalog`)}</tr>
+      <tr><td>Registry Prod</td>${_urlCell(`http://${h}:5002/v2/_catalog`)}</tr>
     </table>
 
     <h3>MCP Servers</h3>
     <table class="help-table">
-      <tr><td>mcp-user</td><td><code>http://${h}:8003/mcp</code></td><td>6 tools</td></tr>
-      <tr><td>mcp-gitea</td><td><code>http://${h}:8004/mcp</code></td><td>7 tools</td></tr>
-      <tr><td>mcp-registry</td><td><code>http://${h}:8005/mcp</code></td><td>3 tools</td></tr>
-      <tr><td>mcp-promotion</td><td><code>http://${h}:8006/mcp</code></td><td>3 tools</td></tr>
+      <tr><td>mcp-user</td>${_urlCell(`http://${h}:8003/mcp`)}<td>6 tools</td></tr>
+      <tr><td>mcp-gitea</td>${_urlCell(`http://${h}:8004/mcp`)}<td>7 tools</td></tr>
+      <tr><td>mcp-registry</td>${_urlCell(`http://${h}:8005/mcp`)}<td>3 tools</td></tr>
+      <tr><td>mcp-promotion</td>${_urlCell(`http://${h}:8006/mcp`)}<td>3 tools</td></tr>
     </table>
 
     <h3>Credentials</h3>
@@ -617,6 +667,7 @@ function buildHelpModal() {
       </li>
       <li>Check what's running:
         <pre>${containerEngine} compose ps\ncurl http://${h}:3001/api/tools</pre>
+        ${easyModeEnabled ? `<button class="probe-btn probe-btn-inline" data-url="http://${h}:3001/api/tools" title="Run curl">&#9654; run curl</button><span class="probe-result" data-url="http://${h}:3001/api/tools"></span>` : ""}
       </li>
     </ol>
 
@@ -637,6 +688,12 @@ function buildHelpModal() {
 
   document.getElementById("help-modal-close").addEventListener("click", () => {
     helpModal.style.display = "none";
+  });
+
+  body.querySelectorAll(".probe-btn").forEach((btn) => {
+    const url = btn.dataset.url;
+    const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
+    btn.addEventListener("click", () => runProbe(url, resultEl, btn));
   });
 }
 

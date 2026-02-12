@@ -449,6 +449,53 @@ header h1 {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── Help modal easy-mode enhancements ── */
+.help-easymode-banner {
+  font-size: 11px;
+  color: #6b7280;
+  background: #0f1117;
+  border: 1px dashed #374151;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+
+.help-url-link code { color: #60a5fa; text-decoration: none; }
+.help-url-link:hover code { text-decoration: underline; }
+
+.probe-btn {
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: #1e1f2a;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #9ca3af;
+  font-size: 11px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 0.15s, border-color 0.15s;
+}
+.probe-btn:hover:not(:disabled) { color: #e2e8f0; border-color: #6b7280; }
+.probe-btn:disabled { opacity: 0.4; cursor: default; }
+.probe-btn-inline { margin-top: 6px; display: inline-block; }
+
+.probe-result {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 140px;
+  overflow-y: auto;
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+.probe-result:empty { display: none; }
+.probe-running { color: #9ca3af; background: #0f1117; }
+.probe-ok      { color: #22c55e; background: #0d2b1a; border: 1px solid #14532d; }
+.probe-error   { color: #ef4444; background: #2b0d0d; border: 1px solid #450a0a; }
+
 .token-session-total {
   font-size: 12px;
   color: #6b7280;

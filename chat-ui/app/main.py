@@ -1,7 +1,9 @@
 import json
 import os
 import pathlib
+import re
 import subprocess
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -138,6 +140,31 @@ async def mcp_control(request: Request):
         return {"ok": True, "service": service, "action": action}
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="compose command timed out")
+
+
+_PROBE_ALLOWLIST = re.compile(
+    r"^http://(localhost|127\.0\.0\.1):\d{1,5}(/.*)?$"
+)
+
+
+@app.post("/api/probe")
+async def probe_url(request: Request):
+    body = await request.json()
+    url = body.get("url", "").strip()
+    if not _PROBE_ALLOWLIST.match(url):
+        raise HTTPException(status_code=400, detail="URL not in allowlist (localhost only)")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url)
+        try:
+            snippet = resp.json()
+        except Exception:
+            snippet = resp.text[:500]
+        return {"status": resp.status_code, "body": snippet}
+    except httpx.ConnectError:
+        return {"status": 0, "body": "connection refused"}
+    except httpx.TimeoutException:
+        return {"status": 0, "body": "timed out"}
 
 
 @app.get("/api/chat-history")
