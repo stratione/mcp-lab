@@ -309,16 +309,31 @@ function addToolCalls(toolCalls) {
 
     const header = document.createElement("div");
     header.className = "tool-card-header";
-    header.innerHTML = `<span class="tool-name">${tc.name}</span><span class="toggle">&#9660; details</span>`;
+
+    // rawtools: label the header so it's obvious the mode is active
+    const modeTag = rawToolsEnabled
+      ? `<span class="raw-badge">RAW</span>`
+      : "";
+    header.innerHTML = `<span class="tool-name">${tc.name}</span>${modeTag}<span class="toggle">&#9660; details</span>`;
+
+    const result = tc.result || "—";
+    // rawtools: show full result without any truncation; normal: cap display
+    const resultDisplay = rawToolsEnabled
+      ? result
+      : (result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated — type rawtools to see full output)" : result);
 
     const body = document.createElement("div");
-    body.className = "tool-card-body";
+    body.className = "tool-card-body" + (rawToolsEnabled ? " open" : "");
     body.innerHTML = `
       <div class="label">Arguments</div>
       <pre>${JSON.stringify(tc.arguments, null, 2)}</pre>
       <div class="label">Result</div>
-      <pre>${tc.result || "—"}</pre>
+      <pre class="${rawToolsEnabled ? "raw-result" : ""}">${resultDisplay}</pre>
     `;
+
+    if (rawToolsEnabled) {
+      header.querySelector(".toggle").innerHTML = "&#9650; hide";
+    }
 
     header.addEventListener("click", () => {
       body.classList.toggle("open");
@@ -720,17 +735,28 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   document.getElementById("token-session-total").textContent = "0 tokens";
 });
 
-// ─── Easter egg: type "easymode" anywhere (not in an input) to unlock GUI controls ───
-let easyModeEnabled = localStorage.getItem("easyMode") === "true";
-let _easyBuf = "";
-const _EASY_SEQ = "easymode";
+// ─── Easter eggs ─────────────────────────────────────────────────────────────
+// Type any of these sequences anywhere on the page (not while in an input):
+//   "easymode"  — toggles GUI Start/Stop buttons on the MCP modal
+//   "rawtools"  — toggles auto-expanded, untruncated tool call cards
+//   "schema"    — opens a tool schema browser modal
+// ─────────────────────────────────────────────────────────────────────────────
 
-function showEasyModeToast(enabled) {
+let easyModeEnabled  = localStorage.getItem("easyMode")     === "true";
+let rawToolsEnabled  = localStorage.getItem("rawTools")     === "true";
+
+const _EGGS = [
+  { seq: "easymode", maxLen: 8 },
+  { seq: "rawtools", maxLen: 8 },
+  { seq: "schema",   maxLen: 6 },
+];
+const _EGG_BUF_MAX = Math.max(..._EGGS.map((e) => e.seq.length));
+let _eggBuf = "";
+
+function _showToast(text) {
   const t = document.createElement("div");
   t.className = "easymode-toast";
-  t.textContent = enabled
-    ? "🎮 Easy Mode unlocked — GUI controls enabled"
-    : "🔒 Easy Mode off — CLI mode restored";
+  t.textContent = text;
   document.body.appendChild(t);
   requestAnimationFrame(() => t.classList.add("visible"));
   setTimeout(() => {
@@ -743,13 +769,96 @@ document.addEventListener("keydown", (e) => {
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   if (e.key.length !== 1) return;
-  _easyBuf = (_easyBuf + e.key.toLowerCase()).slice(-_EASY_SEQ.length);
-  if (_easyBuf === _EASY_SEQ) {
+  _eggBuf = (_eggBuf + e.key.toLowerCase()).slice(-_EGG_BUF_MAX);
+
+  if (_eggBuf.endsWith("easymode")) {
     easyModeEnabled = !easyModeEnabled;
     localStorage.setItem("easyMode", easyModeEnabled);
-    showEasyModeToast(easyModeEnabled);
-    _easyBuf = "";
+    _showToast(easyModeEnabled
+      ? "🎮 Easy Mode unlocked — GUI controls enabled"
+      : "🔒 Easy Mode off — CLI mode restored");
+    _eggBuf = "";
+  } else if (_eggBuf.endsWith("rawtools")) {
+    rawToolsEnabled = !rawToolsEnabled;
+    localStorage.setItem("rawTools", rawToolsEnabled);
+    _showToast(rawToolsEnabled
+      ? "🔬 Raw Tools on — cards auto-expand with full output"
+      : "🔬 Raw Tools off — cards collapsed");
+    _eggBuf = "";
+  } else if (_eggBuf.endsWith("schema")) {
+    openSchemaModal();
+    _eggBuf = "";
   }
+});
+
+// ─── Schema modal ─────────────────────────────────────────────────────────────
+
+function buildSchemaModal(tools) {
+  const body = document.getElementById("schema-modal-body");
+
+  let html = `
+    <button id="schema-modal-close" class="modal-close">&times;</button>
+    <h2>Tool Schema Browser</h2>
+    <p class="mcp-summary">${tools.length} tools loaded across all active MCP servers</p>
+  `;
+
+  for (const tool of tools) {
+    const schema = tool.inputSchema || { type: "object", properties: {} };
+    const props  = schema.properties || {};
+    const req    = new Set(schema.required || []);
+
+    let propsHtml = "";
+    for (const [pName, pDef] of Object.entries(props)) {
+      const required = req.has(pName) ? `<span class="schema-required">required</span>` : "";
+      const type     = pDef.type || "any";
+      const desc     = pDef.description || "";
+      propsHtml += `
+        <tr>
+          <td class="schema-prop-name"><code>${pName}</code>${required}</td>
+          <td class="schema-prop-type">${type}</td>
+          <td class="schema-prop-desc">${desc}</td>
+        </tr>`;
+    }
+
+    html += `
+      <div class="schema-tool-card">
+        <div class="schema-tool-name">${tool.name}</div>
+        <div class="schema-tool-desc">${tool.description || ""}</div>
+        ${propsHtml
+          ? `<table class="schema-props-table"><thead>
+               <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+             </thead><tbody>${propsHtml}</tbody></table>`
+          : `<p class="schema-no-params">No parameters</p>`}
+      </div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById("schema-modal-close").addEventListener("click", () => {
+    document.getElementById("schema-modal").style.display = "none";
+  });
+}
+
+async function openSchemaModal() {
+  const modal = document.getElementById("schema-modal");
+  const body  = document.getElementById("schema-modal-body");
+  body.innerHTML = `<button id="schema-modal-close" class="modal-close">&times;</button>
+    <p style="color:#9ca3af;padding:20px">Loading tool schemas…</p>`;
+  document.getElementById("schema-modal-close").addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+  modal.style.display = "flex";
+
+  try {
+    const resp  = await fetch("/api/tools");
+    const data  = await resp.json();
+    buildSchemaModal(data.tools || []);
+  } catch (e) {
+    body.innerHTML += `<p style="color:#ef4444">Failed to load tools: ${e.message}</p>`;
+  }
+}
+
+document.getElementById("schema-modal").addEventListener("click", (e) => {
+  if (e.target.id === "schema-modal") e.target.style.display = "none";
 });
 
 // ─── Init ───

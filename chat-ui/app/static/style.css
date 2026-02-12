@@ -673,6 +673,101 @@ header h1 {
   color: #e4e4e7;
 }
 
+/* Wider variant for the schema browser */
+.modal-content-wide { max-width: 860px; }
+
+/* ── rawtools easter egg ── */
+.raw-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: #1c2a3a;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #60a5fa;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+.raw-result {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-left: 2px solid #3b82f6;
+  padding-left: 8px;
+}
+
+/* ── schema modal ── */
+.schema-tool-card {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: #0f1117;
+  border: 1px solid #2a2b35;
+  border-radius: 8px;
+}
+
+.schema-tool-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.schema-tool-desc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.schema-no-params {
+  font-size: 12px;
+  color: #4b5563;
+  font-style: italic;
+  margin: 0;
+}
+
+.schema-props-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.schema-props-table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: #6b7280;
+  font-weight: 600;
+  border-bottom: 1px solid #2a2b35;
+}
+
+.schema-props-table td { padding: 5px 8px; vertical-align: top; }
+.schema-props-table tr:hover td { background: #13141c; }
+
+.schema-prop-name code { color: #e2e8f0; font-size: 12px; }
+
+.schema-required {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #f59e0b;
+  background: #1c1a08;
+  border: 1px solid #92400e;
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.schema-prop-type { color: #a78bfa; font-family: monospace; white-space: nowrap; }
+.schema-prop-desc { color: #9ca3af; line-height: 1.4; }
+
 .modal-close {
   position: absolute;
   top: 12px;
