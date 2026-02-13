@@ -749,27 +749,18 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 
 // ─── Easter eggs ─────────────────────────────────────────────────────────────
 // Type any of these sequences anywhere on the page (not while in an input):
-//   "easymode"           — toggles GUI Start/Stop buttons on the MCP modal
-//   "rawtools"           — toggles auto-expanded, untruncated tool call cards
-//   "schema"             — opens a tool schema browser modal
-//   "thestruggleisreal"  — unlocks API Documentation section in the dashboard
-//
-// TODO: Hide easter egg hints in F12 dev tools (e.g. console.log breadcrumbs,
-//       subtle messages in network responses, or DOM data attributes) so
-//       students who inspect the page can discover them organically.
+//   "thestruggleisreal" — toggles all power-user features at once (GUI
+//                         controls, raw tools, API docs, schema browser)
+//   "iamgood"           — opens the tool schema browser modal
 // ─────────────────────────────────────────────────────────────────────────────
 
-let easyModeEnabled  = localStorage.getItem("easyMode")     === "true";
-let rawToolsEnabled  = localStorage.getItem("rawTools")     === "true";
-let struggleUnlocked = localStorage.getItem("struggleUnlocked") === "true";
+let easyModeEnabled  = localStorage.getItem("easyMode") === "true";
+let rawToolsEnabled  = easyModeEnabled;
+let struggleUnlocked = easyModeEnabled;
+// Clean up legacy per-feature keys
+localStorage.removeItem("rawTools");
+localStorage.removeItem("struggleUnlocked");
 
-const _EGGS = [
-  { seq: "easymode",           maxLen: 8  },
-  { seq: "rawtools",           maxLen: 8  },
-  { seq: "schema",             maxLen: 6  },
-  { seq: "thestruggleisreal",  maxLen: 18 },
-];
-const _EGG_BUF_MAX = Math.max(..._EGGS.map((e) => e.seq.length));
 let _eggBuf = "";
 
 function _showToast(text) {
@@ -788,32 +779,19 @@ document.addEventListener("keydown", (e) => {
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   if (e.key.length !== 1) return;
-  _eggBuf = (_eggBuf + e.key.toLowerCase()).slice(-_EGG_BUF_MAX);
+  _eggBuf = (_eggBuf + e.key.toLowerCase()).slice(-18);
 
-  if (_eggBuf.endsWith("easymode")) {
+  if (_eggBuf.endsWith("thestruggleisreal")) {
     easyModeEnabled = !easyModeEnabled;
+    rawToolsEnabled = easyModeEnabled;
+    struggleUnlocked = easyModeEnabled;
     localStorage.setItem("easyMode", easyModeEnabled);
     _showToast(easyModeEnabled
-      ? "🎮 Easy Mode unlocked — GUI controls enabled"
-      : "🔒 Easy Mode off — CLI mode restored");
+      ? "🎮 Easy Mode ON — all features unlocked"
+      : "🔒 Easy Mode OFF — back to basics");
     _eggBuf = "";
-  } else if (_eggBuf.endsWith("rawtools")) {
-    rawToolsEnabled = !rawToolsEnabled;
-    localStorage.setItem("rawTools", rawToolsEnabled);
-    _showToast(rawToolsEnabled
-      ? "🔬 Raw Tools on — cards auto-expand with full output"
-      : "🔬 Raw Tools off — cards collapsed");
-    _eggBuf = "";
-  } else if (_eggBuf.endsWith("schema")) {
+  } else if (_eggBuf.endsWith("iamgood")) {
     openSchemaModal();
-    _eggBuf = "";
-  } else if (_eggBuf.endsWith("thestruggleisreal")) {
-    struggleUnlocked = true;
-    localStorage.setItem("struggleUnlocked", "true");
-    _showToast("API docs unlocked — check the Lab Dashboard");
-    // Auto-open dashboard so they see the docs immediately
-    buildDashboardModal();
-    document.getElementById("dashboard-modal").style.display = "flex";
     _eggBuf = "";
   }
 });
@@ -918,13 +896,51 @@ function _dashCard(s, extraClass = "") {
   return `
     <div class="dash-link-card-wrap">
       <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card ${extraClass}">
-        <span class="dash-link-label">${s.label}</span>
+        <span class="dash-link-label"><span class="dash-status-dot" data-probe-url="${s.url}"></span>${s.label}</span>
         <span class="dash-link-url">${s.url}</span>
         ${credsHtml}
         <span class="dash-link-note">${s.note}</span>
       </a>
       ${probeHtml}
     </div>`;
+}
+
+let _dashRefreshTimer = null;
+
+async function _probeAllServices() {
+  const modal = document.getElementById("dashboard-modal");
+  if (modal.style.display === "none" || modal.style.display === "") return;
+
+  const dots = modal.querySelectorAll(".dash-status-dot[data-probe-url]");
+  const promises = Array.from(dots).map(async (dot) => {
+    const url = dot.dataset.probeUrl;
+    try {
+      const resp = await fetch("/api/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await resp.json();
+      dot.className = "dash-status-dot " +
+        (data.status >= 200 && data.status < 300 ? "dash-dot-ok" : "dash-dot-err");
+    } catch {
+      dot.className = "dash-status-dot dash-dot-err";
+    }
+  });
+  await Promise.all(promises);
+}
+
+function _startDashRefresh() {
+  _stopDashRefresh();
+  _probeAllServices();
+  _dashRefreshTimer = setInterval(_probeAllServices, 5000);
+}
+
+function _stopDashRefresh() {
+  if (_dashRefreshTimer) {
+    clearInterval(_dashRefreshTimer);
+    _dashRefreshTimer = null;
+  }
 }
 
 function buildDashboardModal() {
@@ -955,6 +971,7 @@ function buildDashboardModal() {
   `;
 
   document.getElementById("dashboard-modal-close").addEventListener("click", () => {
+    _stopDashRefresh();
     document.getElementById("dashboard-modal").style.display = "none";
   });
 
@@ -969,15 +986,20 @@ function buildDashboardModal() {
       });
     });
   }
+
 }
 
 document.getElementById("dashboard-btn").addEventListener("click", () => {
   buildDashboardModal();
   document.getElementById("dashboard-modal").style.display = "flex";
+  _startDashRefresh();
 });
 
 document.getElementById("dashboard-modal").addEventListener("click", (e) => {
-  if (e.target.id === "dashboard-modal") e.target.style.display = "none";
+  if (e.target.id === "dashboard-modal") {
+    _stopDashRefresh();
+    e.target.style.display = "none";
+  }
 });
 
 // Dashboard no longer auto-shows — students must explore on their own first.

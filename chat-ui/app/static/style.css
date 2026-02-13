@@ -1055,3 +1055,19 @@ header h1 {
   font-size: 11px;
   color: #e2e8f0;
 }
+
+/* ── Dashboard live status dots ── */
+.dash-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #374151;
+  margin-right: 7px;
+  vertical-align: middle;
+  transition: background 0.3s;
+}
+
+.dash-dot-ok  { background: #22c55e; }
+.dash-dot-err { background: #ef4444; }
+

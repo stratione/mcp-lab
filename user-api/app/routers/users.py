@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Response
 from ..models import UserCreate, UserUpdate, UserResponse
 from ..database import get_db
 
@@ -20,8 +20,6 @@ def _row_to_dict(row) -> dict:
 
 @router.post("", response_model=UserResponse, status_code=201)
 def create_user(user: UserCreate):
-    if user.role not in ("admin", "dev", "viewer"):
-        raise HTTPException(status_code=400, detail="Role must be admin, dev, or viewer")
     db = get_db()
     try:
         cursor = db.execute(
@@ -40,9 +38,39 @@ def create_user(user: UserCreate):
 
 
 @router.get("", response_model=list[UserResponse])
-def list_users():
+def list_users(
+    response: Response,
+    role: str | None = None,
+    is_active: bool | None = None,
+    search: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
     db = get_db()
-    rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
+    conditions = []
+    params: list = []
+
+    if role is not None:
+        conditions.append("role = ?")
+        params.append(role)
+    if is_active is not None:
+        conditions.append("is_active = ?")
+        params.append(int(is_active))
+    if search:
+        conditions.append("(username LIKE ? OR email LIKE ? OR full_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    count_row = db.execute(f"SELECT COUNT(*) FROM users{where}", params).fetchone()
+    total = count_row[0]
+    response.headers["X-Total-Count"] = str(total)
+
+    rows = db.execute(
+        f"SELECT * FROM users{where} ORDER BY id LIMIT ? OFFSET ?",
+        params + [limit, offset],
+    ).fetchall()
     db.close()
     return [_row_to_dict(r) for r in rows]
 
@@ -81,9 +109,6 @@ def update_user(user_id: int, user: UserUpdate):
     if user.full_name is not None:
         updates["full_name"] = user.full_name
     if user.role is not None:
-        if user.role not in ("admin", "dev", "viewer"):
-            db.close()
-            raise HTTPException(status_code=400, detail="Role must be admin, dev, or viewer")
         updates["role"] = user.role
     if user.is_active is not None:
         updates["is_active"] = int(user.is_active)

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User API Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>User API</h1>
+      <span id="user-count" class="user-count">— users</span>
+    </div>
+    <div class="header-right">
+      <button id="refresh-btn" class="btn btn-primary" onclick="fetchUsers()">Refresh</button>
+      <a href="/docs" class="btn btn-link">API Docs</a>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input type="text" id="search-input" placeholder="Search users…" autocomplete="off">
+    <select id="role-filter">
+      <option value="">All roles</option>
+      <option value="admin">admin</option>
+      <option value="dev">dev</option>
+      <option value="viewer">viewer</option>
+    </select>
+  </div>
+
+  <main>
+    <div class="table-wrap">
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </div>
+    <div id="empty-state" class="empty-state" style="display:none;">No users found.</div>
+  </main>
+
+  <div class="pagination" id="pagination"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
