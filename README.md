@@ -854,3 +854,7 @@ Then, server by server, participants start independent MCP containers and watch 
 ## License
 
 MIT
+
+---
+
+<sub>Feeling stuck? The Chat UI has a few hidden shortcuts. Try typing these anywhere on the page (click outside the input box first): `easymode`, `rawtools`, `schema`, `thestruggleisreal`.</sub>

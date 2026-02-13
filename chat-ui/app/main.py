@@ -108,8 +108,8 @@ async def mcp_status():
 
 _ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion"}
 _COMPOSE_FILES = [
-    pathlib.Path("/workspace/docker-compose.yml"),
-    pathlib.Path("/workspace/compose.yml"),
+    pathlib.Path("/app/docker-compose.yml"),
+    pathlib.Path("/app/compose.yml"),
 ]
 
 
@@ -131,8 +131,10 @@ async def mcp_control(request: Request):
     if action not in ("start", "stop"):
         raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
 
-    base_cmd = [_CONTAINER_ENGINE, "compose"] + _compose_file_args()
-    cmd = base_cmd + (["up", "-d", service] if action == "start" else ["stop", service])
+    # Always use "docker" CLI inside the container — the host socket is mounted
+    # at /var/run/docker.sock regardless of whether the host uses Docker or Podman.
+    base_cmd = ["docker", "compose", "-p", "mcp-lab"] + _compose_file_args()
+    cmd = base_cmd + (["up", "-d", "--no-build", service] if action == "start" else ["stop", service])
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

@@ -193,8 +193,13 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
       - CHAT_DATA_DIR=/app/data
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
+    user: "0:0"
+    security_opt:
+      - label=disable
     volumes:
       - chat-ui-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-compose.yml:/app/docker-compose.yml:ro
     networks:
       - mcp-lab-net
     healthcheck:

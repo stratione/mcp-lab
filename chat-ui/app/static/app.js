@@ -216,7 +216,7 @@ function buildMcpModal() {
   }
 
   if (easyModeEnabled) {
-    html += `<p class="mcp-easymode-hint">🎮 Easy Mode active — type <kbd>easymode</kbd> anywhere to toggle</p>`;
+    html += `<p class="mcp-easymode-hint">🎮 Easy Mode active</p>`;
   }
 
   // Show how to start offline servers (uses detected engine)
@@ -335,7 +335,7 @@ function addToolCalls(toolCalls) {
     // rawtools: show full result without any truncation; normal: cap display
     const resultDisplay = rawToolsEnabled
       ? result
-      : (result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated — type rawtools to see full output)" : result);
+      : (result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated)" : result);
 
     const body = document.createElement("div");
     body.className = "tool-card-body" + (rawToolsEnabled ? " open" : "");
@@ -749,18 +749,25 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 
 // ─── Easter eggs ─────────────────────────────────────────────────────────────
 // Type any of these sequences anywhere on the page (not while in an input):
-//   "easymode"  — toggles GUI Start/Stop buttons on the MCP modal
-//   "rawtools"  — toggles auto-expanded, untruncated tool call cards
-//   "schema"    — opens a tool schema browser modal
+//   "easymode"           — toggles GUI Start/Stop buttons on the MCP modal
+//   "rawtools"           — toggles auto-expanded, untruncated tool call cards
+//   "schema"             — opens a tool schema browser modal
+//   "thestruggleisreal"  — unlocks API Documentation section in the dashboard
+//
+// TODO: Hide easter egg hints in F12 dev tools (e.g. console.log breadcrumbs,
+//       subtle messages in network responses, or DOM data attributes) so
+//       students who inspect the page can discover them organically.
 // ─────────────────────────────────────────────────────────────────────────────
 
 let easyModeEnabled  = localStorage.getItem("easyMode")     === "true";
 let rawToolsEnabled  = localStorage.getItem("rawTools")     === "true";
+let struggleUnlocked = localStorage.getItem("struggleUnlocked") === "true";
 
 const _EGGS = [
-  { seq: "easymode", maxLen: 8 },
-  { seq: "rawtools", maxLen: 8 },
-  { seq: "schema",   maxLen: 6 },
+  { seq: "easymode",           maxLen: 8  },
+  { seq: "rawtools",           maxLen: 8  },
+  { seq: "schema",             maxLen: 6  },
+  { seq: "thestruggleisreal",  maxLen: 18 },
 ];
 const _EGG_BUF_MAX = Math.max(..._EGGS.map((e) => e.seq.length));
 let _eggBuf = "";
@@ -799,6 +806,14 @@ document.addEventListener("keydown", (e) => {
     _eggBuf = "";
   } else if (_eggBuf.endsWith("schema")) {
     openSchemaModal();
+    _eggBuf = "";
+  } else if (_eggBuf.endsWith("thestruggleisreal")) {
+    struggleUnlocked = true;
+    localStorage.setItem("struggleUnlocked", "true");
+    _showToast("API docs unlocked — check the Lab Dashboard");
+    // Auto-open dashboard so they see the docs immediately
+    buildDashboardModal();
+    document.getElementById("dashboard-modal").style.display = "flex";
     _eggBuf = "";
   }
 });
@@ -877,7 +892,7 @@ document.getElementById("schema-modal").addEventListener("click", (e) => {
 
 const _LAB_SERVICES = [
   { label: "Chat UI",          url: "http://localhost:3001",             note: "this page" },
-  { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting" },
+  { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting", creds: "mcpadmin / mcpadmin123" },
   { label: "User API",         url: "http://localhost:8001/health",      note: "health check" },
   { label: "Promotion Service",url: "http://localhost:8002/health",      note: "health check" },
   { label: "Registry (dev)",   url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
@@ -897,11 +912,15 @@ function _dashCard(s, extraClass = "") {
     ? `<button class="probe-btn dash-probe-btn" data-url="${s.url}" title="Probe endpoint">&#9654;</button>
        <span class="probe-result" data-url="${s.url}"></span>`
     : "";
+  const credsHtml = s.creds
+    ? `<span class="dash-link-creds"><code>${s.creds}</code></span>`
+    : "";
   return `
     <div class="dash-link-card-wrap">
       <a href="${s.url}" target="_blank" rel="noopener" class="dash-link-card ${extraClass}">
         <span class="dash-link-label">${s.label}</span>
         <span class="dash-link-url">${s.url}</span>
+        ${credsHtml}
         <span class="dash-link-note">${s.note}</span>
       </a>
       ${probeHtml}
@@ -913,10 +932,17 @@ function buildDashboardModal() {
 
   const easyBanner = easyModeEnabled
     ? `<p class="dash-easy-banner">🎮 Easy Mode active — <strong>▶</strong> buttons probe each endpoint live</p>`
-    : `<p class="dash-easy-hint">Tip: type <kbd>easymode</kbd> anywhere to add live <strong>▶</strong> probe buttons to every endpoint</p>`;
+    : "";
 
   const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
-  const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
+
+  let docsSection = "";
+  if (struggleUnlocked) {
+    const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
+    docsSection = `
+      <h3 class="dash-section-heading">API Documentation</h3>
+      <div class="dash-link-grid">${docsHtml}</div>`;
+  }
 
   body.innerHTML = `
     <button id="dashboard-modal-close" class="modal-close">&times;</button>
@@ -925,9 +951,7 @@ function buildDashboardModal() {
 
     <h3 class="dash-section-heading">Lab Services</h3>
     <div class="dash-link-grid">${servicesHtml}</div>
-
-    <h3 class="dash-section-heading">API Documentation</h3>
-    <div class="dash-link-grid">${docsHtml}</div>
+    ${docsSection}
   `;
 
   document.getElementById("dashboard-modal-close").addEventListener("click", () => {
@@ -956,26 +980,11 @@ document.getElementById("dashboard-modal").addEventListener("click", (e) => {
   if (e.target.id === "dashboard-modal") e.target.style.display = "none";
 });
 
-// Auto-show dashboard on first visit (no saved chat history)
-async function maybeShowDashboard() {
-  // Only auto-show once per browser session, not on every page reload
-  if (sessionStorage.getItem("dashboardShown")) return;
-  sessionStorage.setItem("dashboardShown", "1");
-  try {
-    const resp = await fetch("/api/chat-history");
-    if (!resp.ok) { buildDashboardModal(); document.getElementById("dashboard-modal").style.display = "flex"; return; }
-    const saved = await resp.json();
-    if (!saved.turns || saved.turns.length === 0) {
-      buildDashboardModal();
-      document.getElementById("dashboard-modal").style.display = "flex";
-    }
-  } catch {
-    // ignore — don't block init
-  }
-}
+// Dashboard no longer auto-shows — students must explore on their own first.
+// Type "thestruggleisreal" to unlock the API Documentation section.
 
 // ─── Init ───
 loadProviders();
 loadTools();
-loadSavedChat().then(() => maybeShowDashboard());
+loadSavedChat();
 setInterval(loadTools, 30000);

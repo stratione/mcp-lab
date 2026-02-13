@@ -963,6 +963,10 @@ header h1 {
 
 .dash-link-card--docs .dash-link-url { color: #a78bfa; }
 
+.dash-link-creds {
+  font-size: 11px;
+  color: #d97706;
+}
 .dash-link-note {
   font-size: 11px;
   color: #4b5563;
