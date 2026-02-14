@@ -32,23 +32,64 @@ def register(mcp: FastMCP):
         return json.dumps(user, indent=2)
 
     @mcp.tool()
-    async def create_user(username: str, email: str, full_name: str, role: str) -> str:
-        """Create a new user. ALL fields are required: username, email, full_name, and role. If the user did not provide an email or role, you MUST ask them before calling this tool. Call list_roles first to get valid role values. Do not guess or default any field. Returns the created user as JSON."""
+    async def create_user(
+        username: str, 
+        email_provided_by_user: str, 
+        full_name_provided_by_user: str, 
+        role_provided_by_user: str, 
+        dry_run: bool = False
+    ) -> str:
+        """
+        Create a new user. You must NOT hallucinate or guess these values.
+        
+        Args:
+            username: User's login name.
+            email_provided_by_user: The email address EXPLICITLY provided by the user in the chat.
+            full_name_provided_by_user: The full name EXPLICITLY provided by the user.
+            role_provided_by_user: The role EXPLICITLY provided by the user.
+            dry_run: Validate inputs without creating.
+            
+        CRITICAL: If you do not have these exact values from the user, DO NOT CALL THIS TOOL. Ask the user first.
+        """
         import json
-        # Reject empty required fields with a helpful message so the LLM can retry
-        missing = []
-        if not username.strip():
-            missing.append("username")
-        if not email.strip():
-            missing.append("email")
-        if not full_name.strip():
-            missing.append("full_name")
-        if not role.strip():
-            missing.append("role")
-        if missing:
-            return json.dumps({"error": f"Missing required fields: {', '.join(missing)}. Ask the user to provide them before retrying."})
-        user = await user_api_client.create_user(username, email, full_name, role)
-        return json.dumps(user, indent=2)
+        
+        # Map back to API expected names
+        email = email_provided_by_user.strip()
+        full_name = full_name_provided_by_user.strip()
+        role = role_provided_by_user.strip()
+
+        # 1. Check for empty fields
+        if not username or not email or not full_name or not role:
+            return json.dumps({"error": "All fields are required. Please ask the user for the missing information."})
+
+        # 2. Strict User Entry Quality Checks (anti-hallucination)
+        
+        # Full Name must look like a full name (at least 2 words)
+        if " " not in full_name:
+             return json.dumps({"error": f"Invalid full name '{full_name}'. It must contain at least a first and last name (e.g., 'Alice Johnson'). Please ask the user for their full name."})
+
+        # Email must generally look valid and NOT be a common hallucination
+        hallucinated_domains = ["example.com", "test.com", "his-email.com", "her-mail.com", "email.com", "domain.com"]
+        if any(d in email.lower() for d in hallucinated_domains):
+             return json.dumps({"error": f"Invalid email domain in '{email}'. Please ask the user for their REAL email address."})
+
+        if dry_run:
+             return json.dumps({"status": "valid", "message": "Inputs appear valid. Remove dry_run=True to create."})
+
+        try:
+            user = await user_api_client.create_user(username, email, full_name, role)
+            return json.dumps(user, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+
+        if dry_run:
+             return json.dumps({"status": "valid", "message": "Inputs appear valid. Remove dry_run=True to create."})
+
+        try:
+            user = await user_api_client.create_user(username, email, full_name, role)
+            return json.dumps(user, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
 
     @mcp.tool()
     async def update_user(user_id: int, email: str = "", full_name: str = "", role: str = "") -> str:

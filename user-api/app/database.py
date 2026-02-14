@@ -17,6 +17,7 @@ SEED_USERS = [
     ("charlie", "charlie@example.com", "Charlie Davis", "dev"),
     ("diana", "diana@example.com", "Diana Lee", "viewer"),
     ("eve", "eve@example.com", "Eve Martinez", "admin"),
+    ("system", "system@mcp-lab.local", "System Automation", "admin"),
 ]
 
 
@@ -34,12 +35,13 @@ def init_db():
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
-    # Seed default users if table is empty
-    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if count == 0:
-        conn.executemany(
-            "INSERT INTO users (username, email, full_name, role) VALUES (?, ?, ?, ?)",
-            SEED_USERS,
+    # Seed default users (idempotent)
+    for user in SEED_USERS:
+        # Check if user exists by username to avoid unique constraint errors if using generic INSERT
+        # OR just use INSERT OR IGNORE since username is UNIQUE
+        conn.execute(
+            "INSERT OR IGNORE INTO users (username, email, full_name, role) VALUES (?, ?, ?, ?)",
+            user,
         )
     conn.commit()
     conn.close()

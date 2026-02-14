@@ -40,11 +40,23 @@ async function loadSavedChat() {
       if (turn.user) addMessage("user", turn.user);
       if (turn.tool_calls) addToolCalls(turn.tool_calls);
       if (turn.reply) addMessage("assistant", turn.reply);
-      if (turn.verification) addVerificationBadge(turn.verification);
-      if (turn.token_usage) addTokenBadge(turn.token_usage);
-      if (turn.reply && turn.tool_calls && turn.tool_calls.length > 0) {
-        addVerifyButton(turn.reply, turn.tool_calls);
+      if (turn.tool_calls && turn.tool_calls.length > 0) {
+        // Handle legacy saved chats that might have old format
+        let conf = turn.confidence || turn.verification;
+        if (conf) {
+          // Check if it's legacy verification object and convert if needed
+          if (conf.status) {
+            conf = {
+              score: conf.status === "verified" ? 1.0 : 0.5,
+              label: conf.status.charAt(0).toUpperCase() + conf.status.slice(1),
+              source: "llm", // assume legacy were led by manual button
+              details: conf.details
+            };
+          }
+          addConfidenceIndicator(conf, turn.reply, turn.tool_calls);
+        }
       }
+      if (turn.token_usage) addTokenBadge(turn.token_usage);
     }
 
     document.getElementById("token-session-total").textContent =
@@ -55,11 +67,11 @@ async function loadSavedChat() {
 }
 
 const defaultModels = {
-  ollama:   "llama3.1:8b",
-  openai:   "gpt-4o",
-  anthropic:"claude-sonnet-4-5-20250929",
-  google:   "gemini-2.0-flash",
-  pretend:  "",   // no model selection for Demo LLM
+  ollama: "llama3.1:8b",
+  openai: "gpt-4o",
+  anthropic: "claude-sonnet-4-5-20250929",
+  google: "gemini-2.0-flash",
+  pretend: "",   // no model selection for Demo LLM
 };
 
 // Providers that need neither an API key nor a model field
@@ -230,7 +242,7 @@ function buildMcpModal() {
   }
 
   if (easyModeEnabled) {
-    html += `<p class="mcp-easymode-hint">🎮 Easy Mode active</p>`;
+    html += `<p class="mcp-easymode-hint">🎓 Guided Mode active</p>`;
   }
 
   // Always show start/stop reference commands
@@ -381,166 +393,156 @@ function addTokenBadge(usage) {
   badge.innerHTML =
     `<span class="token-badge-label">Tokens this turn:</span>` +
     `<span class="token-badge-detail">` +
-      `<span class="token-in">${input.toLocaleString()} in</span>` +
-      ` + ` +
-      `<span class="token-out">${output.toLocaleString()} out</span>` +
-      ` = ` +
-      `<span class="token-total">${total.toLocaleString()}</span>` +
+    `<span class="token-in">${input.toLocaleString()} in</span>` +
+    ` + ` +
+    `<span class="token-out">${output.toLocaleString()} out</span>` +
+    ` = ` +
+    `<span class="token-total">${total.toLocaleString()}</span>` +
     `</span>`;
   chatArea.appendChild(badge);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function addVerificationBadge(verification) {
-  if (!verification) return;
-  const badge = document.createElement("div");
-  badge.className = "verification-badge";
+function addConfidenceIndicator(confidence, reply, toolCalls) {
+  if (!confidence || confidence.score === 0) return;
 
-  const dot = document.createElement("span");
-  dot.className = "verification-dot";
+  const wrapper = document.createElement("div");
+  wrapper.className = "confidence-wrapper";
 
-  const label = document.createElement("span");
-  label.className = "verification-label";
+  const badge = document.createElement("button");
+  badge.className = `confidence-badge ${confidence.label.split(" ")[0].toLowerCase()}`;
+  badge.title = "Click to run deep verification with LLM";
 
-  if (verification.status === "verified") {
-    dot.classList.add("verified");
-    label.textContent = "Verified";
-  } else if (verification.status === "uncertain") {
-    dot.classList.add("uncertain");
-    label.textContent = "Uncertain";
-  } else {
-    dot.classList.add("unverified");
-    label.textContent = "No tools used";
+  // Icon based on score/label
+  let icon = "⚖️";
+  if (confidence.label.includes("Verified")) icon = "✅";
+  else if (confidence.label.includes("Hallucination")) icon = "🚨";
+  else if (confidence.label.includes("High")) icon = "👍";
+  else if (confidence.label.includes("Low")) icon = "⚠️";
+
+  badge.innerHTML = `
+    <span class="confidence-icon">${icon}</span>
+    <span class="confidence-label">Confidence: ${confidence.label}</span>
+    <span class="confidence-source">${confidence.source === "llm" ? "🤖 LLM" : "⚡ Heuristic"}</span>
+  `;
+
+  const details = document.createElement("div");
+  details.className = "confidence-details";
+  details.textContent = confidence.details;
+
+  // If heuristic, allow clicking to upgrade to LLM verification
+  if (confidence.source === "heuristic" && toolCalls && toolCalls.length > 0) {
+    badge.classList.add("interactive");
+    badge.addEventListener("click", async () => {
+      badge.disabled = true;
+      badge.classList.add("loading");
+      badge.innerHTML = `<span class="confidence-icon">⏳</span> Verifying deeply...`;
+
+      try {
+        const resp = await fetch("/api/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reply: reply, tool_calls: toolCalls }),
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          // Replace this indicator with the new one
+          wrapper.replaceWith(addConfidenceIndicator(data.confidence, reply, toolCalls));
+
+          if (data.token_usage) {
+            sessionTokens += data.token_usage.total_tokens || 0;
+            document.getElementById("token-session-total").textContent =
+              sessionTokens.toLocaleString() + " tokens";
+          }
+        } else {
+          badge.textContent = "Verification failed";
+        }
+      } catch (e) {
+        badge.textContent = "Error: " + e.message;
+      }
+    });
   }
-  label.title = verification.details || "";
 
-  badge.appendChild(dot);
-  badge.appendChild(label);
-  chatArea.appendChild(badge);
-  chatArea.scrollTop = chatArea.scrollHeight;
+  wrapper.appendChild(badge);
+  wrapper.appendChild(details);
+
+  // Add manual verify links if not fully verified
+  if (!confidence.label.includes("Verified") && toolCalls) {
+    const links = getVerifyLinks(toolCalls);
+    if (links.length > 0) {
+      const hint = document.createElement("div");
+      hint.className = "verify-hint";
+      hint.innerHTML = "Verify yourself: " + links.map(
+        (l) => `<a href="${l.href}" target="_blank">${l.label}</a>`
+      ).join(" | ");
+      wrapper.appendChild(hint);
+    }
+  }
+
+  // If called directly, return element; otherwise append to chat
+  // But wait, allow this function to be used both ways
+  if (document.getElementById("chat-area")) {
+    document.getElementById("chat-area").appendChild(wrapper);
+    document.getElementById("chat-area").scrollTop = document.getElementById("chat-area").scrollHeight;
+  }
+  return wrapper;
 }
 
 const TOOL_VERIFY_URLS = {
-  list_users:       { url: "/users",      host: "localhost:8001", label: "User API" },
-  get_user:         { url: "/users",      host: "localhost:8001", label: "User API" },
-  create_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
-  update_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
-  delete_user:      { url: "/users",      host: "localhost:8001", label: "User API" },
-  deactivate_user:  { url: "/users",      host: "localhost:8001", label: "User API" },
-  list_registry_images:    { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
-  list_image_tags:         { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
-  get_image_manifest:      { url: "/v2/_catalog",  host: "localhost:5001", label: "Dev Registry" },
-  list_promotions:         { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
-  promote_image:           { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
-  get_promotion:           { url: "/promotions",   host: "localhost:8002", label: "Promotion API" },
-  list_gitea_repos:        { url: "",              host: "localhost:3000", label: "Gitea" },
-  get_gitea_repo:          { url: "",              host: "localhost:3000", label: "Gitea" },
-  create_gitea_repo:       { url: "",              host: "localhost:3000", label: "Gitea" },
-  list_gitea_files:        { url: "",              host: "localhost:3000", label: "Gitea" },
-  get_gitea_file_content:  { url: "",              host: "localhost:3000", label: "Gitea" },
-  create_gitea_file:       { url: "",              host: "localhost:3000", label: "Gitea" },
-  search_gitea_repos:      { url: "",              host: "localhost:3000", label: "Gitea" },
+  list_users: { url: "/users", host: "localhost:8001", label: "User API" },
+  get_user: { url: "/users", host: "localhost:8001", label: "User API" },
+  create_user: { url: "/users", host: "localhost:8001", label: "User API" },
+  update_user: { url: "/users", host: "localhost:8001", label: "User API" },
+  delete_user: { url: "/users", host: "localhost:8001", label: "User API" },
+  deactivate_user: { url: "/users", host: "localhost:8001", label: "User API" },
+  // Registry tools - handled specially in getVerifyLinks for dynamic host
+  list_registry_images: { url: "/v2/_catalog", label: "Registry" },
+  list_image_tags: { url: "/v2/_catalog", label: "Registry" },
+  get_image_manifest: { url: "/v2/_catalog", label: "Registry" },
+  // Promotion tools
+  list_promotions: { url: "/promotions", host: "localhost:8002", label: "Promotion API" },
+  promote_image: { url: "/promotions", host: "localhost:8002", label: "Promotion API" },
+  get_promotion: { url: "/promotions", host: "localhost:8002", label: "Promotion API" },
+  // Gitea tools
+  list_gitea_repos: { url: "", host: "localhost:3000", label: "Gitea" },
+  get_gitea_repo: { url: "", host: "localhost:3000", label: "Gitea" },
+  create_gitea_repo: { url: "", host: "localhost:3000", label: "Gitea" },
+  list_gitea_files: { url: "", host: "localhost:3000", label: "Gitea" },
+  get_gitea_file_content: { url: "", host: "localhost:3000", label: "Gitea" },
+  create_gitea_file: { url: "", host: "localhost:3000", label: "Gitea" },
+  search_gitea_repos: { url: "", host: "localhost:3000", label: "Gitea" },
 };
 
 function getVerifyLinks(toolCalls) {
   const seen = new Set();
   const links = [];
+
   for (const tc of toolCalls) {
     const info = TOOL_VERIFY_URLS[tc.name];
-    if (info && !seen.has(info.host)) {
-      seen.add(info.host);
-      links.push({ href: `http://${info.host}${info.url}`, label: info.label });
+    if (!info) continue;
+
+    let host = info.host;
+    let label = info.label;
+
+    // Dynamic host selection for registry tools
+    if (tc.name.includes("registry") || tc.name.includes("image")) {
+      const reg = tc.arguments && tc.arguments.registry ? tc.arguments.registry : "dev";
+      if (reg === "prod") {
+        host = "localhost:5002";
+        label = "Prod Registry";
+      } else {
+        host = "localhost:5001";
+        label = "Dev Registry";
+      }
+    }
+
+    if (host && !seen.has(host)) {
+      seen.add(host);
+      links.push({ href: `http://${host}${info.url}`, label: label });
     }
   }
   return links;
-}
-
-function addVerifyButton(reply, toolCalls) {
-  if (!toolCalls || toolCalls.length === 0) return;
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "verify-wrapper";
-
-  const btn = document.createElement("button");
-  btn.className = "verify-btn";
-  btn.textContent = "Verify with LLM";
-  btn.addEventListener("click", async () => {
-    btn.disabled = true;
-    btn.textContent = "Verifying...";
-
-    try {
-      const resp = await fetch("/api/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reply: reply, tool_calls: toolCalls }),
-      });
-
-      if (!resp.ok) {
-        btn.textContent = "Verification failed";
-        return;
-      }
-
-      const data = await resp.json();
-      wrapper.innerHTML = "";
-
-      const result = document.createElement("div");
-      result.className = "verify-result";
-
-      const dot = document.createElement("span");
-      dot.className = "verification-dot";
-      if (data.status === "verified") {
-        dot.classList.add("verified");
-      } else if (data.status === "hallucination") {
-        dot.classList.add("hallucination");
-      } else {
-        dot.classList.add("uncertain");
-      }
-
-      const statusLabel = document.createElement("span");
-      statusLabel.className = "verify-status";
-      statusLabel.textContent =
-        data.status === "verified"
-          ? "LLM Verified"
-          : data.status === "hallucination"
-          ? "Hallucination Detected"
-          : "Uncertain";
-
-      const explanation = document.createElement("div");
-      explanation.className = "verify-explanation";
-      explanation.textContent = data.explanation || "";
-
-      result.appendChild(dot);
-      result.appendChild(statusLabel);
-      wrapper.appendChild(result);
-      wrapper.appendChild(explanation);
-
-      if (data.status !== "verified") {
-        const links = getVerifyLinks(toolCalls);
-        if (links.length > 0) {
-          const hint = document.createElement("div");
-          hint.className = "verify-hint";
-          hint.innerHTML = "Verify yourself: " + links.map(
-            (l) => `<a href="${l.href}" target="_blank">${l.label}</a>`
-          ).join(" | ");
-          wrapper.appendChild(hint);
-        }
-      }
-
-      if (data.token_usage) {
-        sessionTokens += data.token_usage.total_tokens || 0;
-        document.getElementById("token-session-total").textContent =
-          sessionTokens.toLocaleString() + " tokens";
-      }
-
-      chatArea.scrollTop = chatArea.scrollHeight;
-    } catch (e) {
-      btn.textContent = "Verification error";
-    }
-  });
-
-  wrapper.appendChild(btn);
-  chatArea.appendChild(wrapper);
-  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 let _chatAbort = null;
@@ -594,7 +596,9 @@ async function sendMessage() {
     addToolCalls(data.tool_calls);
     addMessage("assistant", data.reply);
     history.push({ role: "assistant", content: data.reply });
-    addVerificationBadge(data.verification);
+
+    // Add confidence indicator (replaces old verification badge + button)
+    addConfidenceIndicator(data.confidence, data.reply, data.tool_calls);
 
     if (data.token_usage) {
       addTokenBadge(data.token_usage);
@@ -603,14 +607,12 @@ async function sendMessage() {
         sessionTokens.toLocaleString() + " tokens";
     }
 
-    addVerifyButton(data.reply, data.tool_calls);
-
     // Persist turn to localStorage
     turns.push({
       user: text,
       reply: data.reply,
       tool_calls: data.tool_calls || [],
-      verification: data.verification || null,
+      confidence: data.confidence || null,
       token_usage: data.token_usage || null,
     });
     saveTurns();
@@ -638,6 +640,19 @@ userInput.addEventListener("keydown", (e) => {
 // Help modal
 const helpBtn = document.getElementById("help-btn");
 const helpModal = document.getElementById("help-modal");
+const settingsBtn = document.getElementById("settings-btn");
+
+// Toggle settings modal (reusing existing config-panel logic by scrolling to it or finding a better way? 
+// Actually, the config panel is inline in the HTML. Let's make the settings button scroll to top or focus it.
+// The config panel is visible by default. 
+// Wait, looking at index.html, .config-panel is right at the top. 
+// Let's make the settings button toggle the visibility of the config panel if it's hidden, or just scroll to it.
+// For now, let's assume it might be hidden in mobile or future styles. 
+// But a better approach is to make the settings button focus the provider select.
+settingsBtn.addEventListener("click", () => {
+  document.querySelector('.config-panel').scrollIntoView({ behavior: 'smooth' });
+  providerSelect.focus();
+});
 
 // Render a URL cell: plain <code> normally; clickable link + ▶ probe button in easymode
 function _urlCell(url) {
@@ -688,13 +703,27 @@ function buildHelpModal() {
   const body = document.getElementById("help-modal-body");
 
   const easyBanner = easyModeEnabled
-    ? `<p class="help-easymode-banner">🎮 Easy Mode — URLs are clickable &amp; <strong>▶</strong> probes the endpoint</p>`
+    ? `<p class="help-easymode-banner">🎓 Guided Mode — Click scenarios to auto-fill prompts &amp; use <strong>▶</strong> to probe URLs</p>`
     : "";
+
+  let scenariosHtml = "";
+  if (easyModeEnabled) {
+    scenariosHtml = `
+      <h3>Guided Scenarios</h3>
+      <div class="scenario-grid">
+        <button class="scenario-btn" data-prompt="Create a user named 'charlie' with email 'charlie@example.com' and role 'dev'">1. Onboard User</button>
+        <button class="scenario-btn" data-prompt="Create a Gitea repository named 'charlie-app'">2. Create Repo</button>
+        <button class="scenario-btn" data-prompt="List all images in the dev registry">3. Check Registry</button>
+        <button class="scenario-btn" data-prompt="Promote image 'sample-app' tag 'v1.0.0' to prod">4. Promote Image</button>
+      </div>
+    `;
+  }
 
   body.innerHTML = `
     <button id="help-modal-close" class="modal-close">&times;</button>
     <h2>MCP DevOps Lab &mdash; Quick Reference</h2>
     ${easyBanner}
+    ${scenariosHtml}
 
     <h3>Services &amp; URLs</h3>
     <table class="help-table">
@@ -755,6 +784,14 @@ function buildHelpModal() {
     const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
     btn.addEventListener("click", () => runProbe(url, resultEl, btn));
   });
+
+  body.querySelectorAll(".scenario-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      userInput.value = btn.dataset.prompt;
+      helpModal.style.display = "none";
+      userInput.focus();
+    });
+  });
 }
 
 helpBtn.addEventListener("click", () => {
@@ -774,7 +811,7 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   history = [];
   turns = [];
   sessionTokens = 0;
-  fetch("/api/chat-history", { method: "DELETE" }).catch(() => {});
+  fetch("/api/chat-history", { method: "DELETE" }).catch(() => { });
   chatArea.innerHTML =
     '<div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions.</div>';
   document.getElementById("token-session-total").textContent = "0 tokens";
@@ -787,8 +824,8 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 //   "iamgood"           — opens the tool schema browser modal
 // ─────────────────────────────────────────────────────────────────────────────
 
-let easyModeEnabled  = localStorage.getItem("easyMode") === "true";
-let rawToolsEnabled  = easyModeEnabled;
+let easyModeEnabled = localStorage.getItem("easyMode") === "true";
+let rawToolsEnabled = easyModeEnabled;
 let struggleUnlocked = easyModeEnabled;
 // Clean up legacy per-feature keys
 localStorage.removeItem("rawTools");
@@ -842,14 +879,14 @@ function buildSchemaModal(tools) {
 
   for (const tool of tools) {
     const schema = tool.inputSchema || { type: "object", properties: {} };
-    const props  = schema.properties || {};
-    const req    = new Set(schema.required || []);
+    const props = schema.properties || {};
+    const req = new Set(schema.required || []);
 
     let propsHtml = "";
     for (const [pName, pDef] of Object.entries(props)) {
       const required = req.has(pName) ? `<span class="schema-required">required</span>` : "";
-      const type     = pDef.type || "any";
-      const desc     = pDef.description || "";
+      const type = pDef.type || "any";
+      const desc = pDef.description || "";
       propsHtml += `
         <tr>
           <td class="schema-prop-name"><code>${pName}</code>${required}</td>
@@ -863,10 +900,10 @@ function buildSchemaModal(tools) {
         <div class="schema-tool-name">${tool.name}</div>
         <div class="schema-tool-desc">${tool.description || ""}</div>
         ${propsHtml
-          ? `<table class="schema-props-table"><thead>
+        ? `<table class="schema-props-table"><thead>
                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
              </thead><tbody>${propsHtml}</tbody></table>`
-          : `<p class="schema-no-params">No parameters</p>`}
+        : `<p class="schema-no-params">No parameters</p>`}
       </div>`;
   }
 
@@ -878,7 +915,7 @@ function buildSchemaModal(tools) {
 
 async function openSchemaModal() {
   const modal = document.getElementById("schema-modal");
-  const body  = document.getElementById("schema-modal-body");
+  const body = document.getElementById("schema-modal-body");
   body.innerHTML = `<button id="schema-modal-close" class="modal-close">&times;</button>
     <p style="color:#9ca3af;padding:20px">Loading tool schemas…</p>`;
   document.getElementById("schema-modal-close").addEventListener("click", () => {
@@ -887,8 +924,8 @@ async function openSchemaModal() {
   modal.style.display = "flex";
 
   try {
-    const resp  = await fetch("/api/tools");
-    const data  = await resp.json();
+    const resp = await fetch("/api/tools");
+    const data = await resp.json();
     buildSchemaModal(data.tools || []);
   } catch (e) {
     body.innerHTML += `<p style="color:#ef4444">Failed to load tools: ${e.message}</p>`;
@@ -902,24 +939,24 @@ document.getElementById("schema-modal").addEventListener("click", (e) => {
 // ─── Lab Dashboard modal ──────────────────────────────────────────────────────
 
 const _LAB_SERVICES = [
-  { label: "Chat UI",          url: "http://localhost:3001",             note: "this page" },
-  { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting", creds: "mcpadmin / mcpadmin123" },
-  { label: "User API",         url: "http://localhost:8001/users",       note: "user list" },
-  { label: "Promotion Service",url: "http://localhost:8002/health",      note: "health check" },
-  { label: "Registry (dev)",   url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
-  { label: "Registry (prod)",  url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
+  { label: "Chat UI", url: "http://localhost:3001", note: "this page" },
+  { label: "Gitea", url: "http://localhost:3000", note: "Git hosting", creds: "mcpadmin / mcpadmin123" },
+  { label: "User API", url: "http://localhost:8001/users", note: "user list" },
+  { label: "Promotion Service", url: "http://localhost:8002/health", note: "health check" },
+  { label: "Registry (dev)", url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
+  { label: "Registry (prod)", url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
 ];
 
 const _VERIFY_CHECKS = [
-  { label: "List users",        url: "http://localhost:8001/users",               note: "all users in the system" },
-  { label: "List roles",        url: "http://localhost:8001/users/roles",         note: "available roles" },
-  { label: "User API health",   url: "http://localhost:8001/health",              note: "service status" },
+  { label: "List users", url: "http://localhost:8001/users", note: "all users in the system" },
+  { label: "List roles", url: "http://localhost:8001/users/roles", note: "available roles" },
+  { label: "User API health", url: "http://localhost:8001/health", note: "service status" },
 ];
 
 const _API_DOCS = [
-  { label: "User API Swagger",       url: "http://localhost:8001/docs",        note: "copy schema → paste into LLM" },
-  { label: "Promotion API Swagger",  url: "http://localhost:8002/docs",        note: "copy schema → paste into LLM" },
-  { label: "Gitea Swagger",          url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
+  { label: "User API Swagger", url: "http://localhost:8001/docs", note: "copy schema → paste into LLM" },
+  { label: "Promotion API Swagger", url: "http://localhost:8002/docs", note: "copy schema → paste into LLM" },
+  { label: "Gitea Swagger", url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
 ];
 
 

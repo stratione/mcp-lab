@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from .models import (
     ChatRequest, ProviderConfig, ChatResponse, TokenUsage,
-    VerificationResult, VerifyRequest, VerifyResponse,
+    ConfidenceResult, VerifyRequest, VerifyResponse,
 )
 from .mcp_client import list_tools, check_servers
 from .llm_providers import get_provider
@@ -272,19 +272,42 @@ def _verify_with_heuristics(reply: str, tool_calls: list[dict]) -> dict:
                 matched += 1
 
     if total_checks == 0:
-        return {"status": "unverified", "details": "No verifiable data in tool results"}
+        return {
+            "score": 0.0,
+            "label": "Neutral",
+            "source": "heuristic",
+            "details": "No verifiable data in tool results"
+        }
 
     ratio = matched / total_checks
-    if ratio >= 0.3:
-        return {"status": "verified", "details": f"Reply references {matched}/{total_checks} data points from tool results"}
+    if ratio >= 0.8:
+        label = "High"
+        score = 0.9
+    elif ratio >= 0.3:
+        label = "Medium"
+        score = 0.5
     else:
-        return {"status": "uncertain", "details": f"Reply only references {matched}/{total_checks} data points from tool results"}
+        label = "Low"
+        score = 0.1
+
+    return {
+        "score": score,
+        "label": f"{label} (Heuristic)",
+        "source": "heuristic",
+        "details": f"Reply references {matched}/{total_checks} data points from tool results"
+    }
 
 
 SYSTEM_PROMPT_BASE = """You are a helpful DevOps assistant in the MCP DevOps Lab. You have access to tools provided by MCP (Model Context Protocol) servers that let you manage users, Git repositories (Gitea), container registries, and image promotions.
-
+ 
 When asked to perform tasks, use the available tools. Be concise in your responses and explain what you did after completing actions.
-
+ 
+IMPORTANT:
+1. You only have access to the tools listed below. Do not assume other tools exist.
+2. If a server is reported as OFFLINE, you CANNOT use its tools.
+3. If asked to do something that requires an offline tool, explain that the server is offline and suggest starting it (e.g., "The user server is offline. Run 'docker compose up -d mcp-user' to enable it.").
+4. When creating resources (users, repos, etc.), you MUST ASK the user for required details (e.g., email, full name, role) if they are not provided. Do NOT guess or hallucinate these values.
+ 
 {mcp_context}"""
 
 
@@ -347,7 +370,7 @@ async def chat(req: ChatRequest):
                 output_tokens=usage_data.get("output_tokens", 0),
                 total_tokens=usage_data.get("total_tokens", 0),
             ),
-            verification=VerificationResult(**verification),
+            confidence=ConfidenceResult(**verification),
         )
     except Exception as e:
         return JSONResponse(
@@ -392,19 +415,26 @@ async def verify(req: VerifyRequest):
         reply_text = result.get("reply", "")
         first_line = reply_text.strip().split("\n")[0].strip().upper()
         if "VERIFIED" in first_line and "HALLUCINATION" not in first_line:
-            status = "verified"
+            status = "Verified"
+            score = 1.0
         elif "HALLUCINATION" in first_line:
-            status = "hallucination"
+            status = "Hallucination"
+            score = 0.0
         else:
-            status = "uncertain"
+            status = "Uncertain"
+            score = 0.5
 
         lines = reply_text.strip().split("\n")
         explanation = "\n".join(lines[1:]).strip() if len(lines) > 1 else reply_text
 
         usage_data = result.get("token_usage", {})
         return VerifyResponse(
-            status=status,
-            explanation=explanation,
+            confidence=ConfidenceResult(
+                score=score,
+                label=f"{status} (LLM)",
+                source="llm",
+                details=explanation
+            ),
             token_usage=TokenUsage(
                 input_tokens=usage_data.get("input_tokens", 0),
                 output_tokens=usage_data.get("output_tokens", 0),

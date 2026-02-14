@@ -36,3 +36,24 @@ async def get_manifest(image_name: str, tag: str, registry: str = "dev") -> dict
             "digest": resp.headers.get("docker-content-digest", ""),
             "content_type": resp.headers.get("content-type", ""),
         }
+
+
+async def tag_image(image_name: str, current_tag: str, new_tag: str, registry: str = "dev") -> bool:
+    """Retag an existing image by putting its manifest under a new tag."""
+    url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
+    
+    # 1. Get the manifest of the current tag
+    data = await get_manifest(image_name, current_tag, registry)
+    manifest = data["manifest"]
+    content_type = data["content_type"]
+
+    # 2. Put the manifest under the new tag
+    async with httpx.AsyncClient() as client:
+        resp = await client.put(
+            f"{url}/v2/{image_name}/manifests/{new_tag}",
+            json=manifest,
+            headers={"Content-Type": content_type},
+            timeout=10.0,
+        )
+        check_response(resp)
+        return True

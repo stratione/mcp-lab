@@ -31,9 +31,19 @@ class TokenUsage(BaseModel):
     total_tokens: int = 0
 
 
-class VerificationResult(BaseModel):
-    status: str = "unverified"  # "verified", "uncertain", "unverified"
+
+class ConfidenceResult(BaseModel):
+    score: float = 0.0  # 0.0 to 1.0
+    label: str = "Unknown"  # "Low", "Medium", "High", "Verified", "Hallucination"
+    source: str = "heuristic"  # "heuristic" or "llm"
     details: str = ""
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    tool_calls: list[ToolCall] = []
+    token_usage: TokenUsage = TokenUsage()
+    confidence: ConfidenceResult = ConfidenceResult()
 
 
 class VerifyRequest(BaseModel):
@@ -42,13 +52,5 @@ class VerifyRequest(BaseModel):
 
 
 class VerifyResponse(BaseModel):
-    status: str  # "verified", "uncertain", "hallucination"
-    explanation: str
+    confidence: ConfidenceResult
     token_usage: TokenUsage = TokenUsage()
-
-
-class ChatResponse(BaseModel):
-    reply: str
-    tool_calls: list[ToolCall] = []
-    token_usage: TokenUsage = TokenUsage()
-    verification: VerificationResult = VerificationResult()

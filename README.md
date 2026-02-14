@@ -227,6 +227,9 @@ docker compose up -d mcp-registry
 # Enable Promotion tools (+3 tools → 19 total)
 docker compose up -d mcp-promotion
 
+# Enable CI/CD Runner tools (+3 tools → 22 total)
+docker compose up -d mcp-runner
+
 # Enable servers one at a time — work through each phase before starting the next
 ```
 
@@ -245,8 +248,11 @@ docker compose stop mcp-registry
 # Disable Promotion tools
 docker compose stop mcp-promotion
 
+# Disable CI/CD Runner tools
+docker compose stop mcp-runner
+
 # Disable ALL MCP servers (back to 0 tools)
-docker compose stop mcp-user mcp-gitea mcp-registry mcp-promotion
+docker compose stop mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner
 ```
 
 ### Check current state
@@ -263,9 +269,9 @@ After starting or stopping an MCP server, the Chat UI auto-detects the change wi
 Edit `.env` to control which servers start automatically on `docker compose up -d`:
 
 ```bash
-COMPOSE_PROFILES=                              # no MCP servers (default)
-COMPOSE_PROFILES=user                          # user tools only
-COMPOSE_PROFILES=user,gitea,registry,promotion # all 21 tools
+COMPOSE_PROFILES=                                             # no MCP servers (default)
+COMPOSE_PROFILES=user                                         # user tools only
+COMPOSE_PROFILES=user,gitea,registry,promotion,runner         # all 26 tools
 ```
 
 After editing `.env`:
@@ -567,8 +573,9 @@ What MCP provides as a control plane:
 |----------|-----------|------|-------|-------|
 | **User Management** | `mcp-user` | 8003 | 8 | `list_roles`, `list_users`, `get_user`, `get_user_by_username`, `create_user`, `update_user`, `deactivate_user`, `delete_user` |
 | **Git / Gitea** | `mcp-gitea` | 8004 | 7 | `list_gitea_repos`, `get_gitea_repo`, `create_gitea_repo`, `list_gitea_branches`, `create_gitea_branch`, `get_gitea_file`, `create_gitea_file` |
-| **Container Registry** | `mcp-registry` | 8005 | 3 | `list_registry_images`, `list_image_tags`, `get_image_manifest` |
+| **Container Registry** | `mcp-registry` | 8005 | 5 | `list_registries`, `list_registry_images`, `list_image_tags`, `get_image_manifest`, `tag_image` |
 | **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promote_image`, `list_promotions`, `get_promotion_status` |
+| **CI/CD Runner** | `mcp-runner` | 8007 | 3 | `build_image`, `scan_image`, `deploy_app` |
 
 Each MCP server is an independent container. Start/stop them to enable/disable tool categories:
 

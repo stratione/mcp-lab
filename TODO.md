@@ -102,3 +102,17 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 - **Observable** — every system change is visible in the Chat UI or browser
 - **Progressive** — each phase adds complexity; earlier phases work without later ones
 - **Engine-agnostic** — works identically with Docker or Podman
+
+---
+
+## Acceptance Testing Findings (2026-02-14)
+
+### UI Issues
+- [ ] **Missing Settings Icon**: The "Settings" modal (gear icon) is missing from the dashboard. Only `×`, `☷`, and `?` icons are present.
+
+### Data Issues
+- [ ] **Missing User Data**: User ID 1 ("Alice") is missing from `list_users` output. Only IDs 2, 3, 4, 5 are returned.
+- [ ] **Name Formatting**: User names are single words (e.g., "Bob") instead of full names (e.g., "Bob Jones").
+
+### LLM/Backend Issues
+- [ ] **Server Status Confusion**: The local LLM (`llama3.1:8b`) sometimes hallucinates that a server is offline even when the UI status panel shows it as Online. Rerunning the prompt sometimes fixes this.
