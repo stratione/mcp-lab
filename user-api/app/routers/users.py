@@ -1,8 +1,17 @@
 from fastapi import APIRouter, HTTPException, Query, Response
-from ..models import UserCreate, UserUpdate, UserResponse
+from ..models import UserCreate, UserUpdate, UserResponse, VALID_ROLES, ROLE_DESCRIPTIONS
 from ..database import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/roles")
+def list_roles():
+    """Return all valid roles and their descriptions."""
+    return [
+        {"role": role, "description": ROLE_DESCRIPTIONS[role]}
+        for role in VALID_ROLES
+    ]
 
 
 def _row_to_dict(row) -> dict:

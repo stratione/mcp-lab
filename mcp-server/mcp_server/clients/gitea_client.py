@@ -1,6 +1,7 @@
 import httpx
 from .. import config
 from ..auth import gitea_headers
+from . import check_response
 
 
 async def list_repos() -> list[dict]:
@@ -10,7 +11,7 @@ async def list_repos() -> list[dict]:
             headers=gitea_headers(),
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         data = resp.json()
         return data.get("data", data) if isinstance(data, dict) else data
 
@@ -22,7 +23,7 @@ async def get_repo(owner: str, repo: str) -> dict:
             headers=gitea_headers(),
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()
 
 
@@ -34,7 +35,7 @@ async def create_repo(name: str, description: str = "", private: bool = False) -
             json={"name": name, "description": description, "private": private, "auto_init": True},
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()
 
 
@@ -45,7 +46,7 @@ async def list_branches(owner: str, repo: str) -> list[dict]:
             headers=gitea_headers(),
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()
 
 
@@ -57,7 +58,7 @@ async def create_branch(owner: str, repo: str, branch_name: str, old_branch: str
             json={"new_branch_name": branch_name, "old_branch_name": old_branch},
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()
 
 
@@ -69,7 +70,7 @@ async def get_file(owner: str, repo: str, filepath: str, ref: str = "main") -> d
             params={"ref": ref},
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()
 
 
@@ -86,5 +87,5 @@ async def create_file(owner: str, repo: str, filepath: str, content: str, messag
             },
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json()

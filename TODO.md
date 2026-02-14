@@ -89,7 +89,9 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ## Low Priority / Nice-to-Have
 
-- [x] **Easy-mode MCP toggles** — easter egg: type `easymode` anywhere on the page (not in the chat input) to toggle GUI Start/Stop buttons on the MCP status modal. A toast confirms activation. State persists in `localStorage`. CLI hint stays visible so compose commands remain the primary learning path. Backend `POST /api/mcp-control` allowlisted to the 4 known MCP services.
+- [x] **Easy-mode MCP toggles** — easter egg: type `thestruggleisreal` anywhere on the page (not in the chat input) to toggle all power-user features. A toast confirms activation. State persists in `localStorage`. CLI hint stays visible so compose commands remain the primary learning path. Backend `POST /api/mcp-control` allowlisted to the 4 known MCP services.
+- [ ] **Fix Easy Mode start/stop buttons** — the GUI start/stop buttons in the MCP modal need fixing
+- [ ] **Label lab images for cleanup** — tag all Docker/Podman images built by the lab (e.g. `mcp-lab.teardown=true` label) so that after `5-teardown.sh` users can identify and remove leftover images with `docker image prune --filter label=mcp-lab.teardown=true`
 
 ---
 

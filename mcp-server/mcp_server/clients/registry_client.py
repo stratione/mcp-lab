@@ -1,12 +1,13 @@
 import httpx
 from .. import config
+from . import check_response
 
 
 async def list_images(registry: str = "dev") -> list[str]:
     url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{url}/v2/_catalog", timeout=10.0)
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json().get("repositories", [])
 
 
@@ -14,7 +15,7 @@ async def list_tags(image_name: str, registry: str = "dev") -> list[str]:
     url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{url}/v2/{image_name}/tags/list", timeout=10.0)
-        resp.raise_for_status()
+        check_response(resp)
         return resp.json().get("tags", [])
 
 
@@ -29,7 +30,7 @@ async def get_manifest(image_name: str, tag: str, registry: str = "dev") -> dict
             },
             timeout=10.0,
         )
-        resp.raise_for_status()
+        check_response(resp)
         return {
             "manifest": resp.json(),
             "digest": resp.headers.get("docker-content-digest", ""),

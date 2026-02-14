@@ -146,12 +146,15 @@ ollama pull llama3.1:8b
 The web-based Chat UI (http://localhost:3001) includes:
 
 - **Multi-provider support** — switch between Ollama, OpenAI, Anthropic, and Google Gemini from the UI
-- **MCP status panel** — click the MCP strip bar to see which servers are online/offline and their tools
+- **MCP status panel** — click the MCP strip bar to see which servers are online/offline and their tools; auto-refreshes every 3 seconds while any server is offline, 30 seconds when all are up
+- **Lab Dashboard** — click the grid button to see all services with live status badges (UP/DOWN), a "Verify User API" section with runnable curl commands, and start/stop guidance for MCP servers
+- **Stop button** — the Send button turns into a red Stop button while a request is in-flight, allowing you to cancel hung requests
 - **Tool call cards** — every MCP tool call shows as a collapsible card with arguments and results
 - **Hallucination detection** — automatic heuristic badge (verified/uncertain/unverified) on every response
 - **LLM verification** — on-demand "Verify with LLM" button for deeper fact-checking against tool results
 - **Token tracking** — per-turn and session-wide token counter
 - **Copy button** — hover over any assistant message to copy the prompt + response for debugging
+- **Color-blind accessible** — status indicators use text labels with arrows (▲ UP / ▼ DOWN) in addition to color
 - **Server-side chat history** — chat is persisted in a Docker volume (not browser localStorage), so tearing down the lab wipes all data cleanly
 - **Quick reference** — click the `?` button for URLs, credentials, and commands
 
@@ -190,7 +193,7 @@ cd mcp-lab
 # http://localhost:3001  (opens automatically after setup)
 
 # Optional: Open only API docs tabs
-./scripts/3-open-api-docs.sh
+./scripts/4-open-api-docs.sh
 ```
 
 The setup script will:
@@ -253,7 +256,7 @@ docker compose ps              # see which containers are running
 curl http://localhost:3001/api/tools   # see which tools are available
 ```
 
-After starting or stopping an MCP server, **refresh the Chat UI** (http://localhost:3001) — the tool count in the header updates within 30 seconds automatically.
+After starting or stopping an MCP server, the Chat UI auto-detects the change within a few seconds (it polls every 3 seconds while any server is offline). You can also click the refresh button in the MCP status panel.
 
 ### Persist MCP state across restarts
 
@@ -262,7 +265,7 @@ Edit `.env` to control which servers start automatically on `docker compose up -
 ```bash
 COMPOSE_PROFILES=                              # no MCP servers (default)
 COMPOSE_PROFILES=user                          # user tools only
-COMPOSE_PROFILES=user,gitea,registry,promotion # all 19 tools
+COMPOSE_PROFILES=user,gitea,registry,promotion # all 21 tools
 ```
 
 After editing `.env`:
@@ -330,7 +333,7 @@ In this phase you interact with each system directly via `curl`. Notice the fric
 # Create a user
 curl -X POST http://localhost:8001/users \
   -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"alice@example.com","full_name":"Alice Smith","role":"developer"}'
+  -d '{"username":"alice","email":"alice@example.com","full_name":"Alice Smith","role":"dev"}'
 
 # List all users
 curl http://localhost:8001/users
@@ -432,28 +435,31 @@ Notice the friction points:
    - **OpenAI / Anthropic / Google**: Enter your API key
 3. Click **Apply**
 
-#### Step 2: Start User MCP Server (+6 tools)
+#### Step 2: Start User MCP Server (+8 tools)
 
 ```bash
 docker compose up -d mcp-user
 ```
 
-Wait ~10 seconds, then refresh the Chat UI. Try these prompts:
+Wait ~10 seconds — the Chat UI auto-detects the new server within a few seconds. Try these prompts:
 
 - "List all users"
-- "Create a new user named bob with email bob@example.com and role developer"
+- "What roles are available?" (calls `list_roles` — the LLM must know the valid roles)
+- "Create a new user named bob with email bob@example.com and role dev"
 - "What role does alice have?"
 - "Update alice's role to admin"
 
+> **Note:** The `create_user` tool requires a valid role (`admin`, `dev`, or `viewer`). If the LLM doesn't specify one, the API will reject the request with a 422 error and the LLM will need to call `list_roles` first.
+
 Each tool call appears as a collapsible card in the chat. No curl required.
 
-#### Step 3: Start Gitea MCP Server (+7 tools → 13 total)
+#### Step 3: Start Gitea MCP Server (+7 tools → 15 total)
 
 ```bash
 docker compose up -d mcp-gitea
 ```
 
-Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grows to 13. Try:
+Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grows to 15. Try:
 
 - "List all Git repositories"
 - "Create a new repo called my-service"
@@ -462,7 +468,7 @@ Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grow
 
 No credentials needed in your prompts — the MCP server handles auth injection.
 
-#### Step 4: Start Registry MCP Server (+3 tools → 16 total)
+#### Step 4: Start Registry MCP Server (+3 tools → 18 total)
 
 ```bash
 docker compose up -d mcp-registry
@@ -474,7 +480,7 @@ Refresh the Chat UI after ~10 seconds. Try:
 - "List tags for sample-app in dev"
 - "Is sample-app available in the prod registry?"
 
-#### Step 5: Start Promotion MCP Server (+3 tools → 19 total)
+#### Step 5: Start Promotion MCP Server (+3 tools → 20 total)
 
 ```bash
 docker compose up -d mcp-promotion
@@ -498,7 +504,7 @@ Compare to Phase 1:
 
 ### Phase 3: Intent-Based DevOps (Full MCP)
 
-> **Goal:** Express complex multi-system intents in natural language. All 19 tools ON.
+> **Goal:** Express complex multi-system intents in natural language. All 21 tools ON.
 
 Enable MCP servers one at a time as you progress through each phase:
 
@@ -559,10 +565,10 @@ What MCP provides as a control plane:
 
 | Category | MCP Server | Port | Count | Tools |
 |----------|-----------|------|-------|-------|
-| **User Management** | `mcp-user` | 8003 | 6 | `user_list`, `user_get`, `user_search`, `user_create`, `user_update`, `user_deactivate` |
-| **Git / Gitea** | `mcp-gitea` | 8004 | 7 | `gitea_list_repos`, `gitea_create_repo`, `gitea_list_branches`, `gitea_create_branch`, `gitea_get_file`, `gitea_create_file`, `gitea_update_file` |
-| **Container Registry** | `mcp-registry` | 8005 | 3 | `registry_list_images`, `registry_list_tags`, `registry_get_manifest` |
-| **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promotion_promote`, `promotion_list`, `promotion_status` |
+| **User Management** | `mcp-user` | 8003 | 8 | `list_roles`, `list_users`, `get_user`, `get_user_by_username`, `create_user`, `update_user`, `deactivate_user`, `delete_user` |
+| **Git / Gitea** | `mcp-gitea` | 8004 | 7 | `list_gitea_repos`, `get_gitea_repo`, `create_gitea_repo`, `list_gitea_branches`, `create_gitea_branch`, `get_gitea_file`, `create_gitea_file` |
+| **Container Registry** | `mcp-registry` | 8005 | 3 | `list_registry_images`, `list_image_tags`, `get_image_manifest` |
+| **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promote_image`, `list_promotions`, `get_promotion_status` |
 
 Each MCP server is an independent container. Start/stop them to enable/disable tool categories:
 
@@ -599,9 +605,11 @@ curl http://localhost:3001/api/tools      # Chat UI / MCP tools list
 ### User API (Port 8001)
 
 ```bash
+GET    http://localhost:8001/users/roles             # List valid roles (admin, dev, viewer)
 GET    http://localhost:8001/users                   # List all users
 GET    http://localhost:8001/users/{id}              # Get user by ID
-POST   http://localhost:8001/users                   # Create user
+GET    http://localhost:8001/users/by-username/{name} # Look up user by username
+POST   http://localhost:8001/users                   # Create user (role is required)
 PUT    http://localhost:8001/users/{id}              # Update user
 DELETE http://localhost:8001/users/{id}              # Delete user
 ```
@@ -660,9 +668,9 @@ Scripts are numbered in run order. Optional scripts are prefixed with `OPT-`.
 |--------|-------------|--------------|
 | `scripts/0-preflight.sh` | **Before everything** | Checks Docker/Podman, RAM, Ollama. Prints install instructions if anything is missing. |
 | `scripts/1-setup.sh` | First time setup | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token |
-| `scripts/2-restart-lab.sh` | After code changes | Rebuilds and restarts core services (`chat-ui`, `user-api`, `promotion-service`). Add `--full` to also restart Gitea and registries. MCP servers are left alone. |
-| `scripts/3-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
-| `scripts/4-help.sh` | Any time | Print quick reference (services, URLs, commands) |
+| `scripts/2-start-lab.sh` | After code changes | Rebuilds and restarts core services (`chat-ui`, `user-api`, `promotion-service`). Add `--full` to also restart Gitea and registries. MCP servers are left alone. |
+| `scripts/3-refresh-lab.sh` | Quick refresh | Rebuilds and restarts all **running** containers without deleting data. Add `--all` to include stopped services. |
+| `scripts/4-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
 | `scripts/5-teardown.sh` | Cleanup | Reuses saved engine choice, removes containers, images, and volumes (full reset) |
 | `scripts/6-tunnel.sh` | Remote access | Expose MCP server publicly via ngrok or cloudflared |
 
@@ -777,19 +785,29 @@ ollama serve
 
 ### Chat UI shows wrong tool count after starting MCP server
 
-The Chat UI polls for new tools every 30 seconds. Hard-refresh the page (`Cmd+Shift+R` / `Ctrl+Shift+R`) if you don't want to wait.
+The Chat UI uses adaptive polling: every 3 seconds while any server is offline, every 30 seconds when all are up. Status should update within a few seconds. Click the refresh button (↻) in the MCP status panel for an immediate check, or hard-refresh the page (`Cmd+Shift+R` / `Ctrl+Shift+R`).
 
 ### Docker Hub pull error: "unauthorized" or "invalid username/password"
 
-This is usually a transient Docker Hub rate-limit error, especially with Podman:
+This usually means stale Docker Hub credentials are stored on your machine. Clear them, then retry:
 
 ```bash
-# Pull the base image manually first, then re-run setup
-podman pull docker.io/library/python:3.12-slim
+# Clear stale credentials (run both — only the relevant one will do anything)
+docker logout docker.io
+podman logout docker.io
+
+# Verify the pull works manually
+podman pull docker.io/library/python:3.12-slim   # or: docker pull python:3.12-slim
+
+# Then re-run setup
 ./scripts/1-setup.sh
 ```
 
-If it persists, log in to Docker Hub (free account): `podman login docker.io`
+If the pull still fails after clearing credentials, you may be hitting Docker Hub's anonymous rate limit. Create a free Docker Hub account and log in:
+
+```bash
+podman login docker.io   # or: docker login
+```
 
 ### Data and chat history
 

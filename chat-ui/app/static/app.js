@@ -145,6 +145,8 @@ async function loadProviders() {
 
 let mcpServers = []; // latest server status data
 let containerEngine = "docker"; // detected from backend
+let _mcpPollTimer = null;
+let _mcpPrevOnlineCount = -1;
 
 async function loadTools() {
   try {
@@ -162,10 +164,27 @@ async function loadTools() {
       mcpStripDot.className = "status-dot inactive";
       mcpStripLabel.textContent = "No MCP servers online — click to see how to start them";
     }
+
+    // If the MCP modal is open and status changed, refresh it in-place
+    const mcpModal = document.getElementById("mcp-modal");
+    if (mcpModal && mcpModal.style.display !== "none" && online !== _mcpPrevOnlineCount) {
+      buildMcpModal();
+    }
+    _mcpPrevOnlineCount = online;
+
+    // Adaptive polling: fast (3s) while any server is offline, slow (30s) when all online
+    const allOnline = mcpServers.length > 0 && online === mcpServers.length;
+    _scheduleMcpPoll(allOnline ? 30000 : 3000);
   } catch (e) {
     mcpStripDot.className = "status-dot inactive";
     mcpStripLabel.textContent = "MCP servers unreachable";
+    _scheduleMcpPoll(5000);
   }
+}
+
+function _scheduleMcpPoll(intervalMs) {
+  if (_mcpPollTimer) clearTimeout(_mcpPollTimer);
+  _mcpPollTimer = setTimeout(loadTools, intervalMs);
 }
 
 function buildMcpModal() {
@@ -177,25 +196,21 @@ function buildMcpModal() {
   const total = mcpServers.reduce((n, s) => n + s.tool_count, 0);
 
   let html = `
-    <button id="mcp-modal-close" class="modal-close">&times;</button>
-    <h2>MCP Server Status</h2>
+    <div class="mcp-modal-header">
+      <h2>MCP Server Status</h2>
+      <div class="mcp-modal-header-actions">
+        <button id="mcp-refresh-btn" class="mcp-refresh-btn" title="Refresh status"><span id="mcp-refresh-icon">&#8635;</span> Refresh</button>
+        <button id="mcp-modal-close" class="modal-close">&times;</button>
+      </div>
+    </div>
     <p class="mcp-summary">${online.length} of ${mcpServers.length} servers online &mdash; ${total} tools available</p>
   `;
 
   for (const s of mcpServers) {
     const dotClass = s.status === "online" ? "active" : "inactive";
-    const statusText = s.status === "online" ? "Online" : "Offline";
+    const statusText = s.status === "online" ? "\u25B2 Online" : "\u25BC Offline";
     const port = s.port || "—";
     const svcName = `mcp-${s.name}`;
-
-    let ctrlHtml = "";
-    if (easyModeEnabled) {
-      if (s.status === "online") {
-        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-stop" data-svc="${svcName}">Stop</button>`;
-      } else {
-        ctrlHtml = `<button class="mcp-ctrl-btn mcp-ctrl-start" data-svc="${svcName}">Start</button>`;
-      }
-    }
 
     html += `
       <div class="mcp-server-card">
@@ -204,7 +219,6 @@ function buildMcpModal() {
           <span class="mcp-server-name">${svcName}</span>
           <span class="mcp-server-status">${statusText}</span>
           <code class="mcp-server-url">http://${h}:${port}/mcp</code>
-          ${ctrlHtml}
         </div>`;
 
     if (s.tools.length > 0) {
@@ -219,7 +233,8 @@ function buildMcpModal() {
     html += `<p class="mcp-easymode-hint">🎮 Easy Mode active</p>`;
   }
 
-  // Show how to start offline servers (uses detected engine)
+  // Always show start/stop reference commands
+  html += `<div class="mcp-hint-grid">`;
   if (offline.length > 0) {
     html += `<div class="mcp-hint"><strong>Start a server:</strong><pre>`;
     for (const s of offline) {
@@ -227,6 +242,14 @@ function buildMcpModal() {
     }
     html += `</pre></div>`;
   }
+  if (online.length > 0) {
+    html += `<div class="mcp-hint"><strong>Stop a server:</strong><pre>`;
+    for (const s of online) {
+      html += `${containerEngine} compose stop mcp-${s.name}\n`;
+    }
+    html += `</pre></div>`;
+  }
+  html += `</div>`;
 
   body.innerHTML = html;
 
@@ -234,33 +257,15 @@ function buildMcpModal() {
     document.getElementById("mcp-modal").style.display = "none";
   });
 
-  body.querySelectorAll(".mcp-ctrl-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const svc = btn.dataset.svc;
-      const action = btn.classList.contains("mcp-ctrl-start") ? "start" : "stop";
-      btn.disabled = true;
-      btn.textContent = action === "start" ? "Starting…" : "Stopping…";
-      try {
-        const resp = await fetch("/api/mcp-control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ service: svc, action }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json();
-          btn.textContent = "Error";
-          btn.title = err.detail || "unknown error";
-          return;
-        }
-        // Refresh status and rebuild the modal
-        await loadTools();
-        buildMcpModal();
-      } catch (e) {
-        btn.textContent = "Error";
-        btn.title = e.message;
-      }
-    });
+  document.getElementById("mcp-refresh-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("mcp-refresh-btn");
+    const icon = document.getElementById("mcp-refresh-icon");
+    btn.disabled = true;
+    icon.classList.add("mcp-refresh-spinning");
+    await loadTools();
+    // loadTools rebuilds the modal, so btn/icon refs are stale — nothing to restore
   });
+
 }
 
 function openMcpModal() {
@@ -538,14 +543,36 @@ function addVerifyButton(reply, toolCalls) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
+let _chatAbort = null;
+
+function _setChatBusy(busy) {
+  if (busy) {
+    sendBtn.textContent = "Stop";
+    sendBtn.classList.add("stop-btn");
+    sendBtn.disabled = false;
+  } else {
+    sendBtn.textContent = "Send";
+    sendBtn.classList.remove("stop-btn");
+    sendBtn.disabled = false;
+  }
+}
+
 async function sendMessage() {
+  // If already running, abort the in-flight request
+  if (_chatAbort) {
+    _chatAbort.abort();
+    _chatAbort = null;
+    return;
+  }
+
   const text = userInput.value.trim();
   if (!text) return;
 
   addMessage("user", text);
   history.push({ role: "user", content: text });
   userInput.value = "";
-  sendBtn.disabled = true;
+  _chatAbort = new AbortController();
+  _setChatBusy(true);
   typing.classList.add("visible");
 
   try {
@@ -553,6 +580,7 @@ async function sendMessage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text, history: history.slice(0, -1) }),
+      signal: _chatAbort.signal,
     });
 
     if (!resp.ok) {
@@ -587,9 +615,14 @@ async function sendMessage() {
     });
     saveTurns();
   } catch (e) {
-    addMessage("error", `Network error: ${e.message}`);
+    if (e.name === "AbortError") {
+      addMessage("error", "Request stopped by user.");
+    } else {
+      addMessage("error", `Network error: ${e.message}`);
+    }
   } finally {
-    sendBtn.disabled = false;
+    _chatAbort = null;
+    _setChatBusy(false);
     typing.classList.remove("visible");
   }
 }
@@ -871,10 +904,16 @@ document.getElementById("schema-modal").addEventListener("click", (e) => {
 const _LAB_SERVICES = [
   { label: "Chat UI",          url: "http://localhost:3001",             note: "this page" },
   { label: "Gitea",            url: "http://localhost:3000",             note: "Git hosting", creds: "mcpadmin / mcpadmin123" },
-  { label: "User API",         url: "http://localhost:8001/health",      note: "health check" },
+  { label: "User API",         url: "http://localhost:8001/users",       note: "user list" },
   { label: "Promotion Service",url: "http://localhost:8002/health",      note: "health check" },
   { label: "Registry (dev)",   url: "http://localhost:5001/v2/_catalog", note: "image catalog" },
   { label: "Registry (prod)",  url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
+];
+
+const _VERIFY_CHECKS = [
+  { label: "List users",        url: "http://localhost:8001/users",               note: "all users in the system" },
+  { label: "List roles",        url: "http://localhost:8001/users/roles",         note: "available roles" },
+  { label: "User API health",   url: "http://localhost:8001/health",              note: "service status" },
 ];
 
 const _API_DOCS = [
@@ -921,10 +960,12 @@ async function _probeAllServices() {
         body: JSON.stringify({ url }),
       });
       const data = await resp.json();
-      dot.className = "dash-status-dot " +
-        (data.status >= 200 && data.status < 300 ? "dash-dot-ok" : "dash-dot-err");
+      const ok = data.status >= 200 && data.status < 300;
+      dot.className = "dash-status-dot " + (ok ? "dash-dot-ok" : "dash-dot-err");
+      dot.textContent = ok ? "\u25B2 UP" : "\u25BC DOWN";
     } catch {
       dot.className = "dash-status-dot dash-dot-err";
+      dot.textContent = "\u25BC DOWN";
     }
   });
   await Promise.all(promises);
@@ -943,6 +984,19 @@ function _stopDashRefresh() {
   }
 }
 
+function _verifyCard(v) {
+  return `
+    <div class="verify-card">
+      <div class="verify-card-top">
+        <span class="verify-label">${v.label}</span>
+        <span class="verify-note">${v.note}</span>
+      </div>
+      <code class="verify-curl">curl ${v.url}</code>
+      <button class="verify-run-btn" data-url="${v.url}">&#9654; Run</button>
+      <pre class="verify-result" data-url="${v.url}" style="display:none"></pre>
+    </div>`;
+}
+
 function buildDashboardModal() {
   const body = document.getElementById("dashboard-modal-body");
 
@@ -951,6 +1005,7 @@ function buildDashboardModal() {
     : "";
 
   const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
+  const verifyHtml = _VERIFY_CHECKS.map((v) => _verifyCard(v)).join("");
 
   let docsSection = "";
   if (struggleUnlocked) {
@@ -967,12 +1022,46 @@ function buildDashboardModal() {
 
     <h3 class="dash-section-heading">Lab Services</h3>
     <div class="dash-link-grid">${servicesHtml}</div>
+
+    <h3 class="dash-section-heading">Verify User API</h3>
+    <div class="verify-grid">${verifyHtml}</div>
     ${docsSection}
   `;
 
   document.getElementById("dashboard-modal-close").addEventListener("click", () => {
     _stopDashRefresh();
     document.getElementById("dashboard-modal").style.display = "none";
+  });
+
+  // Wire verify Run buttons — always active
+  body.querySelectorAll(".verify-run-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.dataset.url;
+      const resultEl = body.querySelector(`.verify-result[data-url="${url}"]`);
+      btn.disabled = true;
+      btn.textContent = "Running…";
+      resultEl.style.display = "block";
+      resultEl.textContent = "…";
+      try {
+        const resp = await fetch("/api/probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await resp.json();
+        const isError = data.status === 0 || data.status >= 400;
+        resultEl.className = "verify-result" + (isError ? " verify-result-err" : "");
+        resultEl.textContent = data.body !== undefined
+          ? JSON.stringify(data.body, null, 2)
+          : `HTTP ${data.status}`;
+      } catch (e) {
+        resultEl.className = "verify-result verify-result-err";
+        resultEl.textContent = `Error: ${e.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = "&#9654; Run";
+      }
+    });
   });
 
   // Wire probe buttons if Easy Mode is active
@@ -1007,6 +1096,5 @@ document.getElementById("dashboard-modal").addEventListener("click", (e) => {
 
 // ─── Init ───
 loadProviders();
-loadTools();
+loadTools(); // self-rescheduling: 3s while any server offline, 30s when all online
 loadSavedChat();
-setInterval(loadTools, 30000);

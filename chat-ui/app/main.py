@@ -149,6 +149,27 @@ _PROBE_ALLOWLIST = re.compile(
     r"^http://(localhost|127\.0\.0\.1):\d{1,5}(/.*)?$"
 )
 
+# Map localhost ports to Docker-internal hostnames so the probe works from
+# inside the chat-ui container (where localhost != the host machine).
+_PORT_TO_HOST = {
+    "3000": "gitea:3000",
+    "3001": "localhost:3001",       # chat-ui itself
+    "5001": "registry-dev:5000",    # registry internal port is 5000
+    "5002": "registry-prod:5000",
+    "8001": "user-api:8001",
+    "8002": "promotion-service:8002",
+}
+
+def _rewrite_probe_url(url: str) -> str:
+    """Rewrite localhost:PORT URLs to Docker-internal hostnames."""
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    port = str(parsed.port) if parsed.port else ""
+    internal = _PORT_TO_HOST.get(port)
+    if internal:
+        return url.replace(f"{parsed.hostname}:{parsed.port}", internal, 1)
+    return url
+
 
 @app.post("/api/probe")
 async def probe_url(request: Request):
@@ -156,9 +177,10 @@ async def probe_url(request: Request):
     url = body.get("url", "").strip()
     if not _PROBE_ALLOWLIST.match(url):
         raise HTTPException(status_code=400, detail="URL not in allowlist (localhost only)")
+    internal_url = _rewrite_probe_url(url)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(url)
+            resp = await client.get(internal_url)
         try:
             snippet = resp.json()
         except Exception:

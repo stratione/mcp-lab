@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 import httpx
 from .. import config
+from ..clients import check_response
 
 
 def register(mcp: FastMCP):
@@ -14,7 +15,7 @@ def register(mcp: FastMCP):
                 json={"image_name": image_name, "tag": tag, "promoted_by": promoted_by},
                 timeout=60.0,
             )
-            resp.raise_for_status()
+            check_response(resp)
             return json.dumps(resp.json(), indent=2)
 
     @mcp.tool()
@@ -23,7 +24,7 @@ def register(mcp: FastMCP):
         import json
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{config.PROMOTION_SERVICE_URL}/promotions", timeout=10.0)
-            resp.raise_for_status()
+            check_response(resp)
             return json.dumps(resp.json(), indent=2)
 
     @mcp.tool()
@@ -32,5 +33,5 @@ def register(mcp: FastMCP):
         import json
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{config.PROMOTION_SERVICE_URL}/promotions/{promotion_id}", timeout=10.0)
-            resp.raise_for_status()
+            check_response(resp)
             return json.dumps(resp.json(), indent=2)

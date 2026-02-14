@@ -3,6 +3,12 @@ from pydantic import BaseModel, field_validator
 from typing import Optional
 
 VALID_ROLES = ("admin", "dev", "viewer")
+
+ROLE_DESCRIPTIONS = {
+    "admin": "Full access — can manage users, repos, and promotions",
+    "dev":   "Developer access — can push images and create repos",
+    "viewer": "Read-only access — can view resources but not modify them",
+}
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{2,30}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -11,7 +17,7 @@ class UserCreate(BaseModel):
     username: str
     email: str
     full_name: str
-    role: str = "dev"
+    role: str
 
     @field_validator("username")
     @classmethod
