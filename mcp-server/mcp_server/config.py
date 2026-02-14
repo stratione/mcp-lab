@@ -12,6 +12,7 @@ GITEA_TOKEN = os.environ.get("GITEA_TOKEN", "")
 DEV_REGISTRY_URL = os.environ.get("DEV_REGISTRY_URL", "http://registry-dev:5000")
 PROD_REGISTRY_URL = os.environ.get("PROD_REGISTRY_URL", "http://registry-prod:5000")
 PROMOTION_SERVICE_URL = os.environ.get("PROMOTION_SERVICE_URL", "http://promotion-service:8002")
+DEV_REGISTRY_HOST = os.environ.get("DEV_REGISTRY_HOST", "registry-dev:5000")
 
 # Feature switches
 USER_MCP_ENABLED = _bool_env("USER_MCP_ENABLED")

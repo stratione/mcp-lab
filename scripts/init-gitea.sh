@@ -50,12 +50,66 @@ curl -sf -X POST "$GITEA_URL/api/v1/user/repos" \
   -d '{"name":"sample-app","description":"Sample application for MCP lab","auto_init":true,"default_branch":"main"}' \
   > /dev/null 2>&1 || echo "    Repo may already exist (OK)"
 
-echo "  [4/4] Adding Dockerfile to sample-app..."
+echo "  [4/4] Adding app.py and Dockerfile to sample-app..."
+
+# --- app.py ---
+EXISTS=$(curl -sf "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/app.py" \
+  -u "$ADMIN_USER:$ADMIN_PASS" 2>/dev/null | jq -r '.name // empty')
+
+if [ -z "$EXISTS" ]; then
+  APP_PY_CONTENT=$(cat <<'PYEOF'
+"""Minimal Hello World HTTP server for MCP Lab pipeline demos."""
+
+import json
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+VERSION = "1.0.0"
+
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/health":
+            body = {"status": "ok"}
+        elif self.path == "/":
+            body = {"message": "Hello from MCP Lab!", "version": VERSION}
+        else:
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        payload = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, format, *args):
+        pass
+
+
+if __name__ == "__main__":
+    server = HTTPServer(("0.0.0.0", 8080), Handler)
+    print(f"hello-app v{VERSION} listening on :8080")
+    server.serve_forever()
+PYEOF
+  )
+  APP_PY_B64=$(printf '%s' "$APP_PY_CONTENT" | base64 | tr -d '\n')
+  curl -sf -X POST "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/app.py" \
+    -u "$ADMIN_USER:$ADMIN_PASS" \
+    -H "Content-Type: application/json" \
+    -d "{\"content\":\"$APP_PY_B64\",\"message\":\"Add app.py\"}" \
+    > /dev/null 2>&1 && echo "    app.py added" || echo "    Could not add app.py"
+else
+  echo "    app.py already exists (OK)"
+fi
+
+# --- Dockerfile ---
 EXISTS=$(curl -sf "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/Dockerfile" \
   -u "$ADMIN_USER:$ADMIN_PASS" 2>/dev/null | jq -r '.name // empty')
 
 if [ -z "$EXISTS" ]; then
-  DOCKERFILE_CONTENT=$(printf 'FROM alpine:3.19\nLABEL maintainer="mcp-lab"\nCMD ["echo", "Hello from sample-app"]' | base64 | tr -d '\n')
+  DOCKERFILE_CONTENT=$(printf 'FROM python:3.12-slim\nLABEL maintainer="mcp-lab"\nWORKDIR /app\nCOPY app.py .\nEXPOSE 8080\nCMD ["python", "app.py"]' | base64 | tr -d '\n')
   curl -sf -X POST "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/Dockerfile" \
     -u "$ADMIN_USER:$ADMIN_PASS" \
     -H "Content-Type: application/json" \

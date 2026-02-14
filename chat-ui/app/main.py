@@ -106,7 +106,7 @@ async def mcp_status():
         return {"servers": [], "total_tools": 0, "online_count": 0, "engine": _CONTAINER_ENGINE, "error": str(e)}
 
 
-_ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion"}
+_ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion", "mcp-runner"}
 _COMPOSE_FILES = [
     pathlib.Path("/app/docker-compose.yml"),
     pathlib.Path("/app/compose.yml"),
