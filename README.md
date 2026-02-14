@@ -855,42 +855,50 @@ See `config/mcp/claude-code-config.json` for the full configuration with all 4 s
 
 ---
 
-## Workshop Proposal
+## Conference Proposal
 
-**Title:** From Hallucination to Orchestration: Teaching the Model Context Protocol as a DevOps Control Plane
+### Proposal Title
 
-**Format:** Hands-on workshop (90 minutes) | **Track:** DevOps / Platform Engineering / AI-Assisted Operations
+From Hallucination to Orchestration: The Model Context Protocol as a DevOps Control Plane
+
+### Session Type
+
+Presentation (20 minutes)
 
 ### Abstract
 
-Large Language Models promise to revolutionize DevOps, but out of the box they hallucinate API calls, leak credentials into prompts, and cannot enforce organizational policy. This workshop gives every attendee a visceral, first-person experience of that gap — then closes it with the Model Context Protocol.
+LLMs confidently hallucinate API calls, leak credentials, and ignore policy — yet we keep asking them to run our infrastructure. This talk demonstrates what actually fixes that. Using a live, fully containerized DevOps environment (12 services, zero cloud accounts), I show an LLM hallucinating its way through user management, git operations, and container deployments — then flip on MCP servers one by one and watch the same model transform into a reliable multi-system orchestrator. The finale: a single English sentence triggers a verified build-scan-promote-deploy pipeline across five backend systems, producing a live running container — with credential injection, role-based policy enforcement, and a full audit trail, all invisible to the user. No slides. No mocks. Everything runs on localhost.
 
-Each participant gets a fully containerized DevOps environment: a User API, a Gitea git server, two container registries (dev and prod), a promotion service with role-based policy, and a CI/CD runner that builds, scans, and deploys real containers — 12 services on a single Docker Compose network, zero cloud accounts required.
+### Description
 
-The lab begins with all MCP servers OFF. Participants talk to a local LLM (Ollama llama3.1:8b) and watch it confidently invent users, fabricate registry contents, and hallucinate deployments. They then repeat the same tasks via raw curl against five different REST APIs — feeling the friction of divergent auth schemes, manual credential threading, and zero workflow assistance. This is Phase 1: The Struggle.
+Every DevOps team experimenting with LLM-assisted operations hits the same wall: the model sounds confident but fabricates API responses, forgets credentials between calls, and has no concept of organizational policy. The Model Context Protocol (MCP) is Anthropic's open standard for giving LLMs structured access to external tools — but most introductions stop at "here's how to write a tool definition." This talk shows what MCP actually changes in practice, using a live demo environment purpose-built to make the difference visceral.
 
-In Phase 2, participants start independent MCP containers one at a time (`docker compose up -d mcp-user`, then `mcp-gitea`, then `mcp-registry`, then `mcp-promotion`, then `mcp-runner`) and watch the Chat UI's tool count climb from 0 to 26. The same LLM that hallucinated minutes ago now executes verified tool calls with credential injection, input validation, and structured error surfacing — all invisible to the user.
+**The environment:** A Docker Compose stack running 12 services on a single network — a User API (FastAPI + SQLite), a Gitea git server, dev and prod container registries, a promotion service with role-based access control, and a CI/CD runner with Docker-in-Docker build and deploy capabilities. Five independent MCP servers expose 26 tools across these systems. A web-based Chat UI connects to all of them via streamable-http JSON-RPC. Everything runs on localhost; the audience can clone the repo and follow along.
 
-Phase 3 is the payoff. A single natural-language sentence — "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it" — triggers a chain of tool calls across five backend systems. The result is a live container serving JSON on localhost, built from source in Gitea, scanned, promoted through a policy gate, and deployed — all orchestrated by the LLM through MCP.
+**The demo arc:**
 
-### What Attendees Will Learn
+*Phase 1 — The Struggle (3 min):* I ask a local LLM (Ollama llama3.1:8b) to "list all users" with zero MCP servers running. It invents three users with plausible names and emails. I ask it to "promote sample-app to production." It fabricates a success response. I then show the same tasks done correctly via raw curl against five different APIs — different auth schemes, different payload formats, manual credential threading. The audience feels the friction.
 
-1. **Why LLMs fail at multi-system tool calling** without protocol structure — and what that failure looks like in practice
-2. **How MCP acts as a control plane** — translating intent to API calls, injecting credentials, enforcing policy, and maintaining audit trails
-3. **Progressive capability disclosure** — how independent MCP servers let platform teams control the blast radius of AI-assisted operations
-4. **The build/promote/deploy pipeline** — a complete CI/CD flow driven entirely by natural language, from git clone to running container
-5. **Model comparison** — how the same MCP tools perform across Ollama (local/free), OpenAI, Anthropic, and Google Gemini
+*Phase 2 — Progressive Enablement (7 min):* I start MCP servers one at a time. `docker compose up -d mcp-user` — the Chat UI's tool count jumps from 0 to 8. I repeat "list all users" and the LLM now calls the real API, returns real data, and handles validation errors gracefully. I add mcp-gitea (+7 tools), mcp-registry (+5 tools), mcp-promotion (+3 tools), mcp-runner (+3 tools). Each addition is a single command with no config changes. The audience watches capabilities accumulate.
+
+*Phase 3 — The Payoff (7 min):* With all 26 tools active, I type: "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it." The LLM chains four tool calls: `build_image` clones from Gitea and pushes to the dev registry; `scan_image` runs a security check; `promote_image` copies the image to prod (and gets rejected because the user is a developer, not a reviewer — real policy enforcement); after a role update, the promotion succeeds; `deploy_app` pulls from prod and runs the container. I curl `localhost:9082` and get `{"message":"Hello from MCP Lab!","version":"1.0.0"}` from a container that didn't exist 30 seconds ago.
+
+*Wrap-up (3 min):* Key takeaways — MCP as a control plane (not just a tool protocol), progressive disclosure as a deployment strategy, why real policy enforcement matters more than mock demos, and how the same architecture works across Ollama, OpenAI, Anthropic, and Google Gemini.
+
+**What the audience takes home:** The entire lab is open source. Clone, run one script, and you have the same environment on your laptop — a reference architecture for building MCP-powered DevOps tooling with real services, real policy, and real deployments.
 
 ### Key Design Decisions
 
 1. **Independent MCP servers** — each tool category is its own container. A single `docker compose up -d mcp-gitea` is the simplest possible progressive disclosure. No config files, no restarts.
-2. **Real deployments, not mocks** — `deploy_app` runs actual containers (`docker pull` + `docker run`) serving HTTP on localhost. Attendees curl the running app to verify.
+2. **Real deployments, not mocks** — `deploy_app` runs actual containers (`docker pull` + `docker run`) serving HTTP on localhost. The audience sees a real curl response from a container that was built, scanned, promoted, and deployed live.
 3. **Ollama as default** — free, local, no API keys. The llama3.1:8b model intentionally struggles with tool calling, making the MCP improvement dramatic.
-4. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Instructor can share screen without exposing credentials.
-5. **Real policy enforcement** — the promotion service checks user roles via the User API. Students see real rejections and learn to fix them.
+4. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Presenter can share screen without exposing credentials.
+5. **Real policy enforcement** — the promotion service checks user roles via the User API. The audience sees a real rejection and a real fix.
 6. **Dual transport** — streamable-http (containers) and stdio (Claude Code) demonstrate MCP's transport flexibility.
 
-### Workshop Timing
+### Workshop Format (90 minutes, if accepted as hands-on lab)
+
+The same content scales to a 90-minute hands-on workshop where every attendee runs the lab themselves:
 
 | Phase | Duration | Description |
 |-------|----------|-------------|
@@ -901,13 +909,13 @@ Phase 3 is the payoff. A single natural-language sentence — "Build the hello-a
 | Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, policy enforcement, multi-system orchestration |
 | Wrap-Up | 10 min | Discussion: MCP vs. API gateways, production considerations, what to build next |
 
-### What Makes This Workshop Different
+### What Makes This Talk Different
 
-- **Experiential learning, not slides** — no presentation deck; the "aha moment" comes from felt friction, not a feature list
-- **Real systems, real containers** — every service has a real database; the deploy step runs a real container you can curl
+- **Live demo, not slides** — the "aha moment" comes from watching real failure transform into real orchestration
+- **Real systems, real containers** — every service has a real database; the deploy step produces a running container you can curl
 - **Model-agnostic** — same lab works with Ollama, OpenAI, Anthropic, and Google Gemini
-- **Zero cloud dependency** — everything runs on localhost via Docker or Podman; no accounts, no API keys required for the core experience
-- **Take-home value** — participants leave with a working MCP dev environment on their laptop and a reference architecture for their own tools
+- **Zero cloud dependency** — everything runs on localhost via Docker or Podman; no accounts or API keys required
+- **Take-home value** — the audience leaves with an open-source repo they can clone and run in 5 minutes
 
 ---
 
