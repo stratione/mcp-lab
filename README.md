@@ -128,17 +128,17 @@ ollama pull llama3.1:8b
                          |  (FastAPI + JS)  |
                          +--------+---------+
                                   |  JSON-RPC / streamable-http
-                    +-------------+-------------+
-                    |             |             |             |
-             +------v-----+ +----v------+ +----v-------+ +--v-----------+
-             | mcp-user   | | mcp-gitea | |mcp-registry| |mcp-promotion |
-             |   :8003    | |   :8004   | |   :8005    | |    :8006     |
-             +------+-----+ +----+------+ +----+-------+ +--+-----------+
-                    |             |             |             |
-              +-----v--+   +-----v-+   +-------v--+   +-----v--------+
-              |User API|   |Gitea  |   |Registries|   |Promotion Svc |
-              | :8001  |   |:3000  |   |:5001/5002|   |   :8002      |
-              +--------+   +-------+   +----------+   +--------------+
+              +----------+--------+--------+-----------+-----------+
+              |          |                 |           |           |
+       +------v-----+ +--v-------+ +------v-----+ +--v---------+ +--v--------+
+       | mcp-user   | | mcp-gitea| |mcp-registry| |mcp-promote | | mcp-runner|
+       |   :8003    | |   :8004  | |   :8005    | |   :8006    | |   :8007   |
+       +------+-----+ +--+-------+ +------+-----+ +--+---------+ +--+--------+
+              |           |                |           |              |
+        +-----v--+  +-----v-+  +-------v--+  +--------v-----+  +----v-------+
+        |User API|  |Gitea  |  |Registries|  |Promotion Svc |  |Docker Sock |
+        | :8001  |  |:3000  |  |:5001/5002|  |   :8002      |  | (build/run)|
+        +--------+  +-------+  +----------+  +--------------+  +------------+
 ```
 
 ### Chat UI Features
@@ -158,7 +158,7 @@ The web-based Chat UI (http://localhost:3001) includes:
 - **Server-side chat history** — chat is persisted in a Docker volume (not browser localStorage), so tearing down the lab wipes all data cleanly
 - **Quick reference** — click the `?` button for URLs, credentials, and commands
 
-**11 services** on a single container network (`mcp-lab-net`):
+**12 services** on a single container network (`mcp-lab-net`):
 
 | Service | Port | Role |
 |---------|------|------|
@@ -172,6 +172,7 @@ The web-based Chat UI (http://localhost:3001) includes:
 | **Registry Dev** | 5001 | Container image registry (development) |
 | **Registry Prod** | 5002 | Container image registry (production) |
 | **Promotion Service** | 8002 | Image promotion with role-based policy checks |
+| **mcp-runner** | 8007 | 3 CI/CD runner MCP tools: build, scan, deploy (start on demand) |
 | **Bootstrap** | -- | One-shot init (Gitea admin, sample repos, seed data) |
 
 ---
@@ -510,7 +511,7 @@ Compare to Phase 1:
 
 ### Phase 3: Intent-Based DevOps (Full MCP)
 
-> **Goal:** Express complex multi-system intents in natural language. All 21 tools ON.
+> **Goal:** Express complex multi-system intents in natural language. All 26 tools ON.
 
 Enable MCP servers one at a time as you progress through each phase:
 
@@ -519,6 +520,7 @@ docker compose up -d mcp-user        # start here
 docker compose up -d mcp-gitea       # after exploring user tools
 docker compose up -d mcp-registry    # after exploring git tools
 docker compose up -d mcp-promotion   # after exploring registry tools
+docker compose up -d mcp-runner      # after exploring promotion tools
 ```
 
 #### Exercise 1: Full Onboarding
@@ -543,17 +545,36 @@ The agent will:
 2. Update charlie to reviewer
 3. Retry the promotion — succeeds
 
-#### Exercise 3: Audit and Investigation
+#### Exercise 3: Build, Promote, and Deploy Pipeline
+
+> "Build the hello-app from the sample-app repo, scan it, promote it to prod, and deploy it."
+
+Watch the agent chain the full CI/CD pipeline:
+1. `build_image` — clones the Gitea repo, builds the Docker image, pushes to dev registry
+2. `scan_image` — runs a security scan on the image
+3. `promote_image` — copies the image from dev to prod registry (requires reviewer role)
+4. `deploy_app` — pulls from prod registry and runs a live container
+
+Verify the deployment yourself:
+
+```bash
+curl http://localhost:9082/        # {"message":"Hello from MCP Lab!","version":"1.0.0"}
+curl http://localhost:9082/health  # {"status":"ok"}
+```
+
+Deploy port mapping: dev → `localhost:9080`, staging → `localhost:9081`, prod → `localhost:9082`.
+
+#### Exercise 4: Audit and Investigation
 
 - "Show me all promotion records. Which ones failed and why?"
 - "What images are available in prod? How did they get there?"
 - "List all users and their roles. Who has permission to promote images?"
 
-#### Exercise 4: Complex Multi-System Workflow
+#### Exercise 5: Complex Multi-System Workflow
 
 > "I need to set up a release process: create a user named releasebot with reviewer role, create a repo called release-automation, create a feature branch called v2-prep in sample-app, and then show me the current state of both registries."
 
-Watch the agent chain multiple tool calls across all four systems.
+Watch the agent chain multiple tool calls across all five systems.
 
 #### Phase 3 Reflection
 
@@ -684,7 +705,7 @@ Scripts are numbered in run order. Optional scripts are prefixed with `OPT-`.
 Internal scripts (called automatically — do not run directly):
 - `scripts/_detect-engine.sh` — shared engine detection helper; prompts if both Docker and Podman are available, saves choice to `.engine`
 - `scripts/bootstrap.sh` — one-shot init container entry point
-- `scripts/init-gitea.sh` — creates Gitea admin user, token, sample repo
+- `scripts/init-gitea.sh` — creates Gitea admin user, token, sample repo (seeds `app.py` + `Dockerfile` for a real HTTP hello-app)
 - `scripts/seed-registry.sh` — pushes `sample-app:v1.0.0` to dev registry
 
 ---
@@ -842,37 +863,51 @@ See `config/mcp/claude-code-config.json` for the full configuration with all 4 s
 
 ### Abstract
 
-Large Language Models promise to revolutionize DevOps workflows, but in practice they hallucinate API calls, lose track of credentials, and cannot enforce organizational policy. This workshop gives attendees a visceral, hands-on experience of that gap — then closes it with MCP.
+Large Language Models promise to revolutionize DevOps, but out of the box they hallucinate API calls, leak credentials into prompts, and cannot enforce organizational policy. This workshop gives every attendee a visceral, first-person experience of that gap — then closes it with the Model Context Protocol.
 
-Participants start with a local LLM (Ollama, llama3.1:8b) connected to zero backend tools. When asked to "list all users," the model confidently invents data. When asked to "promote an image to production," it fabricates API responses. This is Phase 1: The Struggle.
+Each participant gets a fully containerized DevOps environment: a User API, a Gitea git server, two container registries (dev and prod), a promotion service with role-based policy, and a CI/CD runner that builds, scans, and deploys real containers — 12 services on a single Docker Compose network, zero cloud accounts required.
 
-Then, server by server, participants start independent MCP containers and watch the same LLM transform from a hallucination engine into a reliable multi-system orchestrator. By the end, a single natural-language sentence triggers a chain of verified tool calls across four backend systems, with credential injection, policy enforcement, and a full audit trail — all invisible to the user.
+The lab begins with all MCP servers OFF. Participants talk to a local LLM (Ollama llama3.1:8b) and watch it confidently invent users, fabricate registry contents, and hallucinate deployments. They then repeat the same tasks via raw curl against five different REST APIs — feeling the friction of divergent auth schemes, manual credential threading, and zero workflow assistance. This is Phase 1: The Struggle.
+
+In Phase 2, participants start independent MCP containers one at a time (`docker compose up -d mcp-user`, then `mcp-gitea`, then `mcp-registry`, then `mcp-promotion`, then `mcp-runner`) and watch the Chat UI's tool count climb from 0 to 26. The same LLM that hallucinated minutes ago now executes verified tool calls with credential injection, input validation, and structured error surfacing — all invisible to the user.
+
+Phase 3 is the payoff. A single natural-language sentence — "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it" — triggers a chain of tool calls across five backend systems. The result is a live container serving JSON on localhost, built from source in Gitea, scanned, promoted through a policy gate, and deployed — all orchestrated by the LLM through MCP.
+
+### What Attendees Will Learn
+
+1. **Why LLMs fail at multi-system tool calling** without protocol structure — and what that failure looks like in practice
+2. **How MCP acts as a control plane** — translating intent to API calls, injecting credentials, enforcing policy, and maintaining audit trails
+3. **Progressive capability disclosure** — how independent MCP servers let platform teams control the blast radius of AI-assisted operations
+4. **The build/promote/deploy pipeline** — a complete CI/CD flow driven entirely by natural language, from git clone to running container
+5. **Model comparison** — how the same MCP tools perform across Ollama (local/free), OpenAI, Anthropic, and Google Gemini
 
 ### Key Design Decisions
 
-1. **Independent MCP servers** — each tool category is its own container. A single `docker compose up -d mcp-gitea` (or `podman compose`) is the simplest possible progressive disclosure. No config files, no restarts.
-2. **Ollama as default** — free, local, no API keys. The llama3.1:8b model intentionally struggles with tool calling, making the MCP improvement dramatic.
-3. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Instructor can share screen without exposing credentials.
-4. **Real policy enforcement** — the promotion service actually checks user roles via the User API. Students see real rejections.
-5. **Dual transport** — streamable-http (containers) and stdio (Claude Code) demonstrate MCP's transport flexibility.
+1. **Independent MCP servers** — each tool category is its own container. A single `docker compose up -d mcp-gitea` is the simplest possible progressive disclosure. No config files, no restarts.
+2. **Real deployments, not mocks** — `deploy_app` runs actual containers (`docker pull` + `docker run`) serving HTTP on localhost. Attendees curl the running app to verify.
+3. **Ollama as default** — free, local, no API keys. The llama3.1:8b model intentionally struggles with tool calling, making the MCP improvement dramatic.
+4. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Instructor can share screen without exposing credentials.
+5. **Real policy enforcement** — the promotion service checks user roles via the User API. Students see real rejections and learn to fix them.
+6. **Dual transport** — streamable-http (containers) and stdio (Claude Code) demonstrate MCP's transport flexibility.
 
 ### Workshop Timing
 
 | Phase | Duration | Description |
 |-------|----------|-------------|
 | Pre-work | Before lab | Install Docker or Podman, install Ollama + pull `llama3.1:8b` (~4.9 GB), run `0-preflight.sh` |
-| Setup | 10 min | Clone, `./scripts/1-setup.sh`, verify Chat UI |
-| Phase 1: The Struggle | 20 min | Hallucination, manual curl, friction |
-| Phase 2: Progressive Enablement | 30 min | Start MCP servers, watch tool count grow |
-| Phase 3: Intent-Based DevOps | 20 min | Multi-system orchestration, policy enforcement |
-| Wrap-Up | 10 min | Discussion: MCP vs. API gateways, production considerations |
+| Setup | 10 min | Clone, `./scripts/1-setup.sh`, verify Chat UI at localhost:3001 |
+| Phase 1: The Struggle | 20 min | Hallucination demo, manual curl against 5 APIs, friction |
+| Phase 2: Progressive Enablement | 25 min | Start MCP servers one by one, watch tool count grow from 0 → 26 |
+| Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, policy enforcement, multi-system orchestration |
+| Wrap-Up | 10 min | Discussion: MCP vs. API gateways, production considerations, what to build next |
 
 ### What Makes This Workshop Different
 
-- **Experiential learning, not slides** — no presentation deck; the "aha moment" comes from felt friction
-- **Real systems, not mocks** — every service has a real database; nothing is stubbed
+- **Experiential learning, not slides** — no presentation deck; the "aha moment" comes from felt friction, not a feature list
+- **Real systems, real containers** — every service has a real database; the deploy step runs a real container you can curl
 - **Model-agnostic** — same lab works with Ollama, OpenAI, Anthropic, and Google Gemini
-- **Take-home value** — participants leave with a working MCP dev environment on their laptop
+- **Zero cloud dependency** — everything runs on localhost via Docker or Podman; no accounts, no API keys required for the core experience
+- **Take-home value** — participants leave with a working MCP dev environment on their laptop and a reference architecture for their own tools
 
 ---
 
