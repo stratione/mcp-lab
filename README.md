@@ -16,6 +16,7 @@ A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transf
 - [MCP On/Off — Quick Toggle](#mcp-onoff--quick-toggle)
 - [Environment Configuration](#environment-configuration)
 - [LLM Providers](#llm-providers)
+- [Sample Prompts to Try](#sample-prompts-to-try)
 - [Workshop Lab Guide](#workshop-lab-guide)
   - [Phase 1: Manual Operations (Without MCP)](#phase-1-manual-operations-without-mcp)
   - [Phase 2: Introducing MCP](#phase-2-introducing-mcp)
@@ -323,6 +324,62 @@ GOOGLE_API_KEY=...
 The workshop intentionally starts with Ollama so students experience a weaker model's tool-calling limitations before seeing MCP improve the experience.
 
 To switch providers: open the Chat UI → settings panel → select provider → enter API key → Apply.
+
+---
+
+## Sample Prompts to Try
+
+Use these prompts in the Chat UI at each phase of the workshop. Start with all MCP servers OFF, then enable them one at a time and repeat the same prompts to see how the experience changes.
+
+### With zero MCP servers (The Struggle)
+
+Try these first — before starting any MCP servers:
+
+- "List all users in the system"
+- "Create a user named john with email john@example.com"
+- "What Git repositories exist?"
+- "List all container images in the dev registry"
+- "Promote the sample-app image to production"
+- "Build the hello-app from the sample-app repo and deploy it"
+
+### After starting mcp-user
+
+- "List all users"
+- "What roles are available?"
+- "Create a user named alice with email alice@example.com and role dev"
+- "What role does alice have?"
+- "Change alice's role to reviewer"
+
+### After starting mcp-gitea
+
+- "List all Git repositories"
+- "Create a new repo called my-service"
+- "What branches does sample-app have?"
+- "Create a feature branch called v2-prep in sample-app"
+
+### After starting mcp-registry
+
+- "What images are in the dev registry?"
+- "List tags for sample-app in dev"
+- "Is anything in the prod registry yet?"
+
+### After starting mcp-promotion
+
+- "Promote sample-app:v1.0.0 from dev to prod — have alice do it"
+- "Why did the promotion fail?"
+- "Show me all promotion records"
+
+### After starting mcp-runner (full pipeline)
+
+- "Build the hello-app from the sample-app repo, scan it, promote it to prod, and deploy it"
+- "What's running on port 9082?"
+
+### Multi-system workflows
+
+- "Onboard a new developer named charlie with email charlie@example.com — create their user account and a Git repo called charlie-service"
+- "Set up a release process: create a user named releasebot with reviewer role, then promote sample-app:v1.0.0 to production"
+- "List all users and their roles. Who has permission to promote images?"
+- "What images are in prod? How did they get there?"
 
 ---
 
