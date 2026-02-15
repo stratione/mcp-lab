@@ -241,10 +241,6 @@ function buildMcpModal() {
     html += `</div>`;
   }
 
-  if (easyModeEnabled) {
-    html += `<p class="mcp-easymode-hint">🎓 Guided Mode active</p>`;
-  }
-
   // Always show start/stop reference commands
   html += `<div class="mcp-hint-grid">`;
   if (offline.length > 0) {
@@ -341,31 +337,19 @@ function addToolCalls(toolCalls) {
 
     const header = document.createElement("div");
     header.className = "tool-card-header";
-
-    // rawtools: label the header so it's obvious the mode is active
-    const modeTag = rawToolsEnabled
-      ? `<span class="raw-badge">RAW</span>`
-      : "";
-    header.innerHTML = `<span class="tool-name">${tc.name}</span>${modeTag}<span class="toggle">&#9660; details</span>`;
+    header.innerHTML = `<span class="tool-name">${tc.name}</span><span class="toggle">&#9660; details</span>`;
 
     const result = tc.result || "—";
-    // rawtools: show full result without any truncation; normal: cap display
-    const resultDisplay = rawToolsEnabled
-      ? result
-      : (result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated)" : result);
+    const resultDisplay = result.length > 1200 ? result.slice(0, 1200) + "\n…(truncated)" : result;
 
     const body = document.createElement("div");
-    body.className = "tool-card-body" + (rawToolsEnabled ? " open" : "");
+    body.className = "tool-card-body";
     body.innerHTML = `
       <div class="label">Arguments</div>
       <pre>${JSON.stringify(tc.arguments, null, 2)}</pre>
       <div class="label">Result</div>
-      <pre class="${rawToolsEnabled ? "raw-result" : ""}">${resultDisplay}</pre>
+      <pre>${resultDisplay}</pre>
     `;
-
-    if (rawToolsEnabled) {
-      header.querySelector(".toggle").innerHTML = "&#9650; hide";
-    }
 
     header.addEventListener("click", () => {
       body.classList.toggle("open");
@@ -642,26 +626,13 @@ const helpBtn = document.getElementById("help-btn");
 const helpModal = document.getElementById("help-modal");
 const settingsBtn = document.getElementById("settings-btn");
 
-// Toggle settings modal (reusing existing config-panel logic by scrolling to it or finding a better way? 
-// Actually, the config panel is inline in the HTML. Let's make the settings button scroll to top or focus it.
-// The config panel is visible by default. 
-// Wait, looking at index.html, .config-panel is right at the top. 
-// Let's make the settings button toggle the visibility of the config panel if it's hidden, or just scroll to it.
-// For now, let's assume it might be hidden in mobile or future styles. 
-// But a better approach is to make the settings button focus the provider select.
 settingsBtn.addEventListener("click", () => {
   document.querySelector('.config-panel').scrollIntoView({ behavior: 'smooth' });
   providerSelect.focus();
 });
 
-// Render a URL cell: plain <code> normally; clickable link + ▶ probe button in easymode
 function _urlCell(url) {
-  if (!easyModeEnabled) return `<td><code>${url}</code></td>`;
-  return `<td>
-    <a class="help-url-link" href="${url}" target="_blank" rel="noopener"><code>${url}</code></a>
-    <button class="probe-btn" data-url="${url}" title="Probe URL">&#9654;</button>
-    <span class="probe-result" data-url="${url}"></span>
-  </td>`;
+  return `<td><code>${url}</code></td>`;
 }
 
 async function runProbe(url, resultEl, btn) {
@@ -702,28 +673,9 @@ function buildHelpModal() {
   const h = window.location.hostname || "localhost";
   const body = document.getElementById("help-modal-body");
 
-  const easyBanner = easyModeEnabled
-    ? `<p class="help-easymode-banner">🎓 Guided Mode — Click scenarios to auto-fill prompts &amp; use <strong>▶</strong> to probe URLs</p>`
-    : "";
-
-  let scenariosHtml = "";
-  if (easyModeEnabled) {
-    scenariosHtml = `
-      <h3>Guided Scenarios</h3>
-      <div class="scenario-grid">
-        <button class="scenario-btn" data-prompt="Create a user named 'charlie' with email 'charlie@example.com' and role 'dev'">1. Onboard User</button>
-        <button class="scenario-btn" data-prompt="Create a Gitea repository named 'charlie-app'">2. Create Repo</button>
-        <button class="scenario-btn" data-prompt="List all images in the dev registry">3. Check Registry</button>
-        <button class="scenario-btn" data-prompt="Promote image 'sample-app' tag 'v1.0.0' to prod">4. Promote Image</button>
-      </div>
-    `;
-  }
-
   body.innerHTML = `
     <button id="help-modal-close" class="modal-close">&times;</button>
     <h2>MCP DevOps Lab &mdash; Quick Reference</h2>
-    ${easyBanner}
-    ${scenariosHtml}
 
     <h3>Services &amp; URLs</h3>
     <table class="help-table">
@@ -756,7 +708,6 @@ function buildHelpModal() {
       <li>Stop an MCP server: <code>${containerEngine} compose stop mcp-user</code></li>
       <li>Check what's running:
         <pre>${containerEngine} compose ps\ncurl http://${h}:3001/api/tools</pre>
-        ${easyModeEnabled ? `<button class="probe-btn probe-btn-inline" data-url="http://${h}:3001/api/tools" title="Run curl">&#9654; run curl</button><span class="probe-result" data-url="http://${h}:3001/api/tools"></span>` : ""}
       </li>
     </ol>
 
@@ -767,9 +718,8 @@ function buildHelpModal() {
     <table class="help-table">
       <tr><td><code>./scripts/0-preflight.sh</code></td><td>Check system requirements</td></tr>
       <tr><td><code>./scripts/1-setup.sh</code></td><td>First-time setup</td></tr>
-      <tr><td><code>./scripts/2-open-lab.sh</code></td><td>Open lab URLs in browser</td></tr>
-      <tr><td><code>./scripts/3-open-api-docs.sh</code></td><td>Open API docs in browser</td></tr>
-      <tr><td><code>./scripts/4-help.sh</code></td><td>Show this help</td></tr>
+      <tr><td><code>./scripts/2-start-lab.sh</code></td><td>Restart core services</td></tr>
+      <tr><td><code>./scripts/4-open-api-docs.sh</code></td><td>Open API docs in browser</td></tr>
       <tr><td><code>./scripts/5-teardown.sh</code></td><td>Full cleanup</td></tr>
       <tr><td><code>./scripts/6-tunnel.sh [port]</code></td><td>Expose MCP server via tunnel</td></tr>
     </table>
@@ -777,20 +727,6 @@ function buildHelpModal() {
 
   document.getElementById("help-modal-close").addEventListener("click", () => {
     helpModal.style.display = "none";
-  });
-
-  body.querySelectorAll(".probe-btn").forEach((btn) => {
-    const url = btn.dataset.url;
-    const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
-    btn.addEventListener("click", () => runProbe(url, resultEl, btn));
-  });
-
-  body.querySelectorAll(".scenario-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      userInput.value = btn.dataset.prompt;
-      helpModal.style.display = "none";
-      userInput.focus();
-    });
   });
 }
 
@@ -817,17 +753,14 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   document.getElementById("token-session-total").textContent = "0 tokens";
 });
 
-// ─── Easter eggs ─────────────────────────────────────────────────────────────
-// Type any of these sequences anywhere on the page (not while in an input):
-//   "thestruggleisreal" — toggles all power-user features at once (GUI
-//                         controls, raw tools, API docs, schema browser)
-//   "iamgood"           — opens the tool schema browser modal
+// ─── Cheat sheet (unlocked by typing "thestruggleisreal") ───────────────────
+// This is the only easter egg. It reveals API documentation links and
+// the tool schema browser in the Lab Dashboard.
 // ─────────────────────────────────────────────────────────────────────────────
 
-let easyModeEnabled = localStorage.getItem("easyMode") === "true";
-let rawToolsEnabled = easyModeEnabled;
-let struggleUnlocked = easyModeEnabled;
-// Clean up legacy per-feature keys
+let cheatSheetEnabled = localStorage.getItem("cheatSheet") === "true";
+// Clean up legacy keys
+localStorage.removeItem("easyMode");
 localStorage.removeItem("rawTools");
 localStorage.removeItem("struggleUnlocked");
 
@@ -852,16 +785,16 @@ document.addEventListener("keydown", (e) => {
   _eggBuf = (_eggBuf + e.key.toLowerCase()).slice(-18);
 
   if (_eggBuf.endsWith("thestruggleisreal")) {
-    easyModeEnabled = !easyModeEnabled;
-    rawToolsEnabled = easyModeEnabled;
-    struggleUnlocked = easyModeEnabled;
-    localStorage.setItem("easyMode", easyModeEnabled);
-    _showToast(easyModeEnabled
-      ? "🎮 Easy Mode ON — all features unlocked"
-      : "🔒 Easy Mode OFF — back to basics");
-    _eggBuf = "";
-  } else if (_eggBuf.endsWith("iamgood")) {
-    openSchemaModal();
+    cheatSheetEnabled = !cheatSheetEnabled;
+    localStorage.setItem("cheatSheet", cheatSheetEnabled);
+    _showToast(cheatSheetEnabled
+      ? "Cheat sheet enabled — see API documentation in the Lab Dashboard"
+      : "Cheat sheet disabled");
+    // If dashboard is open, rebuild it to show/hide docs section
+    const dashModal = document.getElementById("dashboard-modal");
+    if (dashModal.style.display !== "none" && dashModal.style.display !== "") {
+      buildDashboardModal();
+    }
     _eggBuf = "";
   }
 });
@@ -947,25 +880,47 @@ const _LAB_SERVICES = [
   { label: "Registry (prod)", url: "http://localhost:5002/v2/_catalog", note: "image catalog" },
 ];
 
-const _VERIFY_CHECKS = [
-  { label: "List users", url: "http://localhost:8001/users", note: "all users in the system" },
-  { label: "List roles", url: "http://localhost:8001/users/roles", note: "available roles" },
-  { label: "User API health", url: "http://localhost:8001/health", note: "service status" },
+// Verify cards grouped by service
+const _VERIFY_SECTIONS = [
+  {
+    heading: "Verify User API",
+    checks: [
+      { label: "List users", url: "http://localhost:8001/users", note: "all users in the system" },
+      { label: "List roles", url: "http://localhost:8001/users/roles", note: "available roles" },
+      { label: "User API health", url: "http://localhost:8001/health", note: "service status" },
+    ],
+  },
+  {
+    heading: "Verify Registry (dev)",
+    checks: [
+      { label: "Image catalog", url: "http://localhost:5001/v2/_catalog", note: "all images in dev registry" },
+      { label: "sample-app tags", url: "http://localhost:5001/v2/sample-app/tags/list", note: "available tags for sample-app" },
+    ],
+  },
+  {
+    heading: "Verify Registry (prod)",
+    checks: [
+      { label: "Image catalog", url: "http://localhost:5002/v2/_catalog", note: "all images in prod registry" },
+      { label: "sample-app tags", url: "http://localhost:5002/v2/sample-app/tags/list", note: "available tags (empty until promoted)" },
+    ],
+  },
+  {
+    heading: "Verify Promotion Service",
+    checks: [
+      { label: "Promotion health", url: "http://localhost:8002/health", note: "service status" },
+      { label: "Promotion history", url: "http://localhost:8002/promotions", note: "all promotion records" },
+    ],
+  },
 ];
 
 const _API_DOCS = [
-  { label: "User API Swagger", url: "http://localhost:8001/docs", note: "copy schema → paste into LLM" },
-  { label: "Promotion API Swagger", url: "http://localhost:8002/docs", note: "copy schema → paste into LLM" },
-  { label: "Gitea Swagger", url: "http://localhost:3000/api/swagger", note: "copy schema → paste into LLM" },
+  { label: "User API Swagger", url: "http://localhost:8001/docs", note: "interactive API documentation" },
+  { label: "Promotion API Swagger", url: "http://localhost:8002/docs", note: "interactive API documentation" },
+  { label: "Gitea Swagger", url: "http://localhost:3000/api/swagger", note: "interactive API documentation" },
 ];
 
 
 function _dashCard(s, extraClass = "") {
-  // In Easy Mode: add a ▶ probe button below the URL; the card itself stays a link.
-  const probeHtml = easyModeEnabled
-    ? `<button class="probe-btn dash-probe-btn" data-url="${s.url}" title="Probe endpoint">&#9654;</button>
-       <span class="probe-result" data-url="${s.url}"></span>`
-    : "";
   const credsHtml = s.creds
     ? `<span class="dash-link-creds"><code>${s.creds}</code></span>`
     : "";
@@ -977,7 +932,6 @@ function _dashCard(s, extraClass = "") {
         ${credsHtml}
         <span class="dash-link-note">${s.note}</span>
       </a>
-      ${probeHtml}
     </div>`;
 }
 
@@ -1037,31 +991,38 @@ function _verifyCard(v) {
 function buildDashboardModal() {
   const body = document.getElementById("dashboard-modal-body");
 
-  const easyBanner = easyModeEnabled
-    ? `<p class="dash-easy-banner">🎮 Easy Mode active — <strong>▶</strong> buttons probe each endpoint live</p>`
-    : "";
-
   const servicesHtml = _LAB_SERVICES.map((s) => _dashCard(s)).join("");
-  const verifyHtml = _VERIFY_CHECKS.map((v) => _verifyCard(v)).join("");
 
+  // Build all verify sections
+  let verifySectionsHtml = "";
+  for (const section of _VERIFY_SECTIONS) {
+    const cardsHtml = section.checks.map((v) => _verifyCard(v)).join("");
+    verifySectionsHtml += `
+      <h3 class="dash-section-heading">${section.heading}</h3>
+      <div class="verify-grid">${cardsHtml}</div>`;
+  }
+
+  // Cheat sheet: API docs + schema browser (only when unlocked)
   let docsSection = "";
-  if (struggleUnlocked) {
+  if (cheatSheetEnabled) {
     const docsHtml = _API_DOCS.map((s) => _dashCard(s, "dash-link-card--docs")).join("");
     docsSection = `
+      <div class="dash-cheatsheet-banner">Cheat sheet enabled &mdash; see API documentation to learn how to better interact with the services</div>
       <h3 class="dash-section-heading">API Documentation</h3>
-      <div class="dash-link-grid">${docsHtml}</div>`;
+      <div class="dash-link-grid">${docsHtml}</div>
+      <div style="margin-top:8px">
+        <button id="dash-schema-btn" class="verify-run-btn" style="width:auto;padding:6px 16px">Browse Tool Schemas</button>
+      </div>`;
   }
 
   body.innerHTML = `
     <button id="dashboard-modal-close" class="modal-close">&times;</button>
     <h2>Lab Dashboard</h2>
-    ${easyBanner}
 
     <h3 class="dash-section-heading">Lab Services</h3>
     <div class="dash-link-grid">${servicesHtml}</div>
 
-    <h3 class="dash-section-heading">Verify User API</h3>
-    <div class="verify-grid">${verifyHtml}</div>
+    ${verifySectionsHtml}
     ${docsSection}
   `;
 
@@ -1072,6 +1033,8 @@ function buildDashboardModal() {
 
   // Wire verify Run buttons — always active
   body.querySelectorAll(".verify-run-btn").forEach((btn) => {
+    // Skip the schema browser button
+    if (btn.id === "dash-schema-btn") return;
     btn.addEventListener("click", async () => {
       const url = btn.dataset.url;
       const resultEl = body.querySelector(`.verify-result[data-url="${url}"]`);
@@ -1101,18 +1064,13 @@ function buildDashboardModal() {
     });
   });
 
-  // Wire probe buttons if Easy Mode is active
-  if (easyModeEnabled) {
-    body.querySelectorAll(".dash-probe-btn").forEach((btn) => {
-      const url = btn.dataset.url;
-      const resultEl = body.querySelector(`.probe-result[data-url="${url}"]`);
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        runProbe(url, resultEl, btn);
-      });
+  // Wire schema browser button
+  const schemaBtn = document.getElementById("dash-schema-btn");
+  if (schemaBtn) {
+    schemaBtn.addEventListener("click", () => {
+      openSchemaModal();
     });
   }
-
 }
 
 document.getElementById("dashboard-btn").addEventListener("click", () => {
@@ -1127,9 +1085,6 @@ document.getElementById("dashboard-modal").addEventListener("click", (e) => {
     e.target.style.display = "none";
   }
 });
-
-// Dashboard no longer auto-shows — students must explore on their own first.
-// Type "thestruggleisreal" to unlock the API Documentation section.
 
 // ─── Init ───
 loadProviders();

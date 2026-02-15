@@ -925,4 +925,4 @@ MIT
 
 ---
 
-<sub>Feeling stuck? The Chat UI has a few hidden shortcuts. Try typing these anywhere on the page (click outside the input box first): `easymode`, `rawtools`, `schema`, `thestruggleisreal`.</sub>
+<sub>Feeling stuck? Type `thestruggleisreal` anywhere on the Chat UI page (click outside the input box first) to unlock the cheat sheet with API documentation and tool schemas.</sub>
