@@ -1068,6 +1068,8 @@ function buildDashboardModal() {
   const schemaBtn = document.getElementById("dash-schema-btn");
   if (schemaBtn) {
     schemaBtn.addEventListener("click", () => {
+      _stopDashRefresh();
+      document.getElementById("dashboard-modal").style.display = "none";
       openSchemaModal();
     });
   }
