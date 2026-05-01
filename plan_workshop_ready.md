@@ -22,7 +22,7 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 
 - [x] (2026-05-01 14:50Z) Milestone 0 — Test infrastructure: pytest + Cypress + Makefile. `make test` → 2 pytest + 3 Cypress passed.
 - [x] (2026-05-01 15:10Z) Milestone 1 — README + scripts truth pass; `delete_all_users` gated behind `USER_DESTRUCTIVE_TOOLS_ENABLED`. Live mcp-user dropped from 9 → 8 tools. 4 mcp-server unit tests + 2 chat-ui integration tests + all M0 tests still green.
-- [ ] Milestone 2 — Secret-leak fix on `/api/providers` and audit other endpoints
+- [x] (2026-05-01 15:25Z) Milestone 2 — `/api/providers` and `/api/provider` now return `{has_key, key_preview}` only. 6 secret-leak tests + live-curl audit confirm no `api_key` field anywhere.
 - [ ] Milestone 3 — Hallucination Mode toggle (UI + permissive system prompt + meta-tool hide)
 - [ ] Milestone 4A — *Prototype:* validate FastMCP `Context` API and Podman socket mount in a throwaway script
 - [ ] Milestone 4B — Apply prototype findings to `runner_tools.py`, `deploy_tools.py`, and `docker-compose.yml`
