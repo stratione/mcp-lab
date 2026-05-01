@@ -20,8 +20,8 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 
 ## Progress (Living)
 
-- [ ] Milestone 0 — Test infrastructure: pytest harness for chat-ui + mcp-server, Cypress for E2E browser flows, Makefile entrypoints
-- [ ] Milestone 1 — README + scripts truth pass (no behavior change beyond `delete_all_users` gating)
+- [x] (2026-05-01 14:50Z) Milestone 0 — Test infrastructure: pytest + Cypress + Makefile. `make test` → 2 pytest + 3 Cypress passed.
+- [x] (2026-05-01 15:10Z) Milestone 1 — README + scripts truth pass; `delete_all_users` gated behind `USER_DESTRUCTIVE_TOOLS_ENABLED`. Live mcp-user dropped from 9 → 8 tools. 4 mcp-server unit tests + 2 chat-ui integration tests + all M0 tests still green.
 - [ ] Milestone 2 — Secret-leak fix on `/api/providers` and audit other endpoints
 - [ ] Milestone 3 — Hallucination Mode toggle (UI + permissive system prompt + meta-tool hide)
 - [ ] Milestone 4A — *Prototype:* validate FastMCP `Context` API and Podman socket mount in a throwaway script

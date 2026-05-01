@@ -689,10 +689,11 @@ function buildHelpModal() {
 
     <h3>MCP Servers</h3>
     <table class="help-table">
-      <tr><td>mcp-user</td>${_urlCell(`http://${h}:8003/mcp`)}<td>6 tools</td></tr>
+      <tr><td>mcp-user</td>${_urlCell(`http://${h}:8003/mcp`)}<td>8 tools</td></tr>
       <tr><td>mcp-gitea</td>${_urlCell(`http://${h}:8004/mcp`)}<td>7 tools</td></tr>
-      <tr><td>mcp-registry</td>${_urlCell(`http://${h}:8005/mcp`)}<td>3 tools</td></tr>
+      <tr><td>mcp-registry</td>${_urlCell(`http://${h}:8005/mcp`)}<td>5 tools</td></tr>
       <tr><td>mcp-promotion</td>${_urlCell(`http://${h}:8006/mcp`)}<td>3 tools</td></tr>
+      <tr><td>mcp-runner</td>${_urlCell(`http://${h}:8007/mcp`)}<td>3 tools</td></tr>
     </table>
 
     <h3>Credentials</h3>
@@ -703,7 +704,7 @@ function buildHelpModal() {
       <li>Open the Chat UI: <code>http://${h}:3001</code></li>
       <li>All MCP servers start <strong>OFF</strong> by default.</li>
       <li>Enable MCP servers one at a time:
-        <pre>${containerEngine} compose up -d mcp-user        # +6 user tools\n${containerEngine} compose up -d mcp-gitea       # +7 git/repo tools\n${containerEngine} compose up -d mcp-registry    # +3 registry tools\n${containerEngine} compose up -d mcp-promotion   # +3 promotion tools</pre>
+        <pre>${containerEngine} compose up -d mcp-user        # +8 user tools\n${containerEngine} compose up -d mcp-gitea       # +7 git/repo tools\n${containerEngine} compose up -d mcp-registry    # +5 registry tools\n${containerEngine} compose up -d mcp-promotion   # +3 promotion tools\n${containerEngine} compose up -d mcp-runner      # +3 build/scan/deploy tools</pre>
       </li>
       <li>Stop an MCP server: <code>${containerEngine} compose stop mcp-user</code></li>
       <li>Check what's running:
