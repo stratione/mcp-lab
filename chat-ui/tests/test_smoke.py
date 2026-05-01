@@ -17,6 +17,42 @@ async def test_health_endpoint_returns_ok(client):
     assert r.status_code == 200
 
 
+def test_parse_response_skips_sse_notifications():
+    """Regression pin: SSE responses can interleave `notifications/message`
+    events (from ctx.info()) before the JSON-RPC response. _parse_response
+    must skip those and return the message that carries a `result` key.
+
+    Without this, a tool call that uses ctx.info() returns `{}` to the
+    chat-ui (because the first `data:` line is the notification).
+    """
+    from app import mcp_client
+    import httpx
+
+    sse_body = (
+        "event: message\n"
+        'data: {"method":"notifications/message","params":{"level":"info","data":"hi"},"jsonrpc":"2.0"}\n'
+        "\n"
+        "event: message\n"
+        'data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"OK"}]}}\n'
+        "\n"
+    )
+
+    class FakeResp:
+        status_code = 200
+        headers = {"content-type": "text/event-stream"}
+        text = sse_body
+
+        def json(self):
+            raise AssertionError("should not be called for SSE")
+
+    parsed = mcp_client._parse_response(FakeResp())
+    assert "result" in parsed, (
+        f"_parse_response returned {parsed!r}; should have skipped the "
+        "leading notification and returned the result-bearing message"
+    )
+    assert parsed["result"]["content"][0]["text"] == "OK"
+
+
 @pytest.mark.asyncio
 async def test_mcp_session_id_propagation_regression(monkeypatch):
     """Pin the session-id-propagation behaviour in mcp_client.py.

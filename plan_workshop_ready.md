@@ -24,15 +24,21 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 - [x] (2026-05-01 15:10Z) Milestone 1 — README + scripts truth pass; `delete_all_users` gated behind `USER_DESTRUCTIVE_TOOLS_ENABLED`. Live mcp-user dropped from 9 → 8 tools. 4 mcp-server unit tests + 2 chat-ui integration tests + all M0 tests still green.
 - [x] (2026-05-01 15:25Z) Milestone 2 — `/api/providers` and `/api/provider` now return `{has_key, key_preview}` only. 6 secret-leak tests + live-curl audit confirm no `api_key` field anywhere.
 - [x] (2026-05-01 15:50Z) Milestone 3 — Hallucination Mode toggle live. Ollama fabricated 8 fake users incl. a complete fake "SarahJohnson, Sales Rep" with zero tool calls when toggle ON. 9 backend + 5 Cypress tests green.
-- [ ] Milestone 4A — *Prototype:* validate FastMCP `Context` API and Podman socket mount in a throwaway script
-- [ ] Milestone 4B — Apply prototype findings to `runner_tools.py`, `deploy_tools.py`, and `docker-compose.yml`
+- [x] (2026-05-01 16:25Z) Milestone 4A — Prototype PASS for both Q1 (Context API) and Q2/Q3 (Podman socket + skopeo push). Findings recorded as D-013, D-014.
+- [x] (2026-05-01 16:50Z) Milestone 4B — Pipeline finale works end-to-end. `curl localhost:9082/` returns `{"message":"Hello from MCP Lab!","version":"1.0.0"}` after a single English sentence drives build→scan→promote→deploy. 6 unit tests + parse-response regression test all green.
 - [ ] Milestone 5 — BYOK side-by-side provider compare (UI + parallel-request backend route)
 - [ ] Milestone 6 — `scripts/7-workshop.sh` launcher + `scripts/8-reset.sh` between-session reset
 
 
 ## Surprises & Discoveries (Living)
 
-_None yet. Will be updated as implementation proceeds. Format: date, finding, evidence (one-line command output or file:line)._
+- **2026-05-01** Hallucination Mode unlocks the workshop's central moment. With Ollama 3.1:8b + 0 MCP servers + permissive prompt, the model fabricated 8 fake users including a fully invented Sales Representative ("SarahJohnson, sjohnson@example.com") with zero tool calls. Evidence: `/api/chat` response on `plan-m3-hallucination` branch, 14s round-trip. None of the seeded six (alice/bob/charlie/diana/eve/system) appeared.
+
+- **2026-05-01** Podman docker-API shim returns 500 for `docker push`. Symptom: `Error response from daemon: API returned a 500 (Internal Server Error) but provided no error-message` after a successful `docker build`. Reproduced 3 times across `docker:cli`, `podman:stable --remote`, and `quay.io/podman/stable`. Root cause not investigated; workaround in D-014.
+
+- **2026-05-01** Daemon-side push cannot resolve compose service names. `docker push registry-dev:5000/...` fails with `dial tcp: lookup registry-dev on 169.254.1.1:53: no such host` because the engine daemon lives in the host network namespace, not on the compose `mcp-lab-net`. Workaround: do the push from inside a container that IS on the network, using `skopeo copy` (which speaks the registry HTTP API directly, no daemon involved). Verified end-to-end on M4A prototype.
+
+- **2026-05-01** macOS Podman `/tmp` mounts don't reach the VM. `podman run -v /tmp/foo:/out` silently fails with `statfs /tmp/foo: no such file or directory` because /tmp on macOS host is not auto-mounted into the podman machine. Use a path under `$HOME` (which is auto-mounted) for any host↔container shared volume. Cost: 1 prototype iteration.
 
 
 ## Decision Log (Living)
@@ -63,7 +69,11 @@ Every design decision lives here as: **Decision** → **Rationale** → **Date**
 
 - **D-012** Existing uncommitted changes in `chat-ui/app/main.py` (logging instrumentation) and `chat-ui/app/mcp_client.py` (httpx session-id propagation fix for `tools/list` after `initialize`) are preserved as-is and become the M0 starting tree. → They are real bug fixes the user already made; reverting would cost feature parity. The first regression test added in M0 will pin the session-id behavior so the fix doesn't get lost in a future refactor. → 2026-05-01 → Rejected: discarding the WIP. Rejected because the diff is small, clearly an improvement, and verified by my own walkthrough.
 
-- **(Q1, Q2, Q3, Q4 in the Outcomes section start as open questions; Decision Log entries D-013 onward will be written when the prototype resolves them.)**
+- **D-013** (resolves Q1) Use FastMCP `Context` parameter injection with `await ctx.info(...)` to replace the broken `mcp.server.request_context.session.send_log_message(...)` calls. Confirmed via `scripts/_proto/test_fastmcp_context.py`: `Context.info / .warning / .error / .debug / .report_progress` all callable on `mcp[cli]>=1.20.0`. → 2026-05-01 → Rejected: removing the log calls entirely. Rejected because progress messages are presenter convenience and the new API is one-line.
+
+- **D-014** (resolves Q2 + Q3) Runner Dockerfile drops `docker-ce-cli` in favor of `podman-remote` + `skopeo`. Build via `podman --remote --url unix:///var/run/docker.sock build`, push via `skopeo copy docker-archive:... docker://registry-dev:5000/...`. The `mcp-runner` compose service adds `security_opt: [label=disable]` to bypass rootless Podman's SELinux denial of socket access. → 2026-05-01 → Rejected: pure docker:cli (push fails with 500 from podman shim), buildah (needs `/dev/fuse` host mount, brittle), DOCKER_BUILDKIT=0 (build OK, push still fails 500). Skopeo path is the only one that worked end-to-end in M4A prototype.
+
+- **(Q4 — side-by-side compare default prompt — will be resolved in M5.)**
 
 
 ## Outcomes & Retrospective (Living)
