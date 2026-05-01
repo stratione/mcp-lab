@@ -61,6 +61,43 @@ else
   fi
 fi
 
+echo "[1.5/4] Pre-flight: verify the active provider is actually reachable..."
+preflight_provider() {
+  if ! command -v python3 >/dev/null 2>&1; then return 0; fi
+  python3 - <<'PY' 2>/dev/null
+import json, sys, urllib.request
+try:
+    d = json.loads(urllib.request.urlopen("http://localhost:3001/api/providers", timeout=3).read())
+except Exception:
+    sys.exit(0)
+active = d.get("active", {})
+provider = active.get("provider", "")
+if provider == "ollama":
+    try:
+        urllib.request.urlopen("http://localhost:11434/api/version", timeout=2).read()
+        print(f"  ✓ Ollama is the active provider and is reachable.")
+    except Exception:
+        print(f"  ⚠ Active provider is Ollama, but Ollama is NOT reachable on")
+        print(f"    localhost:11434.  Run `ollama serve` in a separate terminal,")
+        print(f"    or switch to Anthropic/OpenAI/Google in the Chat UI.")
+        sys.exit(2)
+elif provider in ("anthropic", "openai", "google"):
+    if not active.get("has_key"):
+        print(f"  ⚠ Active provider is {provider}, but no API key is set.")
+        print(f"    Add the key to .env.secrets and restart chat-ui, or pick")
+        print(f"    a different provider in the Chat UI settings panel.")
+        sys.exit(2)
+    print(f"  ✓ Active provider is {provider} and a key is set ({active.get('key_preview', '')}).")
+elif provider == "pretend":
+    print(f"  ✓ Active provider is the scripted Demo LLM (no key required).")
+else:
+    print(f"  ⚠ Unrecognized active provider: {provider!r}")
+PY
+}
+if ! $DRY_RUN; then
+  preflight_provider || echo "  (Continuing anyway — fix the warning above before demoing.)"
+fi
+
 echo "[2/4] Bringing all 5 MCP servers up..."
 run_or_print $COMPOSE up -d mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner
 

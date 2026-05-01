@@ -68,7 +68,7 @@ window.TOOL_VERIFY_MAP = {
   },
   get_gitea_repo: {
     label: "Open the repo in Gitea",
-    url: "http://localhost:3000/{owner}/{name}",
+    url: "http://localhost:3000/{owner}/{repo}",
     open_in: "tab",
   },
   create_gitea_repo: {
@@ -79,22 +79,24 @@ window.TOOL_VERIFY_MAP = {
   },
   list_gitea_branches: {
     label: "Open the branches page",
-    url: "http://localhost:3000/{owner}/{name}/branches",
+    url: "http://localhost:3000/{owner}/{repo}/branches",
     open_in: "tab",
   },
   create_gitea_branch: {
     label: "Open the new branch in Gitea",
-    url: "http://localhost:3000/{owner}/{name}/src/branch/{branch_name}",
+    url: "http://localhost:3000/{owner}/{repo}/src/branch/{branch_name}",
     open_in: "tab",
   },
   get_gitea_file: {
     label: "View the raw file in Gitea",
-    url: "http://localhost:3000/{owner}/{name}/raw/branch/main/{path}",
+    // Real tool args: (owner, repo, filepath, ref) — ref defaults to "main"
+    url: "http://localhost:3000/{owner}/{repo}/raw/branch/{ref}/{filepath}",
     open_in: "tab",
   },
   create_gitea_file: {
     label: "View the file in Gitea",
-    url: "http://localhost:3000/{owner}/{name}/src/branch/main/{path}",
+    // Real tool args: (owner, repo, filepath, content, message, branch="main")
+    url: "http://localhost:3000/{owner}/{repo}/src/branch/{branch}/{filepath}",
     open_in: "tab",
   },
 
@@ -139,8 +141,8 @@ window.TOOL_VERIFY_MAP = {
     open_in: "inline",
   },
   get_promotion_status: {
-    label: "Open the promotion audit log",
-    url: "http://localhost:8002/promotions",
+    label: "Hit /promotions/{promotion_id}",
+    url: "http://localhost:8002/promotions/{promotion_id}",
     open_in: "inline",
   },
 
@@ -177,7 +179,12 @@ window.TOOL_VERIFY_MAP = {
 window.resolveVerify = function (toolName, args) {
   const spec = window.TOOL_VERIFY_MAP[toolName];
   if (!spec) return null;
-  args = args || {};
+  args = Object.assign({}, args || {});
+
+  // Defaults for optional Gitea args so the verify URL still resolves
+  // when the LLM omits the optional ref/branch.
+  if (toolName === "get_gitea_file" && !args.ref) args.ref = "main";
+  if (toolName === "create_gitea_file" && !args.branch) args.branch = "main";
 
   // Special template handlers
   let template = spec.url;

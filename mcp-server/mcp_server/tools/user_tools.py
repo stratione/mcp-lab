@@ -83,15 +83,6 @@ def register(mcp: FastMCP):
         except Exception as e:
             return json.dumps({"error": str(e)})
 
-        if dry_run:
-             return json.dumps({"status": "valid", "message": "Inputs appear valid. Remove dry_run=True to create."})
-
-        try:
-            user = await user_api_client.create_user(username, email, full_name, role)
-            return json.dumps(user, indent=2)
-        except Exception as e:
-            return json.dumps({"error": str(e)})
-
     @mcp.tool()
     async def update_user(user_id: int, email: str = "", full_name: str = "", role: str = "") -> str:
         """Update an existing user's fields. Only non-empty fields are updated. Returns the updated user as JSON."""

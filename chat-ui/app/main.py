@@ -413,11 +413,6 @@ async def chat(req: ChatRequest):
         # Get available MCP tools and server status (grounded mode).
         try:
             servers = await check_servers()
-            tools = []
-            for s in servers:
-                if s["status"] == "online":
-                    for t_name in s["tools"]:
-                        tools.append(t_name)
             all_tools = await list_tools()
         except Exception as e:
             logger.error("Failed to fetch MCP tools: %s", e, exc_info=True)
