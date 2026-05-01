@@ -21,3 +21,10 @@ node_modules/
 .vscode/
 *.swp
 *.swo
+
+# Test infrastructure
+chat-ui/cypress/screenshots/
+chat-ui/cypress/videos/
+chat-ui/cypress/downloads/
+chat-ui/.pytest_cache/
+mcp-server/.pytest_cache/
