@@ -32,18 +32,35 @@ _LOCAL_TOOLS: list[dict] = [
 
 
 def _parse_response(resp: httpx.Response) -> dict:
-    """Parse MCP response — handles both JSON and SSE formats."""
+    """Parse MCP response — handles both JSON and SSE formats.
+
+    SSE responses can be a stream of events. Server-sent log notifications
+    (`{"method":"notifications/message",...}`) precede the actual JSON-RPC
+    response. We must skip those and return the message that carries a
+    `result` (or `error`) field — i.e. the JSON-RPC response, not a notification.
+    """
     content_type = resp.headers.get("content-type", "")
-    if "text/event-stream" in content_type:
-        for line in resp.text.strip().split("\n"):
-            if line.startswith("data: "):
-                try:
-                    return json.loads(line[6:])
-                except json.JSONDecodeError:
-                    continue
-        return {}
-    else:
+    if "text/event-stream" not in content_type:
         return resp.json()
+
+    fallback: dict = {}
+    for line in resp.text.strip().split("\n"):
+        if not line.startswith("data: "):
+            continue
+        try:
+            payload = json.loads(line[6:])
+        except json.JSONDecodeError:
+            continue
+        # Skip notifications — those have a `method` and no `id`.
+        if isinstance(payload, dict) and (
+            "result" in payload or "error" in payload
+        ):
+            return payload
+        # Keep the first parseable payload as a fallback in case the
+        # response shape is unexpected (e.g. legacy server).
+        if not fallback and isinstance(payload, dict):
+            fallback = payload
+    return fallback
 
 
 async def _mcp_request(server_url: str, method: str, params: dict = None,

@@ -210,7 +210,13 @@ services:
     environment:
       - MCP_TRANSPORT=streamable-http
       - DEV_REGISTRY_HOST=registry-dev:5000
+      - PROD_REGISTRY_HOST=registry-prod:5000
+      - PODMAN_REMOTE_URL=unix:///var/run/docker.sock
     command: [ "python", "-m", "mcp_server.server_runner" ]
+    # label=disable bypasses rootless Podman's SELinux denial of socket
+    # access. No-op on Docker Desktop. See plan D-013/D-014.
+    security_opt:
+      - label=disable
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

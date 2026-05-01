@@ -5,16 +5,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install docker CLI and git for mcp-runner
+# Install git, podman (for --remote), and skopeo for mcp-runner.
+# Build pipeline: podman --remote build → podman save → skopeo copy.
+# (Replaced docker-ce-cli; podman speaks the same socket on both engines
+# and skopeo bypasses the daemon-side DNS issue when pushing to the lab
+# registry. See plan_workshop_ready.md D-014.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli \
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+      git \
+      podman \
+      skopeo \
+      ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY mcp_server/ ./mcp_server/

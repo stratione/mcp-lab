@@ -24,8 +24,8 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 - [x] (2026-05-01 15:10Z) Milestone 1 — README + scripts truth pass; `delete_all_users` gated behind `USER_DESTRUCTIVE_TOOLS_ENABLED`. Live mcp-user dropped from 9 → 8 tools. 4 mcp-server unit tests + 2 chat-ui integration tests + all M0 tests still green.
 - [x] (2026-05-01 15:25Z) Milestone 2 — `/api/providers` and `/api/provider` now return `{has_key, key_preview}` only. 6 secret-leak tests + live-curl audit confirm no `api_key` field anywhere.
 - [x] (2026-05-01 15:50Z) Milestone 3 — Hallucination Mode toggle live. Ollama fabricated 8 fake users incl. a complete fake "SarahJohnson, Sales Rep" with zero tool calls when toggle ON. 9 backend + 5 Cypress tests green.
-- [ ] Milestone 4A — *Prototype:* validate FastMCP `Context` API and Podman socket mount in a throwaway script
-- [ ] Milestone 4B — Apply prototype findings to `runner_tools.py`, `deploy_tools.py`, and `docker-compose.yml`
+- [x] (2026-05-01 16:25Z) Milestone 4A — Prototype PASS for both Q1 (Context API) and Q2/Q3 (Podman socket + skopeo push). Findings recorded as D-013, D-014.
+- [x] (2026-05-01 16:50Z) Milestone 4B — Pipeline finale works end-to-end. `curl localhost:9082/` returns `{"message":"Hello from MCP Lab!","version":"1.0.0"}` after a single English sentence drives build→scan→promote→deploy. 6 unit tests + parse-response regression test all green.
 - [ ] Milestone 5 — BYOK side-by-side provider compare (UI + parallel-request backend route)
 - [ ] Milestone 6 — `scripts/7-workshop.sh` launcher + `scripts/8-reset.sh` between-session reset
 
