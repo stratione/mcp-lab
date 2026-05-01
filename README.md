@@ -73,7 +73,8 @@ Download and install from https://www.docker.com/products/docker-desktop — no 
 
 ```bash
 # macOS
-brew install podman podman-desktop docker-compose
+brew install podman docker-compose
+brew install --cask podman-desktop      # GUI (cask, not a formula)
 podman machine init
 podman machine start
 
@@ -84,7 +85,7 @@ sudo apt-get install -y podman docker-compose
 sudo dnf install -y podman docker-compose
 ```
 
-> **Note:** All `docker compose` commands in this guide work identically with `docker compose`. The setup and teardown scripts auto-detect your engine.
+> **Note:** All `docker compose` commands in this guide work identically with `podman compose`. The setup and teardown scripts auto-detect your engine.
 
 ### Ollama (Install Before the Workshop)
 
@@ -132,7 +133,7 @@ ollama pull llama3.1:8b
               +----------+--------+--------+-----------+-----------+
               |          |                 |           |           |
        +------v-----+ +--v-------+ +------v-----+ +--v---------+ +--v--------+
-       | mcp-user   | | mcp-gitea| |mcp-registry| |mcp-promote | | mcp-runner|
+       | mcp-user   | | mcp-gitea| |mcp-registry| |mcp-promotion| | mcp-runner|
        |   :8003    | |   :8004  | |   :8005    | |   :8006    | |   :8007   |
        +------+-----+ +--+-------+ +------+-----+ +--+---------+ +--+--------+
               |           |                |           |              |
@@ -164,9 +165,9 @@ The web-based Chat UI (http://localhost:3001) includes:
 | Service | Port | Role |
 |---------|------|------|
 | **Chat UI** | 3001 | Web chat interface — aggregates tools from all MCP servers |
-| **mcp-user** | 8003 | 6 user management MCP tools (start on demand) |
+| **mcp-user** | 8003 | 8 user management MCP tools (start on demand) |
 | **mcp-gitea** | 8004 | 7 Git/Gitea MCP tools (start on demand) |
-| **mcp-registry** | 8005 | 3 container registry MCP tools (start on demand) |
+| **mcp-registry** | 8005 | 5 container registry MCP tools (start on demand) |
 | **mcp-promotion** | 8006 | 3 image promotion MCP tools (start on demand) |
 | **User API** | 8001 | User CRUD (FastAPI + SQLite) |
 | **Gitea** | 3000 | Git repository hosting |
@@ -217,19 +218,19 @@ This is the core mechanic of the workshop. Start and stop MCP servers to enable/
 ### Enable MCP servers
 
 ```bash
-# Enable User tools (+6 tools)
+# Enable User tools (+8 tools)
 docker compose up -d mcp-user
 
-# Enable Gitea tools (+7 tools → 13 total)
+# Enable Gitea tools (+7 tools → 15 total)
 docker compose up -d mcp-gitea
 
-# Enable Registry tools (+3 tools → 16 total)
+# Enable Registry tools (+5 tools → 20 total)
 docker compose up -d mcp-registry
 
-# Enable Promotion tools (+3 tools → 19 total)
+# Enable Promotion tools (+3 tools → 23 total)
 docker compose up -d mcp-promotion
 
-# Enable CI/CD Runner tools (+3 tools → 22 total)
+# Enable CI/CD Runner tools (+3 tools → 26 total)
 docker compose up -d mcp-runner
 
 # Enable servers one at a time — work through each phase before starting the next
@@ -346,7 +347,7 @@ Try these first — before starting any MCP servers:
 
 - "List all users"
 - "What roles are available?"
-- "Create a user named alice with email alice@example.com and role dev"
+- "Create a user named alice with email alice@example.com, full name 'Alice Anderson', and role dev"
 - "What role does alice have?"
 - "Change alice's role to reviewer"
 
@@ -509,7 +510,7 @@ Wait ~10 seconds — the Chat UI auto-detects the new server within a few second
 
 - "List all users"
 - "What roles are available?" (calls `list_roles` — the LLM must know the valid roles)
-- "Create a new user named bob with email bob@example.com and role dev"
+- "Create a new user named bob with email bob@example.com, full name 'Bob Builder', and role dev"
 - "What role does alice have?"
 - "Update alice's role to admin"
 
@@ -532,7 +533,7 @@ Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grow
 
 No credentials needed in your prompts — the MCP server handles auth injection.
 
-#### Step 4: Start Registry MCP Server (+3 tools → 18 total)
+#### Step 4: Start Registry MCP Server (+5 tools → 20 total)
 
 ```bash
 docker compose up -d mcp-registry
@@ -544,7 +545,7 @@ Refresh the Chat UI after ~10 seconds. Try:
 - "List tags for sample-app in dev"
 - "Is sample-app available in the prod registry?"
 
-#### Step 5: Start Promotion MCP Server (+3 tools → 20 total)
+#### Step 5: Start Promotion MCP Server (+3 tools → 23 total)
 
 ```bash
 docker compose up -d mcp-promotion
@@ -704,7 +705,7 @@ DELETE http://localhost:8001/users/{id}              # Delete user
 ```bash
 GET  http://localhost:8002/promotions    # List all promotions
 POST http://localhost:8002/promote       # Promote image from dev to prod
-     Body: {"image_name":"string","image_tag":"string","approved_by":"string"}
+     Body: {"image_name":"string","tag":"string","promoted_by":"string"}
 ```
 
 ### Gitea API (Port 3000)
@@ -734,7 +735,7 @@ curl http://localhost:5001/v2/sample-app/tags/list
 # 2. Promote image
 curl -X POST http://localhost:8002/promote \
   -H "Content-Type: application/json" \
-  -d '{"image_name":"sample-app","image_tag":"v1.0.0","approved_by":"admin"}'
+  -d '{"image_name":"sample-app","tag":"v1.0.0","promoted_by":"eve"}'
 
 # 3. Verify in prod registry
 curl http://localhost:5002/v2/sample-app/tags/list
@@ -908,7 +909,7 @@ Each MCP server supports stdio transport for direct use with Claude Code:
 cd mcp-server && pip install -r requirements.txt
 ```
 
-See `config/mcp/claude-code-config.json` for the full configuration with all 4 servers (`mcp-user`, `mcp-gitea`, `mcp-registry`, `mcp-promotion`). Each has its own stdio launcher script (`run_user.sh`, `run_gitea.sh`, etc.).
+See `config/mcp/claude-code-config.json` for the full configuration with all 5 servers (`mcp-user`, `mcp-gitea`, `mcp-registry`, `mcp-promotion`, `mcp-runner`). Each has its own stdio launcher script (`run_user.sh`, `run_gitea.sh`, `run_runner.sh`, etc.).
 
 ---
 

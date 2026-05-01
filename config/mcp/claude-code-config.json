@@ -29,6 +29,14 @@
       "env": {
         "PROMOTION_SERVICE_URL": "http://localhost:8002"
       }
+    },
+    "mcp-runner": {
+      "command": "bash",
+      "args": ["-c", "cd /path/to/mcp_lab/mcp-server && ./run_runner.sh"],
+      "env": {
+        "DEV_REGISTRY_HOST": "localhost:5001",
+        "GITEA_URL": "http://localhost:3000"
+      }
     }
   }
 }

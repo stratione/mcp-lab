@@ -20,5 +20,10 @@ GITEA_MCP_ENABLED = _bool_env("GITEA_MCP_ENABLED")
 REGISTRY_MCP_ENABLED = _bool_env("REGISTRY_MCP_ENABLED")
 PROMOTION_MCP_ENABLED = _bool_env("PROMOTION_MCP_ENABLED")
 
+# Workshop safety: hide footgun tools (e.g. delete_all_users) from the LLM
+# unless explicitly opted in. The tool stays in the codebase for code review
+# (see plan D-002).
+USER_DESTRUCTIVE_TOOLS_ENABLED = _bool_env("USER_DESTRUCTIVE_TOOLS_ENABLED", default=False)
+
 # Transport
 MCP_TRANSPORT = os.environ.get("MCP_TRANSPORT", "sse")

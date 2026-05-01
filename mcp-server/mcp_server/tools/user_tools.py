@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+from .. import config
 from ..clients import user_api_client
 
 
@@ -119,20 +120,21 @@ def register(mcp: FastMCP):
         await user_api_client.delete_user(user_id)
         return json.dumps({"deleted": True, "user_id": user_id})
 
-    @mcp.tool()
-    async def delete_all_users() -> str:
-        """Permanently delete ALL users in the system. This cannot be undone. Use when the user asks to delete all users or wipe/reset the user list. Returns a summary of how many users were deleted."""
-        import json
-        users = await user_api_client.list_users()
-        deleted = []
-        errors = []
-        for u in users:
-            try:
-                await user_api_client.delete_user(u["id"])
-                deleted.append(u["id"])
-            except Exception as e:
-                errors.append({"id": u["id"], "error": str(e)})
-        result = {"deleted_count": len(deleted), "deleted_ids": deleted}
-        if errors:
-            result["errors"] = errors
-        return json.dumps(result, indent=2)
+    if config.USER_DESTRUCTIVE_TOOLS_ENABLED:
+        @mcp.tool()
+        async def delete_all_users() -> str:
+            """Permanently delete ALL users in the system. This cannot be undone. Use when the user asks to delete all users or wipe/reset the user list. Returns a summary of how many users were deleted."""
+            import json
+            users = await user_api_client.list_users()
+            deleted = []
+            errors = []
+            for u in users:
+                try:
+                    await user_api_client.delete_user(u["id"])
+                    deleted.append(u["id"])
+                except Exception as e:
+                    errors.append({"id": u["id"], "error": str(e)})
+            result = {"deleted_count": len(deleted), "deleted_ids": deleted}
+            if errors:
+                result["errors"] = errors
+            return json.dumps(result, indent=2)
