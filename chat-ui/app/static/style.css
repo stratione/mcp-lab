@@ -1508,3 +1508,102 @@ header h1 {
   border-radius: 4px;
   border-left: 3px solid #dc2626;
 }
+
+/* ─── Per-tool Verify (M7) ─── */
+.tool-verify-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #052e16;
+  border-top: 1px solid #166534;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  margin-top: 4px;
+}
+.tool-verify-btn {
+  background: #166534;
+  color: #fff;
+  border: 1px solid #4ade80;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tool-verify-btn:hover {
+  background: #15803d;
+}
+.verify-arrow {
+  font-size: 14px;
+  margin-left: 2px;
+}
+.tool-verify-label {
+  color: #86efac;
+  font-size: 11px;
+  font-style: italic;
+}
+.tool-verify-result {
+  background: #0c1f15;
+  border: 1px solid #166534;
+  border-top: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+.verify-meta {
+  margin-bottom: 6px;
+  color: #cbd5e1;
+}
+.verify-meta code {
+  background: #1f2937;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.verify-status-ok {
+  color: #4ade80;
+  font-weight: 700;
+  background: #052e16;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.verify-status-err {
+  color: #f87171;
+  font-weight: 700;
+  background: #2a0a0a;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.verify-status-down {
+  color: #fbbf24;
+  font-weight: 700;
+  background: #2a1f0a;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.verify-body {
+  background: #111827;
+  padding: 8px;
+  border-radius: 4px;
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 11px;
+  color: #e5e7eb;
+  margin: 0;
+}
+.verify-hint {
+  margin-top: 6px;
+  color: #fbbf24;
+  font-size: 11px;
+  font-style: italic;
+}
+.verify-error {
+  color: #f87171;
+  background: #2a0a0a;
+  padding: 8px;
+  border-radius: 4px;
+}

@@ -340,6 +340,11 @@ function addMessage(role, content, opts = {}) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
+function escapeHtml(s) {
+  const map = { "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" };
+  return String(s ?? "").replace(/[<>&"']/g, (c) => map[c]);
+}
+
 function addToolCalls(toolCalls) {
   if (!toolCalls || toolCalls.length === 0) return;
   const container = document.createElement("div");
@@ -374,6 +379,76 @@ function addToolCalls(toolCalls) {
 
     card.appendChild(header);
     card.appendChild(body);
+
+    // ─── Verify button (M7) ───
+    // Each tool with a known source-of-truth gets a "Verify ↗" button so the
+    // audience can hit the real endpoint and confirm the AI's claim.
+    const verifySpec = (typeof resolveVerify === "function")
+      ? resolveVerify(tc.name, tc.arguments || {})
+      : null;
+    if (verifySpec) {
+      const verifyBar = document.createElement("div");
+      verifyBar.className = "tool-verify-bar";
+      const btn = document.createElement("button");
+      btn.className = "tool-verify-btn";
+      btn.type = "button";
+      btn.innerHTML = (verifySpec.open_in === "tab")
+        ? `&#10003; Verify <span class="verify-arrow">&#8599;</span>`
+        : `&#10003; Verify <span class="verify-arrow">&#8623;</span>`;
+      btn.title = (verifySpec.label || "Verify") +
+        (verifySpec.hint ? " — " + verifySpec.hint : "");
+      verifyBar.appendChild(btn);
+
+      const note = document.createElement("span");
+      note.className = "tool-verify-label";
+      note.textContent = verifySpec.label || verifySpec.url;
+      verifyBar.appendChild(note);
+
+      const result = document.createElement("div");
+      result.className = "tool-verify-result";
+      result.style.display = "none";
+
+      btn.addEventListener("click", async () => {
+        if (verifySpec.open_in === "tab") {
+          window.open(verifySpec.url, "_blank");
+          return;
+        }
+        // inline: fetch via /api/probe and render below the card
+        result.style.display = "block";
+        result.innerHTML = `<em>Fetching ${escapeHtml(verifySpec.url)}…</em>`;
+        try {
+          const r = await fetch("/api/probe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: verifySpec.url }),
+          });
+          if (!r.ok) {
+            result.innerHTML = `<div class="verify-error">Probe failed: HTTP ${r.status}</div>`;
+            return;
+          }
+          const d = await r.json();
+          const status = d.status;
+          const bodyText = (typeof d.body === "string")
+            ? d.body
+            : JSON.stringify(d.body, null, 2);
+          const statusClass = (status >= 200 && status < 300) ? "verify-status-ok"
+            : (status === 0 ? "verify-status-down" : "verify-status-err");
+          result.innerHTML =
+            `<div class="verify-meta"><span class="${statusClass}">HTTP ${status}</span> — ` +
+            `<code>${escapeHtml(verifySpec.url)}</code></div>` +
+            `<pre class="verify-body">${escapeHtml(bodyText)}</pre>` +
+            (verifySpec.hint
+              ? `<div class="verify-hint">${escapeHtml(verifySpec.hint)}</div>`
+              : "");
+        } catch (e) {
+          result.innerHTML = `<div class="verify-error">Network error: ${escapeHtml(e.message)}</div>`;
+        }
+      });
+
+      card.appendChild(verifyBar);
+      card.appendChild(result);
+    }
+
     container.appendChild(card);
   });
 
