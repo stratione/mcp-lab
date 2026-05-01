@@ -289,10 +289,24 @@ document.getElementById("mcp-modal").addEventListener("click", (e) => {
   }
 });
 
-function addMessage(role, content) {
+function addMessage(role, content, opts = {}) {
   const div = document.createElement("div");
   div.className = `message ${role}`;
-  div.textContent = content;
+
+  // Hallucination Mode badge: when an assistant message arrives with the flag,
+  // prepend a red banner so the audience knows what they are looking at.
+  if (role === "assistant" && opts.hallucinationMode) {
+    const badge = document.createElement("div");
+    badge.className = "hallucination-badge";
+    badge.textContent = "⚠ HALLUCINATION MODE — no tools, no guardrails";
+    div.appendChild(badge);
+    const text = document.createElement("div");
+    text.className = "hallucination-body";
+    text.textContent = content;
+    div.appendChild(text);
+  } else {
+    div.textContent = content;
+  }
 
   if (role === "assistant") {
     const copyBtn = document.createElement("button");
@@ -578,7 +592,7 @@ async function sendMessage() {
     const data = await resp.json();
 
     addToolCalls(data.tool_calls);
-    addMessage("assistant", data.reply);
+    addMessage("assistant", data.reply, { hallucinationMode: !!data.hallucination_mode });
     history.push({ role: "assistant", content: data.reply });
 
     // Add confidence indicator (replaces old verification badge + button)
@@ -1089,7 +1103,54 @@ document.getElementById("dashboard-modal").addEventListener("click", (e) => {
   }
 });
 
+// ─── Hallucination Mode toggle ───
+let hallucinationMode = false;
+
+async function loadHallucinationMode() {
+  try {
+    const r = await fetch("/api/hallucination-mode");
+    const d = await r.json();
+    hallucinationMode = !!d.enabled;
+    updateHallucinationButton();
+  } catch (e) {
+    // Endpoint not available — leave button at default state.
+  }
+}
+
+function updateHallucinationButton() {
+  const b = document.getElementById("hallucination-toggle");
+  if (!b) return;
+  b.innerHTML = hallucinationMode ? "⚠ ON" : "⚠ Off";
+  b.classList.toggle("hallucination-on", hallucinationMode);
+}
+
+const _haluBtn = document.getElementById("hallucination-toggle");
+if (_haluBtn) {
+  _haluBtn.addEventListener("click", async () => {
+    try {
+      const r = await fetch("/api/hallucination-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !hallucinationMode }),
+      });
+      const d = await r.json();
+      hallucinationMode = !!d.enabled;
+      updateHallucinationButton();
+      addMessage(
+        "assistant",
+        hallucinationMode
+          ? "⚠ HALLUCINATION MODE is now ON — tools disabled, system prompt permissive."
+          : "Hallucination Mode is OFF — normal grounded behaviour resumed.",
+        { hallucinationMode }
+      );
+    } catch (e) {
+      addMessage("error", "Failed to toggle hallucination mode: " + e.message);
+    }
+  });
+}
+
 // ─── Init ───
 loadProviders();
+loadHallucinationMode();
 loadTools(); // self-rescheduling: 3s while any server offline, 30s when all online
 loadSavedChat();
