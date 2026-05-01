@@ -51,6 +51,12 @@ echo "[6/6] Resetting Hallucination Mode to OFF..."
 curl -sX POST http://localhost:3001/api/hallucination-mode \
   -H 'Content-Type: application/json' -d '{"enabled":false}' >/dev/null 2>&1 || true
 
+echo "[7/7] Resetting active provider to Ollama default..."
+# Stops a previous session's provider/key/model from leaking into the next one.
+curl -sX POST http://localhost:3001/api/provider \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"ollama","model":"llama3.1:8b"}' >/dev/null 2>&1 || true
+
 echo ""
 echo "================================================================"
 echo "  Reset complete. Lab is back to the seeded baseline."

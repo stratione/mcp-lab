@@ -1607,3 +1607,17 @@ header h1 {
   padding: 8px;
   border-radius: 4px;
 }
+
+/* M9: per-pane Hallucination Mode checkbox in Compare */
+.compare-halu-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #fbbf24;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.compare-halu-label input[type="checkbox"] {
+  cursor: pointer;
+}

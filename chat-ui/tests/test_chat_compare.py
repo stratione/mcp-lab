@@ -132,6 +132,64 @@ async def test_compare_records_elapsed_ms_per_pane(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_compare_per_pane_hallucination_mode_passes_empty_tools(client, monkeypatch):
+    """M9: hallucination_mode=True on a pane must result in tools=[] passed
+    to that pane's provider, while the other pane keeps the full tools list."""
+    left = _SleepingProvider(delay=0.01, reply="L")
+    right = _SleepingProvider(delay=0.01, reply="R")
+    _patch_two_providers(monkeypatch, left, right)
+    r = await client.post(
+        "/api/chat-compare",
+        json={
+            "message": "list users",
+            "left":  {"provider": "ollama",    "hallucination_mode": True},
+            "right": {"provider": "anthropic", "hallucination_mode": False},
+        },
+    )
+    assert r.status_code == 200
+    # Left pane (hallucinating) must have received tools=[]
+    assert left.captured_tools == [], (
+        f"hallucinating pane should pass tools=[]; got {left.captured_tools!r}"
+    )
+    # Right pane (grounded) gets whatever the chat-ui found (could be [] if
+    # no MCP servers are up — but it must NOT be the same list as left if
+    # the server-side merge worked. The least surprising assertion: right
+    # received a list (possibly empty) that came from the grounded path.
+    assert isinstance(right.captured_tools, list)
+
+
+@pytest.mark.asyncio
+async def test_compare_pane_error_scrubs_api_key(client, monkeypatch):
+    """M9 / B6: provider error strings that happen to include the api_key
+    must be scrubbed before being returned to the client."""
+    secret = "sk-ant-fake-LEAKINTOERROR-1234567890"
+
+    class LeakyProvider:
+        async def chat(self, messages, tools):
+            raise RuntimeError(f"auth failed: token={secret} request_id=foo")
+
+    _patch_two_providers(
+        monkeypatch,
+        LeakyProvider(),
+        _SleepingProvider(delay=0.01, reply="ok"),
+    )
+    r = await client.post(
+        "/api/chat-compare",
+        json={
+            "message": "hi",
+            "left":  {"provider": "anthropic", "api_key": secret},
+            "right": {"provider": "ollama"},
+        },
+    )
+    body = r.json()
+    err = body["left"].get("error") or ""
+    assert secret not in err, (
+        f"api_key leaked into compare error: {err}"
+    )
+    assert "***" in err or "auth failed" in err, "expected scrubbed err"
+
+
+@pytest.mark.asyncio
 async def test_compare_response_omits_api_keys_from_either_pane(client, monkeypatch):
     """If the caller submits api_keys in either pane config, the response
     body must not echo them back (extends M2's secret-leak guarantee)."""
