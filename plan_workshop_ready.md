@@ -27,7 +27,7 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 - [x] (2026-05-01 16:25Z) Milestone 4A — Prototype PASS for both Q1 (Context API) and Q2/Q3 (Podman socket + skopeo push). Findings recorded as D-013, D-014.
 - [x] (2026-05-01 16:50Z) Milestone 4B — Pipeline finale works end-to-end. `curl localhost:9082/` returns `{"message":"Hello from MCP Lab!","version":"1.0.0"}` after a single English sentence drives build→scan→promote→deploy. 6 unit tests + parse-response regression test all green.
 - [x] (2026-05-01 17:10Z) Milestone 5 — BYOK side-by-side compare live. Same finale prompt: Ollama 43s/0 tool calls (fumbles, writes JSON as text), Anthropic 28s/4 tool calls (full pipeline succeeds). Ran in parallel (44s wall vs 72s sequential). 5 backend + 4 Cypress tests green. Zero secret leak in response.
-- [ ] Milestone 6 — `scripts/7-workshop.sh` launcher + `scripts/8-reset.sh` between-session reset
+- [x] (2026-05-01 17:30Z) Milestone 6 — `scripts/7-workshop.sh` launches lab + opens 2 browser tabs + tail-logs Terminal; `scripts/8-reset.sh` restores seeded baseline. URL `?dashboard=open` auto-opens dashboard. Escape key closes modals. 8 launcher tests + 4 Cypress launcher tests green.
 
 
 ## Surprises & Discoveries (Living)
