@@ -51,7 +51,7 @@ describe("Hallucination Mode toggle", () => {
     cy.wait("@chatReq");
     cy.get(".message.assistant").last().find(".hallucination-badge")
       .should("be.visible")
-      .and("contain", "HALLUCINATION MODE");
+      .and("contain", "FLYING BLIND");
   });
 
   it("does NOT show the badge when OFF (regression guard)", () => {

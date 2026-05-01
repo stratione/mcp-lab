@@ -64,6 +64,10 @@ class PaneConfig(BaseModel):
     model: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+    # When True, this pane runs in Hallucination Mode: permissive prompt,
+    # tools=[], no MCP probe. Set independently per pane so the audience
+    # can compare grounded vs hallucinating with the SAME model.
+    hallucination_mode: bool = False
 
 
 class CompareRequest(BaseModel):

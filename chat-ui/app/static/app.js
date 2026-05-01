@@ -298,7 +298,7 @@ function addMessage(role, content, opts = {}) {
   if (role === "assistant" && opts.hallucinationMode) {
     const badge = document.createElement("div");
     badge.className = "hallucination-badge";
-    badge.textContent = "⚠ HALLUCINATION MODE — no tools, no guardrails";
+    badge.textContent = "⚠ AI IS FLYING BLIND — no real tools, just guessing";
     div.appendChild(badge);
     const text = document.createElement("div");
     text.className = "hallucination-body";
@@ -1244,10 +1244,12 @@ if (_compareRunBtn) {
     const left = {
       provider: document.getElementById("compare-left-provider").value,
       model: document.getElementById("compare-left-model").value || null,
+      hallucination_mode: document.getElementById("compare-left-halu")?.checked || false,
     };
     const right = {
       provider: document.getElementById("compare-right-provider").value,
       model: document.getElementById("compare-right-model").value || null,
+      hallucination_mode: document.getElementById("compare-right-halu")?.checked || false,
     };
     document.getElementById("compare-left-body").innerHTML = "<em>Thinking…</em>";
     document.getElementById("compare-right-body").innerHTML = "<em>Thinking…</em>";
@@ -1308,8 +1310,8 @@ if (_haluBtn) {
       addMessage(
         "assistant",
         hallucinationMode
-          ? "⚠ HALLUCINATION MODE is now ON — tools disabled, system prompt permissive."
-          : "Hallucination Mode is OFF — normal grounded behaviour resumed.",
+          ? "⚠ AI IS NOW FLYING BLIND — every reply is a guess. The toggle disabled tool access and removed the safety prompt."
+          : "Tools restored — the AI can see real data again.",
         { hallucinationMode }
       );
     } catch (e) {

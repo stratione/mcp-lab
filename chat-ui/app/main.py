@@ -194,8 +194,12 @@ async def mcp_control(request: Request):
         raise HTTPException(status_code=504, detail="compose command timed out")
 
 
+# Defense-in-depth: only allow probes against the lab's known ports.
+# Prevents the chat-ui from being used as a port-scan reflector.
 _PROBE_ALLOWLIST = re.compile(
-    r"^http://(localhost|127\.0\.0\.1):\d{1,5}(/.*)?$"
+    r"^http://(localhost|127\.0\.0\.1):"
+    r"(3000|3001|5001|5002|8001|8002|8003|8004|8005|8006|8007|9080|9081|9082|11434)"
+    r"(/.*)?$"
 )
 
 # Map localhost ports to Docker-internal hostnames so the probe works from
@@ -495,14 +499,18 @@ async def chat_compare(req: CompareRequest):
     except Exception as e:
         logger.error("compare: failed to fetch MCP tools: %s", e)
         servers, all_tools = [], []
-    sys_prompt = _build_system_prompt(servers, all_tools)
+    grounded_sys_prompt = _build_system_prompt(servers, all_tools)
 
-    base_messages = [{"role": "system", "content": sys_prompt},
-                     {"role": "user", "content": req.message}]
+    def _scrub_secrets(text: str, *keys: str) -> str:
+        """Defense-in-depth: even if an SDK error stringifies a key, blank it."""
+        out = text or ""
+        for k in keys:
+            if k:
+                out = out.replace(k, "***")
+        return out
 
     async def _run_pane(pane: PaneConfig) -> PaneResult:
-        cfg = pane.model_dump()
-        # Resolve api_key from env if not given explicitly
+        cfg = pane.model_dump(exclude={"hallucination_mode"})
         if not cfg.get("api_key"):
             cfg["api_key"] = _resolve_api_key(cfg["provider"])
         if not cfg.get("base_url"):
@@ -512,11 +520,23 @@ async def chat_compare(req: CompareRequest):
         if not cfg.get("model"):
             cfg["model"] = ""
 
+        # Per-pane Hallucination Mode (M9): permissive prompt, tools=[]
+        # so the audience can put grounded LEFT next to hallucinating RIGHT
+        # with the same provider — sharper teaching contrast.
+        if pane.hallucination_mode:
+            sys_prompt = HALLUCINATION_SYSTEM_PROMPT
+            tools_for_pane: list = []
+        else:
+            sys_prompt = grounded_sys_prompt
+            tools_for_pane = all_tools
+
+        messages = [{"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": req.message}]
+
         t0 = time.monotonic()
         try:
             provider = get_provider(cfg)
-            # Pass a COPY of base_messages — providers may mutate.
-            result = await provider.chat(list(base_messages), all_tools)
+            result = await provider.chat(messages, tools_for_pane)
             elapsed = int((time.monotonic() - t0) * 1000)
             return PaneResult(
                 reply=result.get("reply", ""),
@@ -535,7 +555,7 @@ async def chat_compare(req: CompareRequest):
         except Exception as e:
             return PaneResult(
                 reply="",
-                error=str(e),
+                error=_scrub_secrets(str(e), cfg.get("api_key") or ""),
                 elapsed_ms=int((time.monotonic() - t0) * 1000),
                 provider=cfg.get("provider", ""),
                 model=cfg.get("model") or "",
