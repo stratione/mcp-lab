@@ -55,3 +55,33 @@ class VerifyRequest(BaseModel):
 class VerifyResponse(BaseModel):
     confidence: ConfidenceResult
     token_usage: TokenUsage = TokenUsage()
+
+
+# ─── /api/chat-compare (M5 — BYOK side-by-side) ───
+
+class PaneConfig(BaseModel):
+    provider: str
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+
+
+class CompareRequest(BaseModel):
+    message: str
+    left: PaneConfig
+    right: PaneConfig
+
+
+class PaneResult(BaseModel):
+    reply: str = ""
+    tool_calls: list[ToolCall] = []
+    token_usage: TokenUsage = TokenUsage()
+    elapsed_ms: int = 0
+    error: Optional[str] = None
+    provider: str = ""
+    model: str = ""
+
+
+class CompareResponse(BaseModel):
+    left: PaneResult
+    right: PaneResult

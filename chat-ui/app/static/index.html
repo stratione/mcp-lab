@@ -12,6 +12,7 @@
     <div class="header-controls">
       <span id="token-session-total" class="token-session-total">0 tokens</span>
       <button id="hallucination-toggle" class="help-btn" title="Hallucination Mode (default OFF — flip ON to watch the LLM fabricate without tools or guardrails)">&#9888; Off</button>
+      <button id="compare-btn" class="help-btn" title="Side-by-side compare: same prompt against two providers in parallel">&#8646;</button>
       <button id="clear-btn" class="help-btn" title="Clear chat history">&times;</button>
       <button id="dashboard-btn" class="help-btn" title="Lab Dashboard">&#9783;</button>
       <button id="settings-btn" class="help-btn" title="Settings">&#9881;</button>
@@ -69,6 +70,61 @@
 
   <div id="schema-modal" class="modal-overlay" style="display:none;">
     <div class="modal-content modal-content-wide" id="schema-modal-body"></div>
+  </div>
+
+  <div id="compare-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content modal-content-wide" id="compare-modal-body">
+      <div class="compare-header">
+        <h2>Side-by-Side Compare</h2>
+        <button id="compare-close" class="help-btn" title="Close">&times;</button>
+      </div>
+      <div class="compare-config">
+        <div class="compare-config-pane">
+          <strong>Left:</strong>
+          <select id="compare-left-provider">
+            <option value="ollama" selected>Ollama (Local)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google Gemini</option>
+            <option value="pretend">Demo LLM</option>
+          </select>
+          <input type="text" id="compare-left-model" placeholder="model (optional)" value="llama3.1:8b">
+        </div>
+        <div class="compare-config-pane">
+          <strong>Right:</strong>
+          <select id="compare-right-provider">
+            <option value="ollama">Ollama (Local)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic" selected>Anthropic</option>
+            <option value="google">Google Gemini</option>
+            <option value="pretend">Demo LLM</option>
+          </select>
+          <input type="text" id="compare-right-model" placeholder="model (optional)" value="claude-sonnet-4-5-20250929">
+        </div>
+      </div>
+      <div class="compare-input-area">
+        <textarea id="compare-input" rows="2"
+          placeholder="Ask both providers the same thing..."></textarea>
+        <div class="compare-actions">
+          <button id="compare-finale-btn" title="Pre-fill the build/scan/promote/deploy prompt">Try the Finale</button>
+          <button id="compare-run-btn">Run Both</button>
+        </div>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-pane" id="compare-left-pane">
+          <div class="compare-pane-header" id="compare-left-header">Left</div>
+          <div class="compare-pane-body" id="compare-left-body">
+            <em>Run a prompt to see results.</em>
+          </div>
+        </div>
+        <div class="compare-pane" id="compare-right-pane">
+          <div class="compare-pane-header" id="compare-right-header">Right</div>
+          <div class="compare-pane-body" id="compare-right-body">
+            <em>Run a prompt to see results.</em>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="dashboard-modal" class="modal-overlay" style="display:none;">

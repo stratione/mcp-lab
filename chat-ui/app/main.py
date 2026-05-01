@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from .models import (
     ChatRequest, ProviderConfig, ChatResponse, TokenUsage,
     ConfidenceResult, VerifyRequest, VerifyResponse,
+    CompareRequest, CompareResponse, PaneResult, PaneConfig, ToolCall,
 )
 from .mcp_client import list_tools, check_servers
 from .llm_providers import get_provider
@@ -476,6 +477,77 @@ Rate the accuracy as exactly one of:
 - HALLUCINATION: The response contains claims that contradict or fabricate data not in the tool results
 
 Respond with your rating on the first line (just the word), then a brief explanation."""
+
+
+@app.post("/api/chat-compare", response_model=CompareResponse)
+async def chat_compare(req: CompareRequest):
+    """Run the same prompt against two providers in parallel and return both
+    panes' results so the audience can SEE the difference between a small
+    local model and a frontier model on the same input.
+
+    Pane configs may include an explicit api_key; if omitted, the env-resolved
+    key is used. Per-pane errors are caught — one bad provider does not break
+    the other pane. The response NEVER includes the api_keys (M2 leak guard
+    applies here too).
+    """
+    import asyncio
+    import time
+
+    # Build the system prompt + tools list ONCE so both panes get a fair compare.
+    try:
+        servers = await check_servers()
+        all_tools = await list_tools()
+    except Exception as e:
+        logger.error("compare: failed to fetch MCP tools: %s", e)
+        servers, all_tools = [], []
+    sys_prompt = _build_system_prompt(servers, all_tools)
+
+    base_messages = [{"role": "system", "content": sys_prompt},
+                     {"role": "user", "content": req.message}]
+
+    async def _run_pane(pane: PaneConfig) -> PaneResult:
+        cfg = pane.model_dump()
+        # Resolve api_key from env if not given explicitly
+        if not cfg.get("api_key"):
+            cfg["api_key"] = _resolve_api_key(cfg["provider"])
+        if not cfg.get("base_url"):
+            cfg["base_url"] = os.environ.get(
+                "OLLAMA_URL", "http://host.containers.internal:11434"
+            )
+        if not cfg.get("model"):
+            cfg["model"] = ""
+
+        t0 = time.monotonic()
+        try:
+            provider = get_provider(cfg)
+            # Pass a COPY of base_messages — providers may mutate.
+            result = await provider.chat(list(base_messages), all_tools)
+            elapsed = int((time.monotonic() - t0) * 1000)
+            return PaneResult(
+                reply=result.get("reply", ""),
+                tool_calls=[
+                    ToolCall(
+                        name=tc.get("name", ""),
+                        arguments=tc.get("arguments", {}),
+                        result=tc.get("result"),
+                    ) for tc in result.get("tool_calls", [])
+                ],
+                token_usage=TokenUsage(**result.get("token_usage", {})),
+                elapsed_ms=elapsed,
+                provider=cfg["provider"],
+                model=cfg.get("model") or "",
+            )
+        except Exception as e:
+            return PaneResult(
+                reply="",
+                error=str(e),
+                elapsed_ms=int((time.monotonic() - t0) * 1000),
+                provider=cfg.get("provider", ""),
+                model=cfg.get("model") or "",
+            )
+
+    left, right = await asyncio.gather(_run_pane(req.left), _run_pane(req.right))
+    return CompareResponse(left=left, right=right)
 
 
 @app.post("/api/verify")

@@ -1103,6 +1103,100 @@ document.getElementById("dashboard-modal").addEventListener("click", (e) => {
   }
 });
 
+// ─── Side-by-Side Compare (M5) ───
+
+const FINALE_PROMPT = "Build the hello-app from the sample-app repo, scan it, promote it to prod, and deploy it. Use eve as the promoter.";
+
+function _renderComparePane(paneId, headerId, result) {
+  const header = document.getElementById(headerId);
+  const body = document.getElementById(paneId);
+  header.textContent = `${result.provider}${result.model ? " — " + result.model : ""}`;
+  if (result.error) {
+    body.innerHTML = `<div class="compare-pane-error">⚠ ${result.error}</div>` +
+      `<div class="compare-pane-footer">${result.elapsed_ms} ms</div>`;
+    return;
+  }
+  let html = "";
+  if (result.tool_calls && result.tool_calls.length) {
+    for (const tc of result.tool_calls) {
+      const argsStr = JSON.stringify(tc.arguments || {});
+      html += `<div class="compare-tool">→ ${tc.name}(${argsStr.length > 80 ? argsStr.slice(0, 80) + "…" : argsStr})</div>`;
+    }
+  }
+  html += `<div>${(result.reply || "(no reply)").replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>`;
+  const tu = result.token_usage || {};
+  html += `<div class="compare-pane-footer">` +
+    `${result.elapsed_ms} ms · ${result.tool_calls?.length || 0} tool calls · ${tu.total_tokens || 0} tokens` +
+    `</div>`;
+  body.innerHTML = html;
+}
+
+const _compareBtn = document.getElementById("compare-btn");
+if (_compareBtn) {
+  _compareBtn.addEventListener("click", () => {
+    document.getElementById("compare-modal").style.display = "flex";
+  });
+}
+
+const _compareCloseBtn = document.getElementById("compare-close");
+if (_compareCloseBtn) {
+  _compareCloseBtn.addEventListener("click", () => {
+    document.getElementById("compare-modal").style.display = "none";
+  });
+}
+
+const _compareModal = document.getElementById("compare-modal");
+if (_compareModal) {
+  _compareModal.addEventListener("click", (e) => {
+    if (e.target.id === "compare-modal") {
+      e.target.style.display = "none";
+    }
+  });
+}
+
+const _compareFinaleBtn = document.getElementById("compare-finale-btn");
+if (_compareFinaleBtn) {
+  _compareFinaleBtn.addEventListener("click", () => {
+    document.getElementById("compare-input").value = FINALE_PROMPT;
+  });
+}
+
+const _compareRunBtn = document.getElementById("compare-run-btn");
+if (_compareRunBtn) {
+  _compareRunBtn.addEventListener("click", async () => {
+    const message = document.getElementById("compare-input").value.trim();
+    if (!message) return;
+    const left = {
+      provider: document.getElementById("compare-left-provider").value,
+      model: document.getElementById("compare-left-model").value || null,
+    };
+    const right = {
+      provider: document.getElementById("compare-right-provider").value,
+      model: document.getElementById("compare-right-model").value || null,
+    };
+    document.getElementById("compare-left-body").innerHTML = "<em>Thinking…</em>";
+    document.getElementById("compare-right-body").innerHTML = "<em>Thinking…</em>";
+    _compareRunBtn.disabled = true;
+    _compareRunBtn.textContent = "Running…";
+    try {
+      const r = await fetch("/api/chat-compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, left, right }),
+      });
+      const d = await r.json();
+      _renderComparePane("compare-left-body", "compare-left-header", d.left);
+      _renderComparePane("compare-right-body", "compare-right-header", d.right);
+    } catch (e) {
+      document.getElementById("compare-left-body").innerHTML =
+        `<div class="compare-pane-error">Network error: ${e.message}</div>`;
+    } finally {
+      _compareRunBtn.disabled = false;
+      _compareRunBtn.textContent = "Run Both";
+    }
+  });
+}
+
 // ─── Hallucination Mode toggle ───
 let hallucinationMode = false;
 
