@@ -1243,8 +1243,40 @@ if (_haluBtn) {
   });
 }
 
+// ─── Workshop launcher integration: ?dashboard=open opens the dashboard ───
+function maybeOpenDashboardFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("dashboard") === "open") {
+      // Defer one tick to ensure modal element + handlers are in place.
+      setTimeout(() => {
+        if (typeof buildDashboardModal === "function") buildDashboardModal();
+        const m = document.getElementById("dashboard-modal");
+        if (m) m.style.display = "flex";
+        if (typeof _startDashRefresh === "function") _startDashRefresh();
+      }, 0);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// Escape closes the dashboard modal (regression guard for a polish item).
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const m = document.getElementById("dashboard-modal");
+    if (m && m.style.display !== "none") {
+      if (typeof _stopDashRefresh === "function") _stopDashRefresh();
+      m.style.display = "none";
+    }
+    const c = document.getElementById("compare-modal");
+    if (c && c.style.display !== "none") {
+      c.style.display = "none";
+    }
+  }
+});
+
 // ─── Init ───
 loadProviders();
 loadHallucinationMode();
 loadTools(); // self-rescheduling: 3s while any server offline, 30s when all online
 loadSavedChat();
+maybeOpenDashboardFromUrl();
