@@ -96,7 +96,11 @@ class OpenAIProvider(LLMProvider):
             choice = response.choices[0]
 
             if choice.message.tool_calls:
+                # OpenAI's wire format: ONE assistant message that lists ALL tool_calls,
+                # followed by ONE tool message per tool_call_id. Appending the assistant
+                # message inside the loop duplicates it N times and breaks multi-tool turns.
                 msg_dict = {"role": "assistant", "content": choice.message.content or "", "tool_calls": []}
+                tool_results: list[dict] = []
                 for tc in choice.message.tool_calls:
                     msg_dict["tool_calls"].append({
                         "id": tc.id,
@@ -106,8 +110,9 @@ class OpenAIProvider(LLMProvider):
                     args = json.loads(tc.function.arguments)
                     result = await call_tool(tc.function.name, args)
                     tool_calls_made.append({"name": tc.function.name, "arguments": args, "result": result})
-                    messages.append(msg_dict)
-                    messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                    tool_results.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                messages.append(msg_dict)
+                messages.extend(tool_results)
             else:
                 return {
                     "reply": choice.message.content or "",
@@ -479,7 +484,7 @@ class PretendProvider(LLMProvider):
         }
 
     async def _h_mcp_status(self, needle, tools):
-        return await self._tool_reply("mcp_server_status", {}, "MCP server status:")
+        return await self._tool_reply("list_mcp_servers", {}, "MCP server status:")
 
     async def _h_greet(self, needle, tools):
         return {

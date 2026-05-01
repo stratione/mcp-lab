@@ -54,30 +54,30 @@ def test_parse_response_skips_sse_notifications():
 
 
 @pytest.mark.asyncio
-async def test_mcp_session_id_propagation_regression(monkeypatch):
-    """Pin the session-id-propagation behaviour in mcp_client.py.
+async def test_list_tools_uses_single_httpx_client_across_initialize_and_tools_list(monkeypatch):
+    """Pin the actual fix in mcp_client._list_tools_from_server (D-012):
 
-    The MCP streamable-http transport hands back an Mcp-Session-Id header in
-    the `initialize` response. Subsequent JSON-RPC calls on the same logical
-    session MUST send that header back. The fix in chat-ui/app/mcp_client.py
-    creates one httpx.AsyncClient that lives across both requests so the
-    header set by the first response is sent on the second.
+    Both the `initialize` and `tools/list` requests are sent through ONE
+    httpx.AsyncClient instance. The previous code did `async with
+    httpx.AsyncClient() as c:` once per request, which (a) burned a TCP
+    handshake per call and (b) prevented any cookie/header propagation that
+    httpx's client-level state would otherwise provide.
 
-    Regression mode this guards against: someone refactors the helper back to
-    `async with httpx.AsyncClient() as c:` per request, which loses the
-    session and makes `tools/list` return empty for stateful MCP servers.
+    Note: this test does NOT claim that mcp_client propagates the
+    Mcp-Session-Id header itself — production code does not do that. Many
+    FastMCP `streamable_http` servers tolerate missing session headers on
+    `tools/list` after a fresh `initialize`. If a future server requires
+    explicit session-id propagation, that requires a separate fix to
+    `_mcp_request` to read the response header and stash it on the client.
     """
     from app import mcp_client
 
-    captured_calls: list[dict] = []
+    instances: list = []
 
     class FakeResponse:
-        def __init__(self, session_id: str | None):
-            self.status_code = 200
-            self.headers = {"content-type": "application/json"}
-            if session_id:
-                self.headers["Mcp-Session-Id"] = session_id
-            self.text = '{"result": {"tools": []}}'
+        status_code = 200
+        headers = {"content-type": "application/json"}
+        text = '{"result": {"tools": []}}'
 
         def raise_for_status(self):
             pass
@@ -86,12 +86,9 @@ async def test_mcp_session_id_propagation_regression(monkeypatch):
             return {"result": {"tools": []}}
 
     class FakeAsyncClient:
-        instances: list["FakeAsyncClient"] = []
-
         def __init__(self, *args, **kwargs):
-            self.headers: dict[str, str] = {}
-            self.posts: list[tuple[str, dict]] = []
-            FakeAsyncClient.instances.append(self)
+            instances.append(self)
+            self.posts = []
 
         async def __aenter__(self):
             return self
@@ -100,34 +97,16 @@ async def test_mcp_session_id_propagation_regression(monkeypatch):
             return False
 
         async def post(self, url, **kwargs):
-            sent_headers = dict(self.headers)
-            sent_headers.update(kwargs.get("headers") or {})
-            captured_calls.append({"url": url, "headers": sent_headers})
-            self.posts.append((url, sent_headers))
-            # Simulate the streamable-http server returning a session id
-            # only on the initialize response.
-            body = kwargs.get("json") or {}
-            if body.get("method") == "initialize":
-                self.headers["Mcp-Session-Id"] = "test-sess-abc-123"
-                return FakeResponse("test-sess-abc-123")
-            return FakeResponse(None)
+            self.posts.append(url)
+            return FakeResponse()
 
     monkeypatch.setattr(mcp_client.httpx, "AsyncClient", FakeAsyncClient)
-
     await mcp_client._list_tools_from_server("http://fake-mcp:8003")
 
-    # Exactly one client was used for both calls (no per-request client churn)
-    assert len(FakeAsyncClient.instances) == 1, (
-        f"expected 1 httpx.AsyncClient instance shared across initialize+tools/list, "
-        f"got {len(FakeAsyncClient.instances)} (regression: per-request client)"
+    assert len(instances) == 1, (
+        f"expected 1 shared httpx.AsyncClient for initialize+tools/list; "
+        f"got {len(instances)} (regression: per-request client)"
     )
-
-    # Both calls hit the same logical endpoint
-    assert len(captured_calls) == 2, f"expected 2 POSTs, got {len(captured_calls)}"
-
-    # The second call (tools/list) must carry the session id set during initialize
-    second_call_headers = captured_calls[1]["headers"]
-    assert second_call_headers.get("Mcp-Session-Id") == "test-sess-abc-123", (
-        "tools/list must inherit Mcp-Session-Id from the initialize response — "
-        "regression: session id was dropped between requests"
+    assert len(instances[0].posts) == 2, (
+        f"expected 2 POSTs through the shared client, got {len(instances[0].posts)}"
     )

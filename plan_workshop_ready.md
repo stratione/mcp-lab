@@ -29,6 +29,20 @@ How to observe success: at the end of this plan, an outsider can run `git clone 
 - [x] (2026-05-01 17:10Z) Milestone 5 — BYOK side-by-side compare live. Same finale prompt: Ollama 43s/0 tool calls (fumbles, writes JSON as text), Anthropic 28s/4 tool calls (full pipeline succeeds). Ran in parallel (44s wall vs 72s sequential). 5 backend + 4 Cypress tests green. Zero secret leak in response.
 - [x] (2026-05-01 17:30Z) Milestone 6 — `scripts/7-workshop.sh` launches lab + opens 2 browser tabs + tail-logs Terminal; `scripts/8-reset.sh` restores seeded baseline. URL `?dashboard=open` auto-opens dashboard. Escape key closes modals. 8 launcher tests + 4 Cypress launcher tests green.
 
+- [x] (2026-05-01 18:00Z) Milestone 7 — Per-tool Verify buttons. `chat-ui/app/static/tool_verify.js` maps each MCP tool to its source-of-truth URL (with `{arg}` templating). Tool-call cards now render a green "Verify" button that opens the URL in a new tab (Gitea, deployed app) or fetches it inline via `/api/probe` and shows JSON below the card. Tools without a verifiable source (e.g. mock `scan_image`) get no button. 8 Cypress tests + 3 new tour frames green. Live verified with `curl /api/probe` against `/users` (200) and a fake username (404 — catches hallucinations).
+
+- [x] (2026-05-01 18:30Z) Milestone 8 — Review-fix sweep from gemini + superpowers:code-reviewer cross-review. Single branch (`plan-m8-fixes`), 10 fixes:
+  1. Gitea Verify placeholder mismatch (`{name}` → `{repo}`, default `ref`/`branch` to `main`); 5 silently-broken tools now work
+  2. OpenAI provider duplicate `messages.append` per tool call — un-indented one level
+  3. New `.env.secrets.example` (fresh-clone setup blocker)
+  4. Dead duplicate `try`/`return` in `user_tools.py:create_user` — removed
+  5. Unused `tools` local in chat handler — removed
+  6. PretendProvider `_h_mcp_status` called nonexistent `mcp_server_status` → corrected to `list_mcp_servers`
+  7. Replaced fake-passing `test_mcp_session_id_propagation_regression` with an honest `test_list_tools_uses_single_httpx_client_across_initialize_and_tools_list` that pins what the code actually does
+  8. `get_promotion_status` Verify URL now hits `/promotions/{promotion_id}` not the full list
+  9. `7-workshop.sh` pre-flight check (Ollama reachable / cloud provider has_key)
+  10. Pinned `podman` + `skopeo` + `git` apt versions in `mcp-server/Dockerfile` with floating fallback
+
 
 ## Surprises & Discoveries (Living)
 

@@ -174,6 +174,32 @@ describe("Per-tool Verify buttons", () => {
       Cypress.sinon.match(/localhost:9082/), "_blank");
   });
 
+  it("renders Verify for Gitea tools that use 'repo' arg (regression: M8)", () => {
+    // Pre-M8 these all silently rendered NO Verify button because tool_verify.js
+    // used {name} placeholders but the actual MCP signatures use `repo`.
+    _stubChat([
+      { name: "list_gitea_branches", arguments: { owner: "mcpadmin", repo: "sample-app" }, result: '[]' },
+    ]);
+    cy.window().then((win) => { cy.stub(win, "open").as("winOpen"); });
+    _sendOnce();
+    cy.get(".tool-card").last().find(".tool-verify-btn").should("be.visible").click();
+    cy.get("@winOpen").should("be.calledWithMatch",
+      Cypress.sinon.match(/localhost:3000\/mcpadmin\/sample-app\/branches/), "_blank");
+  });
+
+  it("renders Verify for get_gitea_file with default ref=main when omitted", () => {
+    _stubChat([
+      { name: "get_gitea_file",
+        arguments: { owner: "mcpadmin", repo: "sample-app", filepath: "Dockerfile" },
+        result: '{"content":"FROM ..."}' },
+    ]);
+    cy.window().then((win) => { cy.stub(win, "open").as("winOpen"); });
+    _sendOnce();
+    cy.get(".tool-card").last().find(".tool-verify-btn").click();
+    cy.get("@winOpen").should("be.calledWithMatch",
+      Cypress.sinon.match(/raw\/branch\/main\/Dockerfile/), "_blank");
+  });
+
   it("inline-verifies promote_image by listing prod registry tags", () => {
     _stubChat([
       {
