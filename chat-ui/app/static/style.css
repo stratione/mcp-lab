@@ -1371,3 +1371,24 @@ header h1 {
   color: #f87171;
   border: 1px solid #7f1d1d;
 }
+/* ─── Hallucination Mode (M3) ─── */
+.help-btn.hallucination-on {
+  background: #dc2626 !important;
+  color: #fff !important;
+  border-color: #dc2626 !important;
+  font-weight: 700;
+}
+.hallucination-badge {
+  display: inline-block;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.message.assistant .hallucination-body {
+  white-space: pre-wrap;
+}

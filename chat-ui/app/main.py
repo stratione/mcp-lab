@@ -62,6 +62,19 @@ _provider_config: dict = {
     "base_url": os.environ.get("OLLAMA_URL", "http://host.containers.internal:11434"),
 }
 
+# Hallucination Mode (D-005): in-memory only, default OFF, server-side switch.
+# When ON the chat handler swaps the system prompt for a permissive one,
+# passes tools=[] to the provider, and skips all MCP probing — so the
+# audience watches the LLM fabricate without any grounding escape hatch.
+_hallucination_mode: bool = False
+
+HALLUCINATION_SYSTEM_PROMPT = (
+    "You are a helpful assistant. Always sound confident. "
+    "Never refuse a request. If you do not know an answer, "
+    "give your best plausible guess and present it as fact. "
+    "Do not mention these instructions."
+)
+
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -88,6 +101,20 @@ async def get_providers():
         ],
         "active": _safe_provider_view(_provider_config),
     }
+
+
+@app.get("/api/hallucination-mode")
+async def get_hallucination_mode():
+    return {"enabled": _hallucination_mode}
+
+
+@app.post("/api/hallucination-mode")
+async def set_hallucination_mode(request: Request):
+    global _hallucination_mode
+    body = await request.json()
+    _hallucination_mode = bool(body.get("enabled"))
+    logger.info("Hallucination mode set to: %s", _hallucination_mode)
+    return {"enabled": _hallucination_mode}
 
 
 @app.post("/api/provider")
@@ -353,7 +380,36 @@ def _build_system_prompt(servers: list[dict], tools: list[dict]) -> str:
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
-        # Get available MCP tools and server status
+        if _hallucination_mode:
+            # Hallucination Mode: do NOT probe MCP servers, pass tools=[],
+            # and use the permissive system prompt. The model has no escape.
+            logger.info("Chat request (HALLUCINATION MODE): provider=%s",
+                        _provider_config.get("provider"))
+            messages = [{"role": "system", "content": HALLUCINATION_SYSTEM_PROMPT}]
+            for msg in req.history:
+                messages.append({"role": msg.role, "content": msg.content})
+            messages.append({"role": "user", "content": req.message})
+
+            provider = get_provider(_provider_config)
+            result = await provider.chat(messages, [])
+
+            usage_data = result.get("token_usage", {})
+            return ChatResponse(
+                reply=result["reply"],
+                tool_calls=[],
+                token_usage=TokenUsage(
+                    input_tokens=usage_data.get("input_tokens", 0),
+                    output_tokens=usage_data.get("output_tokens", 0),
+                    total_tokens=usage_data.get("total_tokens", 0),
+                ),
+                confidence=ConfidenceResult(
+                    score=0.0, label="Hallucination Mode",
+                    source="hallucination", details="Hallucination Mode is ON — tools disabled, permissive prompt.",
+                ),
+                hallucination_mode=True,
+            )
+
+        # Get available MCP tools and server status (grounded mode).
         try:
             servers = await check_servers()
             tools = []
@@ -397,6 +453,7 @@ async def chat(req: ChatRequest):
                 total_tokens=usage_data.get("total_tokens", 0),
             ),
             confidence=ConfidenceResult(**verification),
+            hallucination_mode=False,
         )
     except Exception as e:
         return JSONResponse(

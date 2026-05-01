@@ -44,6 +44,7 @@ class ChatResponse(BaseModel):
     tool_calls: list[ToolCall] = []
     token_usage: TokenUsage = TokenUsage()
     confidence: ConfidenceResult = ConfidenceResult()
+    hallucination_mode: bool = False
 
 
 class VerifyRequest(BaseModel):
