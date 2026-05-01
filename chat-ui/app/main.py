@@ -1,10 +1,13 @@
 import json
+import logging
 import os
 import pathlib
 import re
 import subprocess
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from .models import (
@@ -341,9 +344,14 @@ async def chat(req: ChatRequest):
                     for t_name in s["tools"]:
                         tools.append(t_name)
             all_tools = await list_tools()
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to fetch MCP tools: %s", e, exc_info=True)
             servers = []
             all_tools = []
+
+        logger.info("Chat request: provider=%s, tools_count=%d, servers_online=%d",
+                     _provider_config.get("provider"), len(all_tools),
+                     sum(1 for s in servers if s.get("status") == "online"))
 
         # Build conversation with dynamic system prompt
         system_prompt = _build_system_prompt(servers, all_tools)

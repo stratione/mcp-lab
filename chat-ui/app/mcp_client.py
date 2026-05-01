@@ -46,11 +46,13 @@ def _parse_response(resp: httpx.Response) -> dict:
         return resp.json()
 
 
-async def _mcp_request(server_url: str, method: str, params: dict = None) -> dict:
+async def _mcp_request(server_url: str, method: str, params: dict = None,
+                       client: httpx.AsyncClient | None = None) -> dict:
     """Send a JSON-RPC request to a specific MCP server."""
     endpoint = f"{server_url}/mcp"
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
+
+    async def _do(c: httpx.AsyncClient) -> dict:
+        resp = await c.post(
             endpoint,
             json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}},
             headers=HEADERS,
@@ -59,24 +61,31 @@ async def _mcp_request(server_url: str, method: str, params: dict = None) -> dic
         resp.raise_for_status()
         return _parse_response(resp)
 
-
-async def _initialize(server_url: str) -> dict:
-    """Send initialize request to a specific MCP server."""
-    return await _mcp_request(server_url, "initialize", {
-        "protocolVersion": "2024-11-05",
-        "capabilities": {},
-        "clientInfo": {"name": "mcp-lab-chat-ui", "version": "1.0.0"},
-    })
+    if client:
+        return await _do(client)
+    async with httpx.AsyncClient() as c:
+        return await _do(c)
 
 
 async def _list_tools_from_server(server_url: str) -> list[dict]:
-    """List tools from a single server. Returns empty list if unreachable."""
+    """List tools from a single server. Returns empty list if unreachable.
+
+    Uses a single httpx client for the initialize+tools/list sequence so that
+    session headers (Mcp-Session-Id) are preserved across requests.
+    """
     try:
-        await _initialize(server_url)
-        data = await _mcp_request(server_url, "tools/list")
-        return data.get("result", {}).get("tools", [])
+        async with httpx.AsyncClient() as client:
+            # Initialize (handshake)
+            await _mcp_request(server_url, "initialize", {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "mcp-lab-chat-ui", "version": "1.0.0"},
+            }, client=client)
+            # List tools using the same client/session
+            data = await _mcp_request(server_url, "tools/list", client=client)
+            return data.get("result", {}).get("tools", [])
     except Exception as e:
-        logger.warning("MCP server %s unreachable: %s", server_url, e)
+        logger.warning("MCP server %s unreachable: %s", server_url, e, exc_info=True)
         return []
 
 
@@ -161,8 +170,13 @@ async def call_tool(name: str, arguments: dict) -> str:
     if not server_url:
         return json.dumps({"error": f"Unknown tool: {name}"})
 
-    await _initialize(server_url)
-    data = await _mcp_request(server_url, "tools/call", {"name": name, "arguments": arguments})
+    async with httpx.AsyncClient() as client:
+        await _mcp_request(server_url, "initialize", {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "mcp-lab-chat-ui", "version": "1.0.0"},
+        }, client=client)
+        data = await _mcp_request(server_url, "tools/call", {"name": name, "arguments": arguments}, client=client)
     result = data.get("result", {})
     content = result.get("content", [])
     texts = [c.get("text", "") for c in content if c.get("type") == "text"]
