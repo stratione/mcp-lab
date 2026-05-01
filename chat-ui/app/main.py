@@ -36,6 +36,23 @@ def _resolve_api_key(provider: str, explicit_key: str = "") -> str:
         return explicit_key
     return _API_KEYS.get(provider, "")
 
+
+def _safe_provider_view(cfg: dict) -> dict:
+    """Return a screen-safe view of a provider config — strips api_key,
+    surfaces presence as has_key, and adds a key_preview of the form
+    `<first2>…<last4>` (or `set` if the key is too short to slice safely,
+    or `""` if no key)."""
+    key = cfg.get("api_key") or ""
+    view = {k: v for k, v in cfg.items() if k != "api_key"}
+    view["has_key"] = bool(key)
+    if not key:
+        view["key_preview"] = ""
+    elif len(key) >= 8:
+        view["key_preview"] = f"{key[:2]}…{key[-4:]}"
+    else:
+        view["key_preview"] = "set"
+    return view
+
 # In-memory provider config (session only)
 _default_provider = os.environ.get("LLM_PROVIDER", "ollama")
 _provider_config: dict = {
@@ -69,7 +86,7 @@ async def get_providers():
             {"id": "google",   "name": "Google Gemini",        "requires_key": True,  "default_model": "gemini-2.0-flash",       "has_key": bool(_API_KEYS.get("google"))},
             {"id": "pretend",  "name": "Demo LLM (no key needed)", "requires_key": False, "default_model": "demo", "has_key": True},
         ],
-        "active": _provider_config,
+        "active": _safe_provider_view(_provider_config),
     }
 
 
@@ -83,7 +100,8 @@ async def set_provider(config: ProviderConfig):
     provider = _provider_config.get("provider", "ollama")
     if not _provider_config.get("api_key"):
         _provider_config["api_key"] = _resolve_api_key(provider)
-    return {"status": "ok", "config": _provider_config}
+    # NEVER echo the api_key back over the wire (D-007).
+    return {"status": "ok", "config": _safe_provider_view(_provider_config)}
 
 
 @app.get("/api/tools")
