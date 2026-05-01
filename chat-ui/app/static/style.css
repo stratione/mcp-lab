@@ -1392,3 +1392,119 @@ header h1 {
 .message.assistant .hallucination-body {
   white-space: pre-wrap;
 }
+
+/* ─── Side-by-side Compare (M5) ─── */
+.compare-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.compare-config {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.compare-config-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #1f2937;
+  border-radius: 6px;
+}
+.compare-config-pane select,
+.compare-config-pane input {
+  padding: 6px 8px;
+  background: #111827;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  border-radius: 4px;
+}
+.compare-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+#compare-input {
+  width: 100%;
+  padding: 8px;
+  background: #111827;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  border-radius: 4px;
+  resize: vertical;
+  font-family: inherit;
+}
+.compare-actions {
+  display: flex;
+  gap: 8px;
+}
+.compare-actions button {
+  padding: 8px 16px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.compare-actions button:hover {
+  background: #1d4ed8;
+}
+#compare-finale-btn {
+  background: #6b7280 !important;
+}
+#compare-finale-btn:hover {
+  background: #4b5563 !important;
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 300px;
+}
+.compare-pane {
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+.compare-pane-header {
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #374151;
+  color: #93c5fd;
+}
+.compare-pane-body {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.compare-pane-body .compare-tool {
+  background: #1f2937;
+  border-left: 3px solid #3b82f6;
+  padding: 6px 10px;
+  margin: 6px 0;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.compare-pane-footer {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed #374151;
+  font-size: 11px;
+  color: #9ca3af;
+}
+.compare-pane-error {
+  color: #f87171;
+  background: #2a0a0a;
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #dc2626;
+}
