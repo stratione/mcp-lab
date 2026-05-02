@@ -235,6 +235,7 @@ async def ollama_delete(name: str):
 
 
 _CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
+_HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", "")
 
 
 @app.get("/api/mcp-status")
@@ -243,9 +244,22 @@ async def mcp_status():
         servers = await check_servers()
         total = sum(s["tool_count"] for s in servers)
         online = sum(1 for s in servers if s["status"] == "online")
-        return {"servers": servers, "total_tools": total, "online_count": online, "engine": _CONTAINER_ENGINE}
+        return {
+            "servers": servers,
+            "total_tools": total,
+            "online_count": online,
+            "engine": _CONTAINER_ENGINE,
+            "host_project_dir": _HOST_PROJECT_DIR,
+        }
     except Exception as e:
-        return {"servers": [], "total_tools": 0, "online_count": 0, "engine": _CONTAINER_ENGINE, "error": str(e)}
+        return {
+            "servers": [],
+            "total_tools": 0,
+            "online_count": 0,
+            "engine": _CONTAINER_ENGINE,
+            "host_project_dir": _HOST_PROJECT_DIR,
+            "error": str(e),
+        }
 
 
 _ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion", "mcp-runner"}
@@ -267,6 +281,13 @@ async def mcp_control(request: Request):
     body = await request.json()
     service = body.get("service", "")
     action = body.get("action", "")
+
+    # Tolerate stripped names ("user", "gitea") because mcp_client.check_servers
+    # returns names with the "mcp-" prefix removed (host.replace("mcp-", "")).
+    # Callers reading from /api/mcp-status pass the stripped form straight
+    # through; auto-restore the prefix so they don't have to know.
+    if service not in _ALLOWED_MCP_SERVICES and f"mcp-{service}" in _ALLOWED_MCP_SERVICES:
+        service = f"mcp-{service}"
 
     if service not in _ALLOWED_MCP_SERVICES:
         raise HTTPException(status_code=400, detail=f"Unknown service: {service}")

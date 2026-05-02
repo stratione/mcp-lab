@@ -81,7 +81,13 @@ function McpHelpBody() {
     refetchInterval: 5_000,
   })
   const engine = status.data?.engine ?? 'docker'
-  const liveByName = new Map((status.data?.servers ?? []).map((s) => [s.name, s]))
+  const hostDir = status.data?.host_project_dir ?? ''
+  // /api/mcp-status returns server names with the "mcp-" prefix stripped
+  // (mcp_client.py:134 host.replace("mcp-", "")). Match by suffix so the
+  // pill shows live status for our canonical "mcp-user"-style spec names.
+  const liveByName = new Map(
+    (status.data?.servers ?? []).map((s) => [s.name.startsWith('mcp-') ? s.name : `mcp-${s.name}`, s]),
+  )
 
   return (
     <div className="space-y-3 text-sm">
@@ -91,19 +97,25 @@ function McpHelpBody() {
         server one at a time and see grounded answers replace fabrications.
       </p>
       <p className="text-muted">
-        Engine detected: <code className="font-mono text-xs">{engine}</code> · use the buttons or copy the commands into a terminal.
+        Engine: <code className="font-mono text-xs">{engine}</code>
+        {hostDir ? (
+          <>
+            {' '}· project root: <code className="font-mono text-xs break-all">{hostDir}</code>
+          </>
+        ) : null}{' '}
+        · use the buttons or copy the commands into a terminal.
       </p>
 
       <div className="space-y-3">
         {SERVERS.map((spec) => (
-          <ServerRow key={spec.name} spec={spec} engine={engine} live={liveByName.get(spec.name)} />
+          <ServerRow key={spec.name} spec={spec} engine={engine} hostDir={hostDir} live={liveByName.get(spec.name)} />
         ))}
       </div>
 
       <hr className="border-border" />
       <p className="text-xs text-muted">
-        Status auto-refreshes every 5s. If a Start button fails, copy the command into a terminal at the
-        project root to see compose's full error output.
+        Status auto-refreshes every 5s. Commands include <code className="font-mono">cd {hostDir || '<project root>'}</code>
+        {' '}so they work even if your terminal is in <code className="font-mono">scripts/</code>.
       </p>
     </div>
   )
@@ -112,16 +124,19 @@ function McpHelpBody() {
 function ServerRow({
   spec,
   engine,
+  hostDir,
   live,
 }: {
   spec: ServerSpec
   engine: string
+  hostDir: string
   live?: { status: string; tool_count?: number }
 }) {
   const qc = useQueryClient()
   const isOnline = live?.status === 'online'
-  const startCmd = `${engine} compose up -d ${spec.name}`
-  const stopCmd = `${engine} compose stop ${spec.name}`
+  const cdPrefix = hostDir ? `cd ${hostDir} && ` : ''
+  const startCmd = `${cdPrefix}${engine} compose up -d ${spec.name}`
+  const stopCmd = `${cdPrefix}${engine} compose stop ${spec.name}`
 
   const startMut = useMutation({
     mutationFn: () => mcpControl(spec.name, 'start'),

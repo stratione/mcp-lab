@@ -106,6 +106,15 @@ else
   echo "CONTAINER_ENGINE=$ENGINE" >> "$ENV_FILE"
 fi
 
+# Record the host-side absolute path to the project so the Chat UI can
+# render copy-able commands that work from ANY directory the user happens
+# to be sitting in (terminal opens to scripts/, not the project root).
+if grep -q "^HOST_PROJECT_DIR=" "$ENV_FILE"; then
+  sed_inplace "s|^HOST_PROJECT_DIR=.*|HOST_PROJECT_DIR=$PROJECT_DIR|" "$ENV_FILE"
+else
+  echo "HOST_PROJECT_DIR=$PROJECT_DIR" >> "$ENV_FILE"
+fi
+
 # Pick the right host-gateway hostname for Ollama based on the engine.
 # Docker Desktop:        host.docker.internal
 # Podman on macOS/Linux: host.containers.internal

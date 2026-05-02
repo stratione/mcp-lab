@@ -248,6 +248,10 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - CHAT_DATA_DIR=/app/data
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
+      # Host-side absolute path to the project root (set by 2-setup.sh).
+      # Surfaced via /api/mcp-status so the UI can render copy-able commands
+      # that work from any directory.
+      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-}
     user: "0:0"
     security_opt:
       - label=disable

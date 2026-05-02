@@ -7,26 +7,27 @@ import type { McpServer } from '@/lib/schemas'
 
 export function ServersTab() {
   const { data, isLoading, error } = useServers()
-  // Pull engine name from the envelope so each row's "how to start" command
-  // matches the user's actual container engine. One shared query, deduped
-  // across rows.
+  // Pull engine + host project dir from the envelope so each row's
+  // "how to start" command works regardless of where the user is sitting
+  // in their terminal. One shared query, deduped across rows.
   const env = useQuery({
     queryKey: ['mcp-status-envelope'],
     queryFn: ({ signal }) => getMcpStatusEnvelope(signal),
     refetchInterval: 30_000,
   })
   const engine = env.data?.engine ?? 'docker'
+  const hostDir = env.data?.host_project_dir ?? ''
 
   if (isLoading) return <div className="p-3 text-sm text-muted">Loading…</div>
   if (error) return <div className="p-3 text-sm text-err">Failed to load servers.</div>
   return (
     <div className="p-3 flex flex-col gap-1.5">
-      {data?.map((s) => <ServerRow key={s.name} server={s} engine={engine} />)}
+      {data?.map((s) => <ServerRow key={s.name} server={s} engine={engine} hostDir={hostDir} />)}
     </div>
   )
 }
 
-function ServerRow({ server, engine }: { server: McpServer; engine: string }) {
+function ServerRow({ server, engine, hostDir }: { server: McpServer; engine: string; hostDir: string }) {
   const [verifyResult, setVerifyResult] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
@@ -82,7 +83,12 @@ function ServerRow({ server, engine }: { server: McpServer; engine: string }) {
           </button>
         </span>
       </div>
-      {open && <ServerInstructions name={server.name} engine={engine} isOnline={isOnline} />}
+      {open && <ServerInstructions name={server.name} engine={engine} hostDir={hostDir} isOnline={isOnline} />}
+      {open && hostDir && (
+        <p className="bg-bg border-t border-border text-[10px] text-faint px-2 py-1">
+          Commands include <code className="font-mono">cd {hostDir}</code> so they work even if your terminal is in <code className="font-mono">scripts/</code>.
+        </p>
+      )}
       {verifyResult && (
         <pre className="bg-bg border-t border-border text-[11px] font-mono p-2 whitespace-pre-wrap max-h-48 overflow-auto">{verifyResult}</pre>
       )}
@@ -93,25 +99,34 @@ function ServerRow({ server, engine }: { server: McpServer; engine: string }) {
 function ServerInstructions({
   name,
   engine,
+  hostDir,
   isOnline,
 }: {
   name: string
   engine: string
+  hostDir: string
   isOnline: boolean
 }) {
   const qc = useQueryClient()
-  const startCmd = `${engine} compose up -d ${name}`
-  const stopCmd = `${engine} compose stop ${name}`
+  // /api/mcp-status returns names with the "mcp-" prefix stripped
+  // (mcp_client.py:134 host.replace("mcp-", "")) — restore it before
+  // showing the command and before calling /api/mcp-control.
+  const fullName = name.startsWith('mcp-') ? name : `mcp-${name}`
+  // Prefix with `cd <abs project root>` so the command works no matter
+  // where the user is sitting in their terminal (most common: scripts/).
+  const cdPrefix = hostDir ? `cd ${hostDir} && ` : ''
+  const startCmd = `${cdPrefix}${engine} compose up -d ${fullName}`
+  const stopCmd = `${cdPrefix}${engine} compose stop ${fullName}`
 
   const startMut = useMutation({
-    mutationFn: () => mcpControl(name, 'start'),
+    mutationFn: () => mcpControl(fullName, 'start'),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['mcp-status'] })
       qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
     },
   })
   const stopMut = useMutation({
-    mutationFn: () => mcpControl(name, 'stop'),
+    mutationFn: () => mcpControl(fullName, 'stop'),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['mcp-status'] })
       qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
