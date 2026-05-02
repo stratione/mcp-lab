@@ -50,12 +50,26 @@ async def test_delete_chat_history_endpoint_clears_persisted_history(
 
 
 def test_dashboard_query_param_handler_present_in_static():
-    """Pin: app.js must read the `dashboard=open` query param (the launcher
-    appends it to the second tab so the audience lands on the dashboard)."""
-    app_js = (REPO_ROOT / "chat-ui/app/static/app.js").read_text()
-    assert "dashboard=open" in app_js, (
-        "app.js must handle the ?dashboard=open URL param so the launcher's "
-        "second browser tab opens the dashboard automatically"
+    """Pin: the built UI bundle must contain logic for the `dashboard=open`
+    URL param (the launcher appends it to the second tab so the audience
+    lands on the compare panel).  After the v1 redesign the vanilla app.js
+    was replaced by a Vite-compiled bundle at chat-ui/app/static/assets/index-*.js.
+    Minification rewrites `params.get('dashboard') === 'open'` to
+    `params.get("dashboard")==="open"` or similar, so we check for the
+    individual tokens rather than the combined string."""
+    assets_dir = REPO_ROOT / "chat-ui/app/static/assets"
+    bundles = list(assets_dir.glob("index-*.js"))
+    assert bundles, (
+        f"No Vite bundle found in {assets_dir}; run `npm run build` in chat-ui/web"
+    )
+    bundle_text = bundles[0].read_text(errors="replace")
+    # The minifier keeps string literals; check both the param name and value.
+    assert "dashboard" in bundle_text, (
+        "Vite bundle must contain 'dashboard' URL-param handling so the "
+        "launcher's second browser tab opens the compare panel"
+    )
+    assert '"open"' in bundle_text or "'open'" in bundle_text or "`open`" in bundle_text, (
+        "Vite bundle must check for param value 'open' so the launcher works"
     )
 
 
