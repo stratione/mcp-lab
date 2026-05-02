@@ -50,6 +50,9 @@ export type LabState = {
 
   flyingBlind: boolean
   setFlyingBlind: (v: boolean) => void
+
+  walkthroughKick: number
+  kickWalkthrough: () => void
 }
 
 export const useLab = create<LabState>((set) => ({
@@ -81,4 +84,7 @@ export const useLab = create<LabState>((set) => ({
 
   flyingBlind: false,
   setFlyingBlind: (flyingBlind) => set({ flyingBlind }),
+
+  walkthroughKick: 0,
+  kickWalkthrough: () => set((s) => ({ walkthroughKick: s.walkthroughKick + 1 })),
 }))

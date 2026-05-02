@@ -5,6 +5,7 @@ import { InputRow } from '@/components/InputRow'
 import { CmdK } from '@/components/CmdK'
 import { useShortcuts } from '@/lib/shortcuts'
 import { Shortcuts } from '@/components/Shortcuts'
+import { Walkthrough } from '@/components/Walkthrough'
 
 export default function App() {
   useShortcuts()
@@ -18,6 +19,7 @@ export default function App() {
       <InputRow />
       <CmdK />
       <Shortcuts />
+      <Walkthrough />
     </div>
   )
 }

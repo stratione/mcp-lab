@@ -81,7 +81,7 @@ export function CornerMenu() {
           <Switch checked={flyingBlind} onCheckedChange={toggleFlying} />
         </Row>
         <Divider />
-        <RowButton onClick={() => { /* walkthrough later */ }}>
+        <RowButton onClick={() => useLab.getState().kickWalkthrough()}>
           Walkthrough <Kbd>first run</Kbd>
         </RowButton>
         <RowButton onClick={clearMessages}>
