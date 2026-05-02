@@ -9,13 +9,14 @@ export function Inspector() {
   const tab = useLab((s) => s.inspectorTab)
   const setTab = useLab((s) => s.setInspectorTab)
   return (
-    <aside className="w-[360px] shrink-0 border-l border-border bg-surface flex flex-col">
+    <aside data-testid="inspector" className="w-[360px] shrink-0 border-l border-border bg-surface flex flex-col">
       <Tabs value={tab} onValueChange={(v) => setTab(v as InspectorTab)} className="flex flex-col flex-1 min-h-0">
         <TabsList className="bg-transparent justify-start gap-3 px-3 pt-3 pb-2 h-auto rounded-none border-b border-border">
           {(['servers', 'tools', 'trace', 'compare'] as const).map((t) => (
             <TabsTrigger
               key={t}
               value={t}
+              data-testid={`inspector-tab-${t}`}
               className="capitalize text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
             >
               {t}

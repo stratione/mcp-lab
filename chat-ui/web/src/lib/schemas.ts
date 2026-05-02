@@ -10,6 +10,7 @@ export const ToolCallSchema = z.object({
   name: z.string(),
   arguments: z.record(z.string(), z.unknown()),
   result: z.string().nullable().optional(),
+  duration_ms: z.number().nullable().optional(),
 })
 export type ToolCall = z.infer<typeof ToolCallSchema>
 
