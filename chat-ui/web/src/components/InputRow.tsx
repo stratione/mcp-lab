@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { ProviderChip } from './ProviderChip'
 import { useLab } from '@/lib/store'
@@ -9,6 +9,19 @@ export function InputRow() {
   const ta = useRef<HTMLTextAreaElement>(null)
   const abort = useLab((s) => s.abort)
   const isStreaming = abort != null
+  const pending = useLab((s) => s.pendingPrompt)
+  const setPending = useLab((s) => s.setPendingPrompt)
+
+  // Workshop wizard pre-fills the input. Copy it in, clear the store flag.
+  // We never auto-submit — the audience must click Send.
+  useEffect(() => {
+    if (pending !== null) {
+      setValue(pending)
+      setPending(null)
+      queueMicrotask(autoGrow)
+      ta.current?.focus()
+    }
+  }, [pending, setPending])
 
   function autoGrow() {
     const el = ta.current
