@@ -862,6 +862,12 @@ Replace the return body with:
     )
   }
 
+  // Platform-aware modifier label. The existing CmdK binding already accepts
+  // both metaKey and ctrlKey, so the *binding* works on every OS — only the
+  // label changes.
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+  const modKey = isMac ? '⌘K' : 'Ctrl+K'
+
   return (
     <div
       data-testid="workshop-dock"
@@ -878,6 +884,9 @@ Replace the return body with:
         </button>
       </div>
       {card}
+      <div className="mt-3 pt-2 border-t border-border text-[10px] text-faint text-right">
+        Stuck? Press <kbd className="font-mono">{modKey}</kbd> for workshop commands.
+      </div>
     </div>
   )
 ```
@@ -981,9 +990,9 @@ cd chat-ui/web && npm run build 2>&1 | tail -5
 
 Expected: build succeeds.
 
-- [ ] **Step 3: Manual smoke-check**
+- [ ] **Step 3: Manual smoke-check (cross-platform)**
 
-Open `?workshop=1`, hit ⌘K — Workshop group appears. Open without the param — group is hidden.
+Open `?workshop=1`, hit `⌘K` (macOS) or `Ctrl+K` (Windows/Linux) — Workshop group appears. Open without the param — group is hidden. The existing `CmdK` handler already binds `(metaKey || ctrlKey) + k`, so no binding change is needed; the wizard's footer hint (Task 10) renders the correct label per OS.
 
 - [ ] **Step 4: Commit**
 
