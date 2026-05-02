@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CornerMenu } from './CornerMenu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { ArchitectureDiagram } from './ArchitectureDiagram'
+import { McpHelpDialog } from './McpHelpDialog'
 
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
@@ -44,6 +45,7 @@ export function Header() {
             <ArchitectureDiagram />
           </DialogContent>
         </Dialog>
+        <McpHelpDialog />
       </div>
       <CornerMenu />
     </header>
