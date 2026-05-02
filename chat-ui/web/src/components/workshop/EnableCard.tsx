@@ -15,7 +15,12 @@ export function EnableCard({ mcp, onNext }: { mcp: string; onNext: () => void })
   const [copied, setCopied] = useState(false)
   const engine = env?.engine ?? 'docker'
   const cmd = `${engine} compose up -d ${mcp}`
-  const online = servers?.find((s) => s.name === mcp)?.status === 'online'
+  // Backend's check_servers() strips the 'mcp-' prefix from server names
+  // (chat-ui/app/mcp_client.py: host.replace("mcp-", "")). Strip it here for
+  // the lookup, but keep the full name in `cmd` so the CLI command matches
+  // the docker-compose service name the user actually types.
+  const shortName = mcp.replace(/^mcp-/, '')
+  const online = servers?.find((s) => s.name === shortName)?.status === 'online'
 
   async function copy() {
     await navigator.clipboard.writeText(cmd)

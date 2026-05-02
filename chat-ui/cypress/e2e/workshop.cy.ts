@@ -5,11 +5,11 @@ describe('workshop wizard (?workshop=1)', () => {
       statusCode: 200,
       body: {
         servers: [
-          { name: 'mcp-user', status: 'offline', port: 8003, tools: [], tool_count: 0 },
-          { name: 'mcp-gitea', status: 'offline', port: 8004, tools: [], tool_count: 0 },
-          { name: 'mcp-registry', status: 'offline', port: 8005, tools: [], tool_count: 0 },
-          { name: 'mcp-promotion', status: 'offline', port: 8006, tools: [], tool_count: 0 },
-          { name: 'mcp-runner', status: 'offline', port: 8007, tools: [], tool_count: 0 },
+          { name: 'user', status: 'offline', port: 8003, tools: [], tool_count: 0 },
+          { name: 'gitea', status: 'offline', port: 8004, tools: [], tool_count: 0 },
+          { name: 'registry', status: 'offline', port: 8005, tools: [], tool_count: 0 },
+          { name: 'promotion', status: 'offline', port: 8006, tools: [], tool_count: 0 },
+          { name: 'runner', status: 'offline', port: 8007, tools: [], tool_count: 0 },
         ],
         total_tools: 0,
         online_count: 0,
@@ -78,16 +78,16 @@ describe('workshop wizard (?workshop=1)', () => {
         body: {
           servers: [
             {
-              name: 'mcp-user',
+              name: 'user',
               status: 'online',
               port: 8003,
               tools: ['list_users'],
               tool_count: 1,
             },
-            { name: 'mcp-gitea', status: 'offline', port: 8004, tools: [], tool_count: 0 },
-            { name: 'mcp-registry', status: 'offline', port: 8005, tools: [], tool_count: 0 },
-            { name: 'mcp-promotion', status: 'offline', port: 8006, tools: [], tool_count: 0 },
-            { name: 'mcp-runner', status: 'offline', port: 8007, tools: [], tool_count: 0 },
+            { name: 'gitea', status: 'offline', port: 8004, tools: [], tool_count: 0 },
+            { name: 'registry', status: 'offline', port: 8005, tools: [], tool_count: 0 },
+            { name: 'promotion', status: 'offline', port: 8006, tools: [], tool_count: 0 },
+            { name: 'runner', status: 'offline', port: 8007, tools: [], tool_count: 0 },
           ],
           total_tools: 1,
           online_count: 1,
