@@ -87,7 +87,7 @@ export function CornerMenu() {
         <RowButton onClick={clearMessages}>
           Clear chat <Kbd>⇧⌘ ⌫</Kbd>
         </RowButton>
-        <RowButton onClick={() => alert('Shortcuts dialog wired in Task 32')}>
+        <RowButton onClick={() => useLab.getState().setShortcutsOpen(true)}>
           Keyboard shortcuts <Kbd>?</Kbd>
         </RowButton>
         <Divider />

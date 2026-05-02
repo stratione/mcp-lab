@@ -3,8 +3,11 @@ import { ChatPane } from '@/components/ChatPane'
 import { Inspector } from '@/components/Inspector'
 import { InputRow } from '@/components/InputRow'
 import { CmdK } from '@/components/CmdK'
+import { useShortcuts } from '@/lib/shortcuts'
+import { Shortcuts } from '@/components/Shortcuts'
 
 export default function App() {
+  useShortcuts()
   return (
     <div className="h-screen flex flex-col bg-bg text-text">
       <Header />
@@ -14,6 +17,7 @@ export default function App() {
       </div>
       <InputRow />
       <CmdK />
+      <Shortcuts />
     </div>
   )
 }

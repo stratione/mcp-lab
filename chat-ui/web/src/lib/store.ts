@@ -38,6 +38,9 @@ export type LabState = {
   cmdkOpen: boolean
   setCmdkOpen: (open: boolean) => void
 
+  shortcutsOpen: boolean
+  setShortcutsOpen: (open: boolean) => void
+
   abort: AbortController | null
   setAbort: (ac: AbortController | null) => void
 
@@ -65,6 +68,9 @@ export const useLab = create<LabState>((set) => ({
 
   cmdkOpen: false,
   setCmdkOpen: (cmdkOpen) => set({ cmdkOpen }),
+
+  shortcutsOpen: false,
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
 
   abort: null,
   setAbort: (abort) => set({ abort }),
