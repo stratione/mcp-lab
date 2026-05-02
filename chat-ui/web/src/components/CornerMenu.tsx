@@ -54,6 +54,7 @@ export function CornerMenu() {
           type="button"
           className="px-2 py-1 rounded-md border border-border bg-surface-2 text-muted hover:text-text"
           aria-label="Open menu"
+          data-testid="corner-menu-trigger"
         >
           ⋯
         </button>

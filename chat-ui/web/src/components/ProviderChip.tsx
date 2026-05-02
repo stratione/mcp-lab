@@ -36,6 +36,7 @@ export function ProviderChip() {
         <button
           type="button"
           className="text-xs text-muted px-2 py-1 rounded-md border border-border bg-bg whitespace-nowrap hover:text-text"
+          data-testid="provider-chip"
         >
           ⬩ {s.provider} · {s.model || '—'} · {tokens.toLocaleString()} tok ▾
         </button>

@@ -43,11 +43,13 @@ export function InputRow() {
         onKeyDown={onKey}
         className="flex-1 bg-bg border border-border rounded-md px-3 py-2 text-sm placeholder-faint resize-none max-h-60"
         placeholder="Ask the lab…"
+        data-testid="chat-input"
       />
       {isStreaming ? (
         <button
           onClick={() => abort?.abort()}
           className="bg-err text-white rounded-md px-3 py-2 text-sm font-medium"
+          data-testid="chat-stop"
         >
           Stop
         </button>
@@ -56,6 +58,7 @@ export function InputRow() {
           onClick={submit}
           disabled={!value.trim()}
           className="bg-primary text-primary-fg rounded-md px-3 py-2 text-sm font-medium disabled:opacity-40"
+          data-testid="chat-send"
         >
           Send
         </button>
