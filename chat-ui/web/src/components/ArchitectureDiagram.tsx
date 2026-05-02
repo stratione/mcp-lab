@@ -1,5 +1,6 @@
-// Inline SVG mirror of docs/architecture.excalidraw.json. Hand-tuned colors
-// and layout match the Excalidraw source so they stay in visual sync.
+// Inline SVG mirror of docs/architecture.excalidraw.json (the SVG has since
+// diverged: registry split into two boxes, hello-app marked as artifact with
+// dashed border + "build + deploy" label on the runner arrow).
 //
 // Theming: the wrapper sets `color: var(--text)` via the text-text class,
 // and any text element that uses fill="currentColor" inherits it — so the
@@ -136,34 +137,45 @@ export function ArchitectureDiagram() {
         />
       ))}
 
-      {/* Backing services (5 boxes) */}
-      {[
-        { x: 40, label: 'user-api', size: 14 },
-        { x: 190, label: 'gitea', size: 14 },
-        { x: 340, label: 'registry dev/prod', size: 12 },
-        { x: 490, label: 'promotion-service', size: 12 },
-        { x: 640, label: 'hello-app', size: 14 },
-      ].map((s) => (
-        <g key={s.label}>
-          <rect x={s.x} y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
-          <text
-            x={s.x + 65}
-            y="436"
-            textAnchor="middle"
-            fontFamily="Virgil, Comic Sans MS, system-ui"
-            fontSize={s.size}
-            fill="#1e1e1e"
-            fontWeight="600"
-          >
-            {s.label}
-          </text>
-        </g>
-      ))}
+      {/* Backing services row */}
+      {/* user-api */}
+      <rect x="40" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
+      <text x="105" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">user-api</text>
 
-      {/* MCP → backing service (1:1 vertical arrows) */}
-      {[105, 255, 405, 555, 705].map((x) => (
-        <line key={x} x1={x} y1="310" x2={x} y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
-      ))}
+      {/* gitea */}
+      <rect x="190" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
+      <text x="255" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">gitea</text>
+
+      {/* registry — TWO boxes side-by-side under mcp-registry to show it's a two-part system */}
+      <rect x="340" y="405" width="62" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
+      <text x="371" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">registry</text>
+      <text x="371" y="445" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">-dev</text>
+      <rect x="408" y="405" width="62" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
+      <text x="439" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">registry</text>
+      <text x="439" y="445" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">-prod</text>
+
+      {/* promotion-service */}
+      <rect x="490" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
+      <text x="555" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="12" fill="#1e1e1e" fontWeight="600">promotion-service</text>
+
+      {/* hello-app — runner's ARTIFACT (built + deployed by mcp-runner), not a peer service */}
+      <rect x="640" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" strokeDasharray="4 3" />
+      <text x="705" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="13" fill="#1e1e1e" fontWeight="600">hello-app</text>
+      <text x="705" y="446" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="9" fill="#15803d" fontStyle="italic">artifact (built + deployed)</text>
+
+      {/* MCP → backing service arrows */}
+      {/* mcp-user → user-api */}
+      <line x1="105" y1="310" x2="105" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      {/* mcp-gitea → gitea */}
+      <line x1="255" y1="310" x2="255" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      {/* mcp-registry forks to BOTH registries */}
+      <line x1="405" y1="310" x2="371" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      <line x1="405" y1="310" x2="439" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      {/* mcp-promotion → promotion-service */}
+      <line x1="555" y1="310" x2="555" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      {/* mcp-runner builds + deploys hello-app — labeled to clarify the relationship */}
+      <line x1="705" y1="310" x2="705" y2="405" stroke="#4ade80" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
+      <text x="710" y="360" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="10" fill="#15803d" fontStyle="italic">build + deploy</text>
 
       {/* Footer — currentColor at reduced opacity reads on both light and dark */}
       <text
