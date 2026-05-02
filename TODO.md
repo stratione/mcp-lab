@@ -109,6 +109,9 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ### UI Issues
 - [ ] **Missing Settings Icon**: The "Settings" modal (gear icon) is missing from the dashboard. Only `×`, `☷`, and `?` icons are present.
+- [ ] **Workshop wizard Next button contrast**: letters on the Next button are hard to read — bump foreground/background contrast to meet WCAG AA.
+- [ ] **Free navigation through workshop instructions**: let users move forward and back through wizard steps freely without requiring the commands in each step to actually be run first.
+- [ ] **Workshop wizard: add the runner commands + bring the MCP server up**: surface the Gitea Actions runner command(s) inside the wizard step and ensure the MCP server is started (or restarted) as part of the workshop bring-up flow.
 
 ### Data Issues
 - [ ] **Missing User Data**: User ID 1 ("Alice") is missing from `list_users` output. Only IDs 2, 3, 4, 5 are returned.
