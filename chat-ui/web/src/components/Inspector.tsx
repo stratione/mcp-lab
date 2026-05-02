@@ -5,6 +5,7 @@ import { ServersTab } from '@/features/servers/ServersTab'
 import { ToolsTab } from '@/features/tools/ToolsTab'
 import { TraceTab } from '@/features/trace/TraceTab'
 import { CompareTab } from '@/features/compare/CompareTab'
+import { TryTab } from '@/features/try/TryTab'
 
 const STORAGE_KEY = 'mcp-lab.inspector-width'
 const DEFAULT_WIDTH = 360
@@ -81,7 +82,7 @@ export function Inspector() {
       />
       <Tabs value={tab} onValueChange={(v) => setTab(v as InspectorTab)} className="flex flex-col flex-1 min-h-0">
         <TabsList className="bg-transparent justify-start gap-3 px-3 pt-3 pb-2 h-auto rounded-none border-b border-border">
-          {(['servers', 'tools', 'trace', 'compare'] as const).map((t) => (
+          {(['servers', 'tools', 'trace', 'compare', 'try'] as const).map((t) => (
             <TabsTrigger
               key={t}
               value={t}
@@ -96,6 +97,7 @@ export function Inspector() {
           <TabsContent value="tools" className="m-0"><ToolsTab /></TabsContent>
           <TabsContent value="trace" className="m-0"><TraceTab /></TabsContent>
           <TabsContent value="compare" className="m-0"><CompareTab /></TabsContent>
+          <TabsContent value="try" className="m-0"><TryTab /></TabsContent>
         </div>
       </Tabs>
     </aside>

@@ -20,7 +20,7 @@ export type TraceEntry = {
   messageId: string
 }
 
-export type InspectorTab = 'servers' | 'tools' | 'trace' | 'compare'
+export type InspectorTab = 'servers' | 'tools' | 'trace' | 'compare' | 'try'
 
 export type LabState = {
   messages: ChatMessageView[]

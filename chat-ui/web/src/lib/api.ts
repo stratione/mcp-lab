@@ -6,7 +6,6 @@ import {
   ProvidersResponseSchema,
   ToolsResponseSchema,
   HallucinationStateSchema,
-  VerifyResponseSchema,
   type ChatResponse,
   type ChatMessage,
   type ToolDef,
@@ -136,9 +135,6 @@ export const getHallucinationMode = (signal?: AbortSignal) =>
 
 export const setHallucinationMode = (enabled: boolean) =>
   call('/api/hallucination-mode', HallucinationStateSchema, json({ enabled }))
-
-export const probeServer = (name: string) =>
-  call('/api/probe', VerifyResponseSchema, json({ name }))
 
 export const probeUrl = (url: string) =>
   call('/api/probe', ProbeResultSchema, json({ url }))

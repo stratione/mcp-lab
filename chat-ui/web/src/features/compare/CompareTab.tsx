@@ -19,7 +19,7 @@ export function CompareTab() {
     setRight({ ...right, busy: true, reply: '', error: undefined })
     try {
       const res = (await sendChatCompare({
-        prompt,
+        message: prompt,
         left: { provider: left.provider, model: left.model, hallucination_mode: left.halu },
         right: { provider: right.provider, model: right.model, hallucination_mode: right.halu },
       })) as { left?: { reply?: string }; right?: { reply?: string } }

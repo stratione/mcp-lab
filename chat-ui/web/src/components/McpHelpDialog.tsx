@@ -7,11 +7,12 @@
 //
 // Lives in the header next to the "◇ Architecture" button.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { getMcpStatusEnvelope, mcpControl } from '@/lib/api'
+import { backingUrlsFor } from '@/lib/mcp-backing'
 
 type ServerSpec = {
   name: string
@@ -44,7 +45,7 @@ const SERVERS: ServerSpec[] = [
   },
   {
     name: 'mcp-runner',
-    blurb: 'CI/CD pipeline: clone source from gitea, build the image, push to registry-dev, and deploy hello-app containers.',
+    blurb: 'CI/CD pipeline: clone the hello world app source from gitea, build the image, push to registry-dev, and deploy hello-world-app containers.',
     toolNames: 'build_image, scan_image, deploy_app',
   },
 ]
@@ -81,7 +82,6 @@ function McpHelpBody() {
     refetchInterval: 5_000,
   })
   const engine = status.data?.engine ?? 'docker'
-  const hostDir = status.data?.host_project_dir ?? ''
   // /api/mcp-status returns server names with the "mcp-" prefix stripped
   // (mcp_client.py:134 host.replace("mcp-", "")). Match by suffix so the
   // pill shows live status for our canonical "mcp-user"-style spec names.
@@ -124,21 +124,53 @@ function ServerRow({
 }: {
   spec: ServerSpec
   engine: string
-  live?: { status: string; tool_count?: number }
+  live?: { status: string; tool_count?: number; port?: number | null }
 }) {
   const qc = useQueryClient()
   const isOnline = live?.status === 'online'
   const startCmd = `${engine} compose up -d ${spec.name}`
   const stopCmd = `${engine} compose stop ${spec.name}`
+  const hostUrl = live?.port != null ? `http://localhost:${live.port}/mcp` : null
+
+  // Hold the button in "Starting…" / "Stopping…" until live status confirms.
+  // Without this, the button reads "Start" again the moment the mutation
+  // returns — but the MCP server takes a couple seconds to actually answer,
+  // so users instinctively click again. See ServersTab for the same fix.
+  const [waitingStart, setWaitingStart] = useState(false)
+  const [waitingStop, setWaitingStop] = useState(false)
 
   const startMut = useMutation({
     mutationFn: () => mcpControl(spec.name, 'start'),
+    onMutate: () => setWaitingStart(true),
+    onError: () => setWaitingStart(false),
     onSettled: () => qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] }),
   })
   const stopMut = useMutation({
     mutationFn: () => mcpControl(spec.name, 'stop'),
+    onMutate: () => setWaitingStop(true),
+    onError: () => setWaitingStop(false),
     onSettled: () => qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] }),
   })
+
+  useEffect(() => {
+    if (waitingStart && isOnline) setWaitingStart(false)
+  }, [isOnline, waitingStart])
+  useEffect(() => {
+    if (waitingStop && !isOnline) setWaitingStop(false)
+  }, [isOnline, waitingStop])
+  useEffect(() => {
+    if (!waitingStart) return
+    const t = setTimeout(() => setWaitingStart(false), 20_000)
+    return () => clearTimeout(t)
+  }, [waitingStart])
+  useEffect(() => {
+    if (!waitingStop) return
+    const t = setTimeout(() => setWaitingStop(false), 20_000)
+    return () => clearTimeout(t)
+  }, [waitingStop])
+
+  const startBusy = waitingStart || startMut.isPending
+  const stopBusy = waitingStop || stopMut.isPending
 
   return (
     <div className="border border-border rounded-md p-3 space-y-2">
@@ -155,20 +187,20 @@ function ServerRow({
             <Button
               size="sm"
               onClick={() => startMut.mutate()}
-              disabled={startMut.isPending}
+              disabled={startBusy}
               data-testid={`mcp-help-start-${spec.name}`}
             >
-              {startMut.isPending ? 'Starting…' : 'Start'}
+              {startBusy ? 'Starting…' : 'Start'}
             </Button>
           ) : (
             <Button
               size="sm"
               variant="outline"
               onClick={() => stopMut.mutate()}
-              disabled={stopMut.isPending}
+              disabled={stopBusy}
               data-testid={`mcp-help-stop-${spec.name}`}
             >
-              {stopMut.isPending ? 'Stopping…' : 'Stop'}
+              {stopBusy ? 'Stopping…' : 'Stop'}
             </Button>
           )}
         </div>
@@ -181,6 +213,51 @@ function ServerRow({
         <CommandRow label="Start" cmd={startCmd} />
         <CommandRow label="Stop" cmd={stopCmd} />
       </div>
+
+      <div className="pt-2 border-t border-border space-y-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-faint w-10 shrink-0">Data</span>
+          <p className="text-[11px] text-faint flex-1">
+            The real APIs this MCP wraps — open to see the data the LLM gets when this server is on.
+          </p>
+        </div>
+        <ul className="pl-12 space-y-1.5">
+          {backingUrlsFor(spec.name).map((u) => (
+            <li key={u.url} className="text-xs">
+              <div>
+                <a
+                  href={u.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-muted hover:text-text hover:underline break-all"
+                >
+                  {u.url} ↗
+                </a>
+                {u.hint && <span className="text-faint"> — {u.hint}</span>}
+              </div>
+              {u.credentials && (
+                <div className="mt-1 rounded-md border border-warn/40 bg-warn/10 p-2 space-y-1">
+                  <div className="text-[10px] uppercase tracking-wider text-warn font-semibold">Login</div>
+                  <CredRow label="username" value={u.credentials.username} />
+                  <CredRow label="password" value={u.credentials.password} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {hostUrl && (
+        <details className="text-[11px] text-faint pt-1">
+          <summary className="cursor-pointer hover:text-muted">MCP endpoint (SSE — not browser-friendly)</summary>
+          <div className="mt-1 space-y-1">
+            <code className="block font-mono bg-bg border border-border rounded p-1.5 break-all">
+              {hostUrl}
+            </code>
+            <CommandRow label="curl" cmd={`curl -sS -H 'Accept: text/event-stream' ${hostUrl}`} />
+          </div>
+        </details>
+      )}
 
       {(startMut.isError || stopMut.isError) && (
         <p className="text-xs text-err">
@@ -217,6 +294,30 @@ function CommandRow({ label, cmd }: { label: string; cmd: string }) {
       <Button size="sm" variant="outline" onClick={copy}>
         {copied ? 'Copied' : 'Copy'}
       </Button>
+    </div>
+  )
+}
+
+function CredRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] text-faint w-16 shrink-0">{label}</span>
+      <code className="flex-1 font-mono text-[11px] bg-bg border border-border rounded px-1.5 py-0.5">
+        {value}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        className="text-[10px] text-muted hover:text-text border border-border rounded px-1.5 py-0.5"
+      >
+        {copied ? 'copied' : 'copy'}
+      </button>
     </div>
   )
 }

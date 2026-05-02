@@ -167,7 +167,7 @@ export function ArchitectureDiagram() {
 
       {/* hello-app — runner's ARTIFACT (built + deployed by mcp-runner), not a peer service */}
       <rect x="640" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" strokeDasharray="4 3" />
-      <text x="705" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="13" fill="#1e1e1e" fontWeight="600">hello-app</text>
+      <text x="705" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">hello world app</text>
       <text x="705" y="446" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="9" fill="#15803d" fontStyle="italic">artifact (built + deployed)</text>
 
       {/* MCP → backing service arrows */}
