@@ -99,9 +99,16 @@ def register(mcp: FastMCP):
 
     @mcp.tool()
     async def deactivate_user(user_id: int) -> str:
-        """Deactivate a user by their numeric ID. Sets is_active to false. Returns the updated user as JSON."""
+        """Deactivate a user by their numeric ID. Sets is_active to false (the user row is preserved — use activate_user to re-enable). Returns the updated user as JSON."""
         import json
         user = await user_api_client.deactivate_user(user_id)
+        return json.dumps(user, indent=2)
+
+    @mcp.tool()
+    async def activate_user(user_id: int) -> str:
+        """Re-enable a previously deactivated user by their numeric ID. Sets is_active to true. Returns the updated user as JSON. Use this to reverse deactivate_user."""
+        import json
+        user = await user_api_client.activate_user(user_id)
         return json.dumps(user, indent=2)
 
     @mcp.tool()
