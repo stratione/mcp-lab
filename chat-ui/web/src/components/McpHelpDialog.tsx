@@ -143,13 +143,21 @@ function ServerRow({
     mutationFn: () => mcpControl(spec.name, 'start'),
     onMutate: () => setWaitingStart(true),
     onError: () => setWaitingStart(false),
-    onSettled: () => qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
+      qc.invalidateQueries({ queryKey: ['mcp-status'] })
+      qc.invalidateQueries({ queryKey: ['tools'] })
+    },
   })
   const stopMut = useMutation({
     mutationFn: () => mcpControl(spec.name, 'stop'),
     onMutate: () => setWaitingStop(true),
     onError: () => setWaitingStop(false),
-    onSettled: () => qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
+      qc.invalidateQueries({ queryKey: ['mcp-status'] })
+      qc.invalidateQueries({ queryKey: ['tools'] })
+    },
   })
 
   useEffect(() => {

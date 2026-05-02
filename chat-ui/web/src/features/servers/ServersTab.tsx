@@ -125,6 +125,7 @@ function ServerInstructions({
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['mcp-status'] })
       qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
+      qc.invalidateQueries({ queryKey: ['tools'] })
     },
   })
   const stopMut = useMutation({
@@ -134,6 +135,7 @@ function ServerInstructions({
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['mcp-status'] })
       qc.invalidateQueries({ queryKey: ['mcp-status-envelope'] })
+      qc.invalidateQueries({ queryKey: ['tools'] })
     },
   })
 
