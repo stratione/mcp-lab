@@ -31,6 +31,16 @@ export async function send(input: string) {
       toolCalls: res.tool_calls,
       status: 'ok',
     })
+    for (const tc of res.tool_calls) {
+      const ok = tc.result != null && !String(tc.result).startsWith('Error')
+      state.appendTrace({
+        id: `t${Date.now()}-${Math.random()}`,
+        ts: Date.now(),
+        name: tc.name,
+        ok,
+        messageId: pendingId,
+      })
+    }
     state.addTokens(res.token_usage.total_tokens)
     appendChatHistory({ role: 'user', content: text }).catch(() => {})
     appendChatHistory({ role: 'assistant', content: res.reply }).catch(() => {})
