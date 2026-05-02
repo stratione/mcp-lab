@@ -12,11 +12,16 @@ export function InputRow() {
   const pending = useLab((s) => s.pendingPrompt)
   const setPending = useLab((s) => s.setPendingPrompt)
 
-  // Workshop wizard pre-fills the input. Copy it in, clear the store flag.
-  // We never auto-submit — the audience must click Send.
+  // Workshop wizard pre-fills the input. Copy it in, clear the store value.
+  // We never auto-submit — the audience must click Send. Mirroring an
+  // external one-shot store value into local state is the documented
+  // React pattern (Adjusting state when a prop changes); the lint rule is
+  // overly cautious for this case.
   useEffect(() => {
     if (pending !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(pending)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPending(null)
       queueMicrotask(autoGrow)
       ta.current?.focus()
