@@ -1,5 +1,6 @@
-import { sendChat, appendChatHistory } from './api'
+import { sendChat, appendChatHistory, ApiError } from './api'
 import { useLab, type ChatMessageView } from './store'
+import { toast } from '@/hooks/use-toast'
 
 let nextId = 1
 const id = () => `m${nextId++}`
@@ -45,13 +46,16 @@ export async function send(input: string) {
     appendChatHistory({ role: 'user', content: text }).catch(() => {})
     appendChatHistory({ role: 'assistant', content: res.reply }).catch(() => {})
   } catch (e: unknown) {
-    if ((e as { name?: string })?.name === 'AbortError') {
+    if (e instanceof Error && e.name === 'AbortError') {
       state.patchMessage(pendingId, { status: 'stopped', content: '(stopped)' })
     } else {
-      state.patchMessage(pendingId, {
-        status: 'error',
-        error: (e as { message?: string })?.message || 'Failed',
-      })
+      const msg = e instanceof Error ? e.message : 'Failed'
+      state.patchMessage(pendingId, { status: 'error', error: msg })
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        toast({ title: 'API key looks wrong', description: 'Check the chip popover below.', variant: 'destructive' })
+      } else {
+        toast({ title: "Couldn't reach the lab", description: msg, variant: 'destructive' })
+      }
     }
   } finally {
     state.setAbort(null)

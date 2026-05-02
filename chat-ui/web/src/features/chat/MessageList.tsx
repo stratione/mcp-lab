@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLab } from '@/lib/store'
+import { send } from '@/lib/chat'
 import { UserMessage } from './UserMessage'
 import { AssistantMessage } from './AssistantMessage'
 import { ToolCallSummary } from './ToolCallSummary'
@@ -37,7 +38,25 @@ export function MessageList() {
               {m.toolCalls?.map((tc, i) => <ToolCallSummary key={i} call={tc} />)}
               <AssistantMessage content={m.content} status={m.status} />
               {m.status === 'error' && (
-                <div className="text-err text-xs">⚠ {m.error}</div>
+                <div className="flex items-center gap-2 text-err text-xs">
+                  <span>⚠ {m.error}</span>
+                  <button
+                    onClick={() => {
+                      // Find most recent user message and re-send.
+                      const messages = useLab.getState().messages
+                      const idx = messages.findIndex((x) => x.id === m.id)
+                      for (let i = idx - 1; i >= 0; i--) {
+                        if (messages[i].role === 'user') {
+                          send(messages[i].content)
+                          break
+                        }
+                      }
+                    }}
+                    className="underline hover:text-text"
+                  >
+                    Retry
+                  </button>
+                </div>
               )}
             </div>
           ),
