@@ -30,8 +30,8 @@ const SERVERS: ServerSpec[] = [
   },
   {
     name: 'mcp-gitea',
-    blurb: 'Git operations against the local Gitea: repos, commits, branches, search.',
-    toolNames: 'list_repos, get_repo, list_commits, list_branches, search_code, …',
+    blurb: 'Git operations against the local Gitea: repos, branches, files. Every tool accepts optional username + password — pass them and the action authenticates as that user (the "MCP acts on your behalf" demo). Seeded users for the demo: mcpadmin/mcpadmin123 (admin), diana/diana-lab-123, bob/bob-lab-123, alice/alice-lab-123.',
+    toolNames: 'list_gitea_repos, get_gitea_repo, create_gitea_repo, list_gitea_branches, create_gitea_branch, get_gitea_file, create_gitea_file',
   },
   {
     name: 'mcp-registry',

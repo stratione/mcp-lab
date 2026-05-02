@@ -22,10 +22,12 @@ const PROMPTS: Record<string, PromptSuggestion[]> = {
     { prompt: 'Re-enable eve\'s account.', tool: 'activate_user' },
   ],
   'mcp-gitea': [
-    { prompt: 'List all repositories in Gitea.', tool: 'list_repos' },
-    { prompt: 'Show me the latest commits in the hello world app repo.', tool: 'list_commits' },
-    { prompt: 'List branches in the hello world app.', tool: 'list_branches' },
-    { prompt: 'Read the README of the hello world app.', tool: 'get_file' },
+    { prompt: 'List all repositories in Gitea.', tool: 'list_gitea_repos' },
+    { prompt: 'Show me details of the sample-app repo owned by mcpadmin.', tool: 'get_gitea_repo' },
+    { prompt: 'List branches in mcpadmin/sample-app.', tool: 'list_gitea_branches' },
+    { prompt: 'Read app.py from mcpadmin/sample-app.', tool: 'get_gitea_file' },
+    { prompt: 'I\'m diana, password diana-lab-123 — create me a repo called diana-experiment.', tool: 'create_gitea_repo', hint: 'MCP authenticates as diana — repo will be hers, not the admin\'s' },
+    { prompt: 'As bob (password bob-lab-123), create a repo called bobs-thing with description "bob\'s playground".', tool: 'create_gitea_repo', hint: 'demo: MCP acting on your behalf' },
   ],
   'mcp-registry': [
     { prompt: 'What images are in the dev registry?', tool: 'list_images' },
