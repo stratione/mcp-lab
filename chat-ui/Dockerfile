@@ -1,5 +1,11 @@
-FROM python:3.12-slim
+FROM node:22-alpine AS web-builder
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN VITE_DOCKER=1 npm run build
 
+FROM python:3.12-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl gnupg \
     && install -m 0755 -d /etc/apt/keyrings \
@@ -16,7 +22,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY --from=web-builder /web/dist ./app/static
 
 EXPOSE 3001
-
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3001"]

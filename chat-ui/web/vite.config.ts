@@ -10,7 +10,7 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   build: {
-    outDir: '../app/static',
+    outDir: process.env.VITE_DOCKER ? 'dist' : '../app/static',
     emptyOutDir: true,
     assetsDir: 'assets',
   },
