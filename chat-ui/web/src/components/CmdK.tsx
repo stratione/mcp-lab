@@ -12,7 +12,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useLab } from '@/lib/store'
 import { applyTheme } from '@/lib/theme'
 import { useQuery } from '@tanstack/react-query'
-import { getTools, setHallucinationMode } from '@/lib/api'
+import { getTools, setHallucinationMode, mcpControl } from '@/lib/api'
+import { LESSONS } from '@/components/workshop/lessons'
 
 export function CmdK() {
   const open = useLab((s) => s.cmdkOpen)
@@ -21,6 +22,10 @@ export function CmdK() {
   const clear = useLab((s) => s.clearMessages)
   const flyingBlind = useLab((s) => s.flyingBlind)
   const setFlying = useLab((s) => s.setFlyingBlind)
+  const workshopMode = useLab((s) => s.workshopMode)
+  const workshopStep = useLab((s) => s.workshopStep)
+  const setWorkshopStep = useLab((s) => s.setWorkshopStep)
+  const setPending = useLab((s) => s.setPendingPrompt)
   const { data: tools } = useQuery({
     queryKey: ['tools'],
     queryFn: ({ signal }) => getTools(signal),
@@ -84,6 +89,48 @@ export function CmdK() {
                       <span className="ml-2 text-xs text-muted truncate">{t.description}</span>
                     </CommandItem>
                   ))}
+                </CommandGroup>
+              </>
+            ) : null}
+            {workshopMode ? (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Workshop">
+                  <CommandItem
+                    onSelect={go(async () => {
+                      // Catch-up: enable every MCP that should be on by current step.
+                      // Per the phase model: LESSONS[i] is enabled when sub === 1,
+                      // which is at step (3 + 3 * i). If workshopStep >= that, the MCP
+                      // should be on.
+                      for (let i = 0; i < LESSONS.length; i++) {
+                        const enableStep = 3 + 3 * i
+                        if (workshopStep >= enableStep) {
+                          await mcpControl(LESSONS[i].mcp, 'start').catch(() => {})
+                        }
+                      }
+                    })}
+                  >
+                    Workshop: Catch me up to current step
+                  </CommandItem>
+                  <CommandItem
+                    onSelect={go(async () => {
+                      for (const l of LESSONS) {
+                        await mcpControl(l.mcp, 'start').catch(() => {})
+                      }
+                      await mcpControl('mcp-runner', 'start').catch(() => {})
+                    })}
+                  >
+                    Workshop: Enable all remaining MCPs (presenter cheat)
+                  </CommandItem>
+                  <CommandItem
+                    onSelect={go(() => {
+                      localStorage.removeItem('mcp-lab.workshop.step.v1')
+                      setWorkshopStep(0)
+                      setPending(null)
+                    })}
+                  >
+                    Workshop: Reset progress
+                  </CommandItem>
                 </CommandGroup>
               </>
             ) : null}
