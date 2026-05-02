@@ -31,3 +31,11 @@ mcp-server/.pytest_cache/
 
 # Brainstorming visual companion
 .superpowers/
+
+# Local agent state
+.claude/
+scripts/.playwright-mcp/
+
+# macOS Finder duplicate-on-copy artifacts
+* 2
+* 2.*
