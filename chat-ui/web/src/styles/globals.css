@@ -48,3 +48,8 @@ body { background: rgb(var(--bg)); color: rgb(var(--text)); font-family: theme('
 :root[data-density='compact'] { --ui-scale: 0.85; }
 :root[data-density='comfortable'] { --ui-scale: 1; }
 :root[data-density='large'] { --ui-scale: 1.18; }
+
+:where(button, a, [role='button'], input, textarea, select):focus-visible {
+  outline: 2px solid rgb(var(--text));
+  outline-offset: 2px;
+}

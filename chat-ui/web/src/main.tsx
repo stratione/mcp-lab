@@ -7,6 +7,12 @@ import { bootstrapTheme } from './lib/theme'
 import { Toaster } from '@/components/ui/toaster'
 import './styles/globals.css'
 
+if (import.meta.env.DEV) {
+  void Promise.all([import('@axe-core/react'), import('react-dom')]).then(([axe, ReactDOM]) => {
+    axe.default(React, ReactDOM, 1000)
+  })
+}
+
 bootstrapTheme()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
