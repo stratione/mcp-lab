@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# MCP DevOps Lab — Workshop launcher (Milestone 6).
+# MCP DevOps Lab — Workshop conductor.
 #
-# One command for the presenter to start the talk:
-#   - bring the lab up if it isn't already
-#   - start all 5 MCP servers
-#   - open Chat UI tab + dashboard tab in the default browser
-#   - open a Terminal window tailing the MCP logs (audience visibility)
+# Single command for the presenter:
+#   - run preflight checks (skippable with --skip-preflight)
+#   - bring core lab up if not already healthy
+#   - reset to seeded baseline if --reset is passed
+#   - STOP all MCP servers (the workshop wizard opens on the cold-open state)
+#   - open the Chat UI in workshop mode (?workshop=1)
+#   - tail MCP logs in a side terminal
 #
 # Usage:
-#   ./scripts/7-workshop.sh             # bring up + open windows
-#   ./scripts/7-workshop.sh --reset     # call scripts/8-reset.sh first
-#   ./scripts/7-workshop.sh --dry-run   # print what would happen, do nothing
+#   ./scripts/7-workshop.sh                  # full conductor flow
+#   ./scripts/7-workshop.sh --reset          # call 8-reset.sh first
+#   ./scripts/7-workshop.sh --skip-preflight # skip 0-preflight.sh
+#   ./scripts/7-workshop.sh --dry-run        # print what would run, do nothing
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,20 +22,20 @@ cd "$PROJECT_DIR"
 
 DRY_RUN=false
 DO_RESET=false
+SKIP_PREFLIGHT=false
 for arg in "$@"; do
   case "$arg" in
-    --dry-run) DRY_RUN=true ;;
-    --reset)   DO_RESET=true ;;
+    --dry-run)        DRY_RUN=true ;;
+    --reset)          DO_RESET=true ;;
+    --skip-preflight) SKIP_PREFLIGHT=true ;;
     *) echo "Unknown flag: $arg"; exit 2 ;;
   esac
 done
 
 # Detect engine + compose binary the same way 1-setup.sh does.
-# `_detect-engine.sh` is sourced, not executed — test for readability, not +x.
 if [ -f "$SCRIPT_DIR/_detect-engine.sh" ]; then
   source "$SCRIPT_DIR/_detect-engine.sh"
 fi
-# If detection failed entirely, fall through to whatever's on PATH.
 COMPOSE="${COMPOSE:-docker compose}"
 ENGINE="${ENGINE:-docker}"
 
@@ -44,15 +47,25 @@ run_or_print() {
   fi
 }
 
+echo "[1/5] Preflight checks..."
+if $SKIP_PREFLIGHT; then
+  echo "  Skipped (--skip-preflight)."
+elif $DRY_RUN; then
+  echo "  [dry-run] would run: $SCRIPT_DIR/0-preflight.sh"
+else
+  "$SCRIPT_DIR/0-preflight.sh"
+fi
+
 if $DO_RESET; then
+  echo "[1.5/5] Resetting lab to seeded baseline..."
   if $DRY_RUN; then
-    echo "[0/4] [dry-run] would call $SCRIPT_DIR/8-reset.sh"
+    echo "  [dry-run] would run: $SCRIPT_DIR/8-reset.sh"
   else
     "$SCRIPT_DIR/8-reset.sh"
   fi
 fi
 
-echo "[1/4] Ensuring core lab is up..."
+echo "[2/5] Ensuring core lab is up..."
 if curl -sf http://localhost:3001/health >/dev/null 2>&1; then
   echo "  Chat UI is already healthy."
 else
@@ -63,63 +76,24 @@ else
   fi
 fi
 
-echo "[1.5/4] Pre-flight: verify the active provider is actually reachable..."
-preflight_provider() {
-  if ! command -v python3 >/dev/null 2>&1; then return 0; fi
-  python3 - <<'PY' 2>/dev/null
-import json, sys, urllib.request
-try:
-    d = json.loads(urllib.request.urlopen("http://localhost:3001/api/providers", timeout=3).read())
-except Exception:
-    sys.exit(0)
-active = d.get("active", {})
-provider = active.get("provider", "")
-if provider == "ollama":
-    try:
-        urllib.request.urlopen("http://localhost:11434/api/version", timeout=2).read()
-        print(f"  ✓ Ollama is the active provider and is reachable.")
-    except Exception:
-        print(f"  ⚠ Active provider is Ollama, but Ollama is NOT reachable on")
-        print(f"    localhost:11434.  Run `ollama serve` in a separate terminal,")
-        print(f"    or switch to Anthropic/OpenAI/Google in the Chat UI.")
-        sys.exit(2)
-elif provider in ("anthropic", "openai", "google"):
-    if not active.get("has_key"):
-        print(f"  ⚠ Active provider is {provider}, but no API key is set.")
-        print(f"    Add the key to .env.secrets and restart chat-ui, or pick")
-        print(f"    a different provider in the Chat UI settings panel.")
-        sys.exit(2)
-    print(f"  ✓ Active provider is {provider} and a key is set ({active.get('key_preview', '')}).")
-elif provider == "pretend":
-    print(f"  ✓ Active provider is the scripted Demo LLM (no key required).")
-else:
-    print(f"  ⚠ Unrecognized active provider: {provider!r}")
-PY
-}
-if ! $DRY_RUN; then
-  preflight_provider || echo "  (Continuing anyway — fix the warning above before demoing.)"
-fi
+echo "[3/5] Stopping all MCP servers (workshop opens on cold-open state)..."
+run_or_print $COMPOSE stop mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner
 
-echo "[2/4] Bringing all 5 MCP servers up..."
-run_or_print $COMPOSE up -d mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner
-
-echo "[3/4] Opening browser tabs (Chat UI + Dashboard)..."
+echo "[4/5] Opening Chat UI in workshop mode..."
+WORKSHOP_URL="http://localhost:3001/?workshop=1"
 if $DRY_RUN; then
-  echo "  [dry-run] would open: http://localhost:3001"
-  echo "  [dry-run] would open: http://localhost:3001/?dashboard=open"
+  echo "  [dry-run] would open: $WORKSHOP_URL"
 elif command -v open >/dev/null 2>&1; then
-  open "http://localhost:3001" || true
-  sleep 1
-  open "http://localhost:3001/?dashboard=open" || true
+  open "$WORKSHOP_URL" || true
 elif command -v xdg-open >/dev/null 2>&1; then
-  xdg-open "http://localhost:3001" >/dev/null 2>&1 || true
-  sleep 1
-  xdg-open "http://localhost:3001/?dashboard=open" >/dev/null 2>&1 || true
+  xdg-open "$WORKSHOP_URL" >/dev/null 2>&1 || true
+else
+  echo "  Open this URL manually: $WORKSHOP_URL"
 fi
 
-echo "[4/4] Opening a Terminal window tailing MCP logs..."
+echo "[5/5] Opening a Terminal window tailing MCP logs..."
 if $DRY_RUN; then
-  echo "  [dry-run] would launch Terminal tailing: $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
+  echo "  [dry-run] would launch terminal: $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   osascript <<EOF
 tell application "Terminal"
@@ -127,19 +101,16 @@ tell application "Terminal"
   do script "cd $PROJECT_DIR && $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
 end tell
 EOF
+elif command -v gnome-terminal >/dev/null 2>&1; then
+  gnome-terminal -- bash -c "cd $PROJECT_DIR && $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner; exec bash" &
+elif command -v konsole >/dev/null 2>&1; then
+  konsole -e bash -c "cd $PROJECT_DIR && $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner; exec bash" &
 else
-  if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal -- bash -c "cd $PROJECT_DIR && $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner; exec bash" &
-  elif command -v konsole >/dev/null 2>&1; then
-    konsole -e bash -c "cd $PROJECT_DIR && $COMPOSE logs -f mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner; exec bash" &
-  else
-    echo "  (no terminal opener found — run manually:  $COMPOSE logs -f mcp-...)"
-  fi
+  echo "  (no terminal opener found — run manually: $COMPOSE logs -f mcp-...)"
 fi
 
 echo ""
 echo "================================================================"
 echo "  Workshop ready. Have a great talk!"
-echo "  Reset between sessions:  ./scripts/8-reset.sh"
-echo "  Or:                      ./scripts/7-workshop.sh --reset"
+echo "  Reset between sessions:  ./scripts/7-workshop.sh --reset"
 echo "================================================================"
