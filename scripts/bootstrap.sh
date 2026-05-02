@@ -1,8 +1,12 @@
 #!/bin/sh
 set -e
 
+# Engine is injected from compose (CONTAINER_ENGINE), set by 1-setup.sh
+# based on the user's docker/podman choice. Defaults to docker if unset.
+ENGINE="${CONTAINER_ENGINE:-docker}"
+
 echo "========================================"
-echo "  MCP DevOps Lab — Bootstrap"
+echo "  MCP DevOps Lab — Bootstrap ($ENGINE)"
 echo "========================================"
 
 if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
@@ -57,17 +61,15 @@ echo "  1. Open the Chat UI:  http://localhost:3001"
 echo "  2. All MCP servers start OFF by default."
 echo "  3. Enable MCP servers one at a time as you progress:"
 echo ""
-echo "     docker compose up -d mcp-user        # +8 user tools"
-echo "     docker compose up -d mcp-gitea       # +7 git/repo tools"
-echo "     docker compose up -d mcp-registry    # +5 registry tools"
-echo "     docker compose up -d mcp-promotion   # +3 promotion tools"
-echo "     docker compose up -d mcp-runner      # +3 build/scan/deploy tools"
-echo ""
-echo "     (Podman users: replace 'docker' with 'podman')"
+echo "     $ENGINE compose up -d mcp-user        # +8 user tools"
+echo "     $ENGINE compose up -d mcp-gitea       # +7 git/repo tools"
+echo "     $ENGINE compose up -d mcp-registry    # +5 registry tools"
+echo "     $ENGINE compose up -d mcp-promotion   # +3 promotion tools"
+echo "     $ENGINE compose up -d mcp-runner      # +3 build/scan/deploy tools"
 echo ""
 echo "  4. To stop an MCP server:"
 echo ""
-echo "     docker compose stop mcp-user"
+echo "     $ENGINE compose stop mcp-user"
 echo ""
 echo "  5 sample images have been pushed to the dev registry automatically."
 echo ""

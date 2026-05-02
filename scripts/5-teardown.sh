@@ -38,7 +38,7 @@ LEFTOVER_IMAGES="$(
   $ENGINE images --format '{{.Repository}}:{{.Tag}}' \
     | rg "(^|/)${PROJECT_NAME}-|^localhost:5001/sample-app:|^localhost:5002/sample-app:" \
     || true
-)
+)"
 LEFTOVER_LABELED_IMAGES="$($ENGINE images --filter "label=mcp-lab.teardown=true" --format '{{.ID}}' || true)"
 
 if [ -n "$LEFTOVER_IMAGES" ] || [ -n "$LEFTOVER_LABELED_IMAGES" ]; then
@@ -48,12 +48,10 @@ if [ -n "$LEFTOVER_IMAGES" ] || [ -n "$LEFTOVER_LABELED_IMAGES" ]; then
     done <<< "$LEFTOVER_IMAGES"
   fi
   if [ -n "$LEFTOVER_LABELED_IMAGES" ]; then
-     $ENGINE rmi -f $LEFTOVER_LABELED_IMAGES >/dev/null 2>&1 || true
-  fi"
-if [ -n "$LEFTOVER_IMAGES" ]; then
-  while IFS= read -r img; do
-    [ -n "$img" ] && $ENGINE rmi -f "$img" >/dev/null 2>&1 || true
-  done <<< "$LEFTOVER_IMAGES"
+    while IFS= read -r img; do
+      [ -n "$img" ] && $ENGINE rmi -f "$img" >/dev/null 2>&1 || true
+    done <<< "$LEFTOVER_LABELED_IMAGES"
+  fi
   echo "    Removed leftover images."
 else
   echo "    No leftover images found."

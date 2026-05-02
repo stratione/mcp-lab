@@ -90,16 +90,47 @@ else
   echo "[1/4] .env.secrets already exists (keeping it)"
 fi
 
+# Cross-platform sed-in-place helper (BSD vs GNU).
+sed_inplace() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
 # Inject detected container engine into .env so the Chat UI can show correct commands
 if grep -q "^CONTAINER_ENGINE=" "$ENV_FILE"; then
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|^CONTAINER_ENGINE=.*|CONTAINER_ENGINE=$ENGINE|" "$ENV_FILE"
-  else
-    sed -i "s|^CONTAINER_ENGINE=.*|CONTAINER_ENGINE=$ENGINE|" "$ENV_FILE"
-  fi
+  sed_inplace "s|^CONTAINER_ENGINE=.*|CONTAINER_ENGINE=$ENGINE|" "$ENV_FILE"
 else
   echo "CONTAINER_ENGINE=$ENGINE" >> "$ENV_FILE"
 fi
+
+# Pick the right host-gateway hostname for Ollama based on the engine.
+# Docker Desktop:        host.docker.internal
+# Podman on macOS/Linux: host.containers.internal
+# (Modern Podman aliases host.docker.internal too, but we set the canonical
+#  one so older Podman versions also work.)
+if [ "$ENGINE" = "podman" ]; then
+  OLLAMA_HOST="host.containers.internal"
+else
+  OLLAMA_HOST="host.docker.internal"
+fi
+DESIRED_OLLAMA_URL="http://${OLLAMA_HOST}:11434"
+
+# Only rewrite OLLAMA_URL if the user hasn't set a non-default value.
+# We treat the two stock host-gateway URLs as defaults the script may overwrite;
+# any other value (custom IP, remote host, etc.) is preserved.
+CURRENT_OLLAMA_URL="$(grep "^OLLAMA_URL=" "$ENV_FILE" | head -1 | cut -d= -f2- || true)"
+case "$CURRENT_OLLAMA_URL" in
+  ""|"http://host.docker.internal:11434"|"http://host.containers.internal:11434")
+    if grep -q "^OLLAMA_URL=" "$ENV_FILE"; then
+      sed_inplace "s|^OLLAMA_URL=.*|OLLAMA_URL=$DESIRED_OLLAMA_URL|" "$ENV_FILE"
+    else
+      echo "OLLAMA_URL=$DESIRED_OLLAMA_URL" >> "$ENV_FILE"
+    fi
+    ;;
+esac
 
 # 2. Start all services
 echo "[2/4] Starting services (this may take a minute on first run)..."
@@ -155,12 +186,7 @@ else
   # 4. Inject token into .env
   echo "[4/4] Updating .env with Gitea token..."
   if grep -q "^GITEA_TOKEN=" "$ENV_FILE"; then
-    # Replace existing line (works on both macOS and Linux)
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      sed -i '' "s|^GITEA_TOKEN=.*|GITEA_TOKEN=$TOKEN|" "$ENV_FILE"
-    else
-      sed -i "s|^GITEA_TOKEN=.*|GITEA_TOKEN=$TOKEN|" "$ENV_FILE"
-    fi
+    sed_inplace "s|^GITEA_TOKEN=.*|GITEA_TOKEN=$TOKEN|" "$ENV_FILE"
   else
     echo "GITEA_TOKEN=$TOKEN" >> "$ENV_FILE"
   fi

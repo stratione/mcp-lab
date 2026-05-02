@@ -245,7 +245,7 @@ services:
       - .env.secrets
     environment:
       - MCP_SERVERS=http://mcp-user:8003,http://mcp-gitea:8004,http://mcp-registry:8005,http://mcp-promotion:8006,http://mcp-runner:8007
-      - OLLAMA_URL=${OLLAMA_URL:-http://host.containers.internal:11434}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - CHAT_DATA_DIR=/app/data
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
     user: "0:0"
@@ -266,6 +266,8 @@ services:
 
   bootstrap:
     image: alpine:3.19
+    environment:
+      - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
     volumes:
       - ./scripts:/scripts:ro
     networks:

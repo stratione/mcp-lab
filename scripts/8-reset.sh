@@ -14,11 +14,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
-if [ -x "$SCRIPT_DIR/_detect-engine.sh" ]; then
+# `_detect-engine.sh` is sourced, not executed — test for readability, not +x.
+if [ -f "$SCRIPT_DIR/_detect-engine.sh" ]; then
   source "$SCRIPT_DIR/_detect-engine.sh"
 fi
-COMPOSE="${COMPOSE:-podman compose}"
-ENGINE="${ENGINE:-podman}"
+COMPOSE="${COMPOSE:-docker compose}"
+ENGINE="${ENGINE:-docker}"
 
 echo "[1/6] Stopping all MCP servers..."
 $COMPOSE stop mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner 2>&1 | tail -3 || true

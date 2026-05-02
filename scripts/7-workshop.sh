@@ -28,11 +28,13 @@ for arg in "$@"; do
 done
 
 # Detect engine + compose binary the same way 1-setup.sh does.
-if [ -x "$SCRIPT_DIR/_detect-engine.sh" ]; then
+# `_detect-engine.sh` is sourced, not executed — test for readability, not +x.
+if [ -f "$SCRIPT_DIR/_detect-engine.sh" ]; then
   source "$SCRIPT_DIR/_detect-engine.sh"
 fi
-COMPOSE="${COMPOSE:-podman compose}"
-ENGINE="${ENGINE:-podman}"
+# If detection failed entirely, fall through to whatever's on PATH.
+COMPOSE="${COMPOSE:-docker compose}"
+ENGINE="${ENGINE:-docker}"
 
 run_or_print() {
   if $DRY_RUN; then
