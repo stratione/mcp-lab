@@ -3,6 +3,13 @@
 Date: 2026-05-01
 Status: Approved (brainstorming session)
 
+> **2026-05-02 update:** the conductor script (`scripts/workshop.sh`) was
+> removed. The lab is a single follow-along session — everyone runs
+> `1-preflight.sh` → `2-setup.sh` → opens `http://localhost:3001/?workshop=1`
+> in a browser → `3-teardown.sh` at the end. Sections below describing the
+> conductor (Architecture > Terminal, the script-set notes, the conductor
+> testing bullet) are obsolete; the in-UI wizard behavior is unchanged.
+
 ## Goal
 
 Consolidate the lab's startup scripts into one outcome-driven workshop entry that
@@ -24,19 +31,17 @@ auto-advances.
 
 ## Architecture
 
-### Terminal — `scripts/7-workshop.sh` (rewritten conductor)
+### Terminal — `scripts/workshop.sh` (rewritten conductor)
 
-1. Run `0-preflight.sh` (skipped on `--skip-preflight`). Hard-fail aborts.
-2. Run `8-reset.sh` if `--reset` is passed.
-3. Run `1-setup.sh` if Chat UI is not already healthy on `:3001`.
-4. **Stop all MCP servers** (`compose stop mcp-user mcp-gitea mcp-registry
+1. Run `1-preflight.sh` (skipped on `--skip-preflight`). Hard-fail aborts.
+2. Run `2-setup.sh` if Chat UI is not already healthy on `:3001`.
+3. **Stop all MCP servers** (`compose stop mcp-user mcp-gitea mcp-registry
    mcp-promotion mcp-runner`) so the lesson begins with the cold-open
    hallucination state. This reverses today's behavior, which starts them all.
-5. Open browser to `http://localhost:3001/?workshop=1`.
-6. Open the MCP-logs Terminal window (existing behavior).
+4. Open browser to `http://localhost:3001/?workshop=1`.
+5. Open the MCP-logs Terminal window (existing behavior).
 
-Numbered scripts 0/1/2/3/4/5/6/8 stay as-is for direct use. The conductor calls
-0/1/8 internally; 2/3/4/5/6 remain standalone utilities. No script
+The conductor calls `1-preflight.sh` and `2-setup.sh` internally. No script
 consolidation beyond rewriting 7.
 
 ### Browser — `chat-ui/web/src/components/workshop/`
@@ -147,7 +152,7 @@ they hallucinate-or-verify like everyone else.
   wizard shows a yellow strip: *"mcp-gitea is offline — re-run the enable
   command or hit ⌘K."* No silent auto-fix.
 - **Lab not up** (`/api/mcp-status` 5xx): one card — *"The lab isn't running.
-  Run `./scripts/7-workshop.sh`."* No further steps render.
+  Run `./scripts/workshop.sh`."* No further steps render.
 - **Probe fails in Verify**: card shows the curl, the failing response, and
   links to the troubleshooting README. Step does not advance. The failed probe
   is data, not an error to swallow.
@@ -162,7 +167,7 @@ they hallucinate-or-verify like everyone else.
 - **Cypress** (`chat-ui/cypress/e2e/workshop.cy.ts`): walk the wizard with
   mocked `/api/mcp-status` — start all offline, flip mcp-user online mid-spec,
   assert the Enable card transitions to ✓.
-- **Conductor**: extend `7-workshop.sh --dry-run` assertions to check that
+- **Conductor**: extend `workshop.sh --dry-run` assertions to check that
   preflight is invoked first and that `compose stop` is called for all MCPs
   before the browser opens.
 
@@ -170,6 +175,6 @@ they hallucinate-or-verify like everyone else.
 
 - New backend endpoints.
 - Touching `Walkthrough.tsx`.
-- Changing the numbered scripts other than `7-workshop.sh`.
+- Changing the numbered scripts other than `workshop.sh`.
 - A workshop-progress server-side state (intentionally client-only).
 - Renumbering / removing the existing numbered scripts.

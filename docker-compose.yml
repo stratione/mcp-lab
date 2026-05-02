@@ -281,7 +281,7 @@ services:
         condition: service_healthy
       registry-prod:
         condition: service_healthy
-    entrypoint: [ "/bin/sh", "/scripts/bootstrap.sh" ]
+    entrypoint: [ "/bin/sh", "/scripts/_internal/bootstrap.sh" ]
     restart: "no"
 
 volumes:

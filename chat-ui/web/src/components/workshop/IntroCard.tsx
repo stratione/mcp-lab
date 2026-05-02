@@ -12,14 +12,13 @@ export function IntroCard({ onNext }: { onNext: () => void }) {
     refetchInterval: 30_000,
   })
   const engine = env?.engine ?? 'docker'
-  const conductorCmd = './scripts/7-workshop.sh'
   const allUpCmd = `${engine} compose up -d ${MCP_LIST}`
-  const [copied, setCopied] = useState<'conductor' | 'all' | null>(null)
+  const [copied, setCopied] = useState(false)
 
-  async function copy(label: 'conductor' | 'all', text: string) {
+  async function copy(text: string) {
     await navigator.clipboard.writeText(text)
-    setCopied(label)
-    setTimeout(() => setCopied(null), 1500)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
@@ -33,51 +32,25 @@ export function IntroCard({ onNext }: { onNext: () => void }) {
       </p>
       <details className="text-xs text-muted">
         <summary className="cursor-pointer hover:text-text">
-          Runner commands · bring the lab up
+          Skip the per-step pacing — start every MCP now
         </summary>
         <div className="space-y-2 mt-2 pl-1">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-faint mb-1">
-              Conductor (recommended)
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 font-mono text-xs bg-bg border border-border rounded p-2">
-                $ {conductorCmd}
-              </code>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copy('conductor', conductorCmd)}
-                data-testid="workshop-intro-copy-conductor"
-              >
-                {copied === 'conductor' ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-            <p className="text-[11px] text-faint mt-1">
-              Preflight checks, stops every MCP, opens this wizard.
-            </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 font-mono text-xs bg-bg border border-border rounded p-2 break-all">
+              $ {allUpCmd}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => copy(allUpCmd)}
+              data-testid="workshop-intro-copy-all"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
           </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-faint mb-1">
-              Skip the per-step pacing — start every MCP now
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 font-mono text-xs bg-bg border border-border rounded p-2 break-all">
-                $ {allUpCmd}
-              </code>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copy('all', allUpCmd)}
-                data-testid="workshop-intro-copy-all"
-              >
-                {copied === 'all' ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-            <p className="text-[11px] text-faint mt-1">
-              Use this if you want to explore freely instead of stepping through.
-            </p>
-          </div>
+          <p className="text-[11px] text-faint mt-1">
+            Use this if you want to explore freely instead of stepping through.
+          </p>
         </div>
       </details>
       <p className="text-muted">

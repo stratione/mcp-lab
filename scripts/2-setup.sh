@@ -11,7 +11,7 @@ ENV_EXAMPLE="$PROJECT_DIR/.env.example"
 ENV_SECRETS_FILE="$PROJECT_DIR/.env.secrets"
 
 # ── Detect container engine (prompts user if both are available) ──
-source "$SCRIPT_DIR/_detect-engine.sh"
+source "$SCRIPT_DIR/_internal/_detect-engine.sh"
 
 # Render a simple terminal progress bar.
 # Args: current total label

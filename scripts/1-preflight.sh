@@ -178,7 +178,7 @@ if $ALL_GOOD; then
   echo "  $PASS  All checks passed!"
   echo ""
   if [ -n "$COMPOSE_CMD" ]; then
-    echo "  Ready to run:  ./scripts/1-setup.sh"
+    echo "  Ready to run:  ./scripts/2-setup.sh"
   fi
   echo ""
   echo "========================================"
@@ -188,7 +188,7 @@ else
   echo ""
   echo "  $FAIL  Some checks failed. Fix the issues above, then re-run:"
   echo ""
-  echo "         ./scripts/0-preflight.sh"
+  echo "         ./scripts/1-preflight.sh"
   echo ""
 
   # ── Install guidance ───────────────────────────────────────────────────
@@ -241,7 +241,7 @@ else
       echo "  Download Docker Desktop: https://www.docker.com/products/docker-desktop"
       echo ""
     fi
-    echo "  After installing, re-run:  ./scripts/0-preflight.sh"
+    echo "  After installing, re-run:  ./scripts/1-preflight.sh"
     echo ""
   fi
 

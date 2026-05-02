@@ -9,7 +9,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$PROJECT_DIR")}"
 
 # ── Detect container engine (reuses saved preference from setup) ──
-source "$SCRIPT_DIR/_detect-engine.sh"
+source "$SCRIPT_DIR/_internal/_detect-engine.sh"
 
 echo "========================================"
 echo "  MCP DevOps Lab — Teardown ($ENGINE)"

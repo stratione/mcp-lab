@@ -36,7 +36,7 @@ A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transf
 **Run this before the workshop to verify your machine is ready:**
 
 ```bash
-./scripts/0-preflight.sh
+./scripts/1-preflight.sh
 ```
 
 The preflight script checks everything below and prints install instructions if anything is missing.
@@ -102,7 +102,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull llama3.1:8b
 ```
 
-> **Note:** Ollama must be running on your host machine before starting the lab (`ollama serve`). The `0-preflight.sh` script will check for this.
+> **Note:** Ollama must be running on your host machine before starting the lab (`ollama serve`). The `1-preflight.sh` script will check for this.
 
 **Alternative: Cloud LLM only (no Ollama).** If you don't want to install Ollama, add an API key to `.env.secrets` for OpenAI, Anthropic, or Google instead (see [LLM Providers](#llm-providers)). This skips the ~4.9 GB model download but requires a paid API key.
 
@@ -182,22 +182,27 @@ The web-based Chat UI (http://localhost:3001) includes:
 ## Quick Start
 
 ```bash
-# Step 0: Check your machine is ready (run this first!)
-./scripts/0-preflight.sh
-
 # Step 1: Clone the repo
 git clone https://github.com/stratione/mcp-lab.git
 cd mcp-lab
 
-# Step 2: Start the lab (creates .env, starts services, seeds data)
-./scripts/1-setup.sh
+# Step 2: Check your machine is ready
+./scripts/1-preflight.sh
 
-# Step 3: Navigate to the lab dashboard
-# http://localhost:3001  (opens automatically after setup)
+# Step 3: Start the lab (creates .env, starts services, seeds data)
+./scripts/2-setup.sh
 
-# Optional: Open only API docs tabs
-./scripts/4-open-api-docs.sh
+# Step 4: Open the workshop wizard in your browser
+# http://localhost:3001/?workshop=1
+
+# When you're done:
+# ./scripts/3-teardown.sh
 ```
+
+API docs (open manually if you want them):
+- Chat UI Swagger:        http://localhost:3000/api/swagger
+- User API Swagger:       http://localhost:8001/docs
+- Promotion API Swagger:  http://localhost:8002/docs
 
 The setup script will:
 1. Create `.env` from `.env.example` and `.env.secrets` from `.env.secrets.example`
@@ -748,20 +753,27 @@ curl http://localhost:8002/promotions
 
 ## Scripts Reference
 
-Scripts are numbered in run order. Optional scripts are prefixed with `OPT-`.
+Everyone — presenter and participants — runs the same three numbered scripts in order. The two un-numbered scripts are optional dev tools.
+
+### Follow-along (everyone runs these)
 
 | Script | When to run | What it does |
 |--------|-------------|--------------|
-| `scripts/0-preflight.sh` | **Before everything** | Checks Docker/Podman, RAM, Ollama. Prints install instructions if anything is missing. |
-| `scripts/1-setup.sh` | First time setup | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token |
-| `scripts/2-start-lab.sh` | After code changes | Rebuilds and restarts core services (`chat-ui`, `user-api`, `promotion-service`). Add `--full` to also restart Gitea and registries. MCP servers are left alone. |
-| `scripts/3-refresh-lab.sh` | Quick refresh | Rebuilds and restarts all **running** containers without deleting data. Add `--all` to include stopped services. |
-| `scripts/4-open-api-docs.sh` | Optional | Opens only API docs tabs (Gitea/User/Promotion Swagger) |
-| `scripts/5-teardown.sh` | Cleanup | Reuses saved engine choice, removes containers, images, and volumes (full reset) |
-| `scripts/6-tunnel.sh` | Remote access | Expose MCP server publicly via ngrok or cloudflared |
+| `scripts/1-preflight.sh`  | Before everything | Checks Docker/Podman, RAM, Ollama. Prints install instructions if anything is missing. |
+| `scripts/2-setup.sh`      | First time setup  | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token. |
+| `scripts/3-teardown.sh`   | Cleanup           | Reuses saved engine choice, removes containers, images, and volumes (full reset). |
+
+After step 2, open **http://localhost:3001/?workshop=1** in your browser. The `?workshop=1` query parameter opens the in-UI wizard.
+
+### Dev / optional (un-numbered)
+
+| Script | When to run | What it does |
+|--------|-------------|--------------|
+| `scripts/restart.sh`      | After editing code | Rebuilds + restarts in place. Default: refresh whatever is running. `--core` for chat-ui/user-api/promotion only. `--all` for everything including stopped. |
+| `scripts/tunnel.sh`       | Remote access    | Expose an MCP server publicly via ngrok or cloudflared (see `scripts/TUNNEL.md`). |
 
 Internal scripts (called automatically — do not run directly):
-- `scripts/_detect-engine.sh` — shared engine detection helper; prompts if both Docker and Podman are available, saves choice to `.engine`
+- `scripts/_internal/_detect-engine.sh` — shared engine detection helper; prompts if both Docker and Podman are available, saves choice to `.engine`
 - `scripts/bootstrap.sh` — one-shot init container entry point
 - `scripts/init-gitea.sh` — creates Gitea admin user, token, sample repo (seeds `app.py` + `Dockerfile` for a real HTTP hello-app)
 - `scripts/seed-registry.sh` — pushes `sample-app:v1.0.0` to dev registry
@@ -886,7 +898,7 @@ podman logout docker.io
 podman pull docker.io/library/python:3.12-slim   # or: docker pull python:3.12-slim
 
 # Then re-run setup
-./scripts/1-setup.sh
+./scripts/2-setup.sh
 ```
 
 If the pull still fails after clearing credentials, you may be hitting Docker Hub's anonymous rate limit. Create a free Docker Hub account and log in:
@@ -960,8 +972,8 @@ The same content scales to a 90-minute hands-on workshop where every attendee ru
 
 | Phase | Duration | Description |
 |-------|----------|-------------|
-| Pre-work | Before lab | Install Docker or Podman, install Ollama + pull `llama3.1:8b` (~4.9 GB), run `0-preflight.sh` |
-| Setup | 10 min | Clone, `./scripts/1-setup.sh`, verify Chat UI at localhost:3001 |
+| Pre-work | Before lab | Install Docker or Podman, install Ollama + pull `llama3.1:8b` (~4.9 GB), run `1-preflight.sh` |
+| Setup | 10 min | Clone, `./scripts/2-setup.sh`, verify Chat UI at localhost:3001 |
 | Phase 1: The Struggle | 20 min | Hallucination demo, manual curl against 5 APIs, friction |
 | Phase 2: Progressive Enablement | 25 min | Start MCP servers one by one, watch tool count grow from 0 → 26 |
 | Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, policy enforcement, multi-system orchestration |
