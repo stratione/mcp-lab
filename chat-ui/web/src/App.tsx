@@ -2,6 +2,7 @@ import { Header } from '@/components/Header'
 import { ChatPane } from '@/components/ChatPane'
 import { Inspector } from '@/components/Inspector'
 import { InputRow } from '@/components/InputRow'
+import { CmdK } from '@/components/CmdK'
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Inspector />
       </div>
       <InputRow />
+      <CmdK />
     </div>
   )
 }
