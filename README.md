@@ -89,22 +89,30 @@ sudo dnf install -y podman docker-compose
 
 ### Ollama (Install Before the Workshop)
 
-The workshop starts with [Ollama](https://ollama.ai) — a free local LLM that runs without API keys. **Install and pull the model before arriving** so you're not waiting on a 4.9 GB download during the lab:
+The workshop starts with [Ollama](https://ollama.ai) — a free local LLM that runs without API keys. **Install and pull the model before arriving** so you're not waiting on a 4.9 GB download during the lab.
+
+📖 **Full pre-workshop guide:** [docs/PRE-WORKSHOP.md](docs/PRE-WORKSHOP.md) — includes the optional **Gemma 4** bonus model for the model-comparison segment.
+
+Quick version:
 
 ```bash
 # macOS
 brew install ollama
 ollama serve &
-ollama pull llama3.1:8b    # ~4.9 GB download
+ollama pull llama3.1:8b    # ~4.9 GB — required
+ollama pull gemma4:e4b     # ~9.6 GB — optional bonus
 
 # Linux
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull llama3.1:8b
+ollama pull gemma4:e4b     # optional
 ```
 
 > **Note:** Ollama must be running on your host machine before starting the lab (`ollama serve`). The `1-preflight.sh` script will check for this.
 
-**Alternative: Cloud LLM only (no Ollama).** If you don't want to install Ollama, add an API key to `.env.secrets` for OpenAI, Anthropic, or Google instead (see [LLM Providers](#llm-providers)). This skips the ~4.9 GB model download but requires a paid API key.
+To switch models inside the chat-ui, click the provider chip in the header and type the model name (e.g. `gemma4:e4b`) into the Model field — the lab uses whatever you've pulled.
+
+**Alternative: Cloud LLM only (no Ollama).** If you don't want to install Ollama, add an API key to `.env.secrets` for OpenAI, Anthropic, or Google instead (see [LLM Providers](#llm-providers)). This skips the model download but requires a paid API key.
 
 ---
 
