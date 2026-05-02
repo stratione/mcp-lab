@@ -1,10 +1,17 @@
-import { Button } from '@/components/ui/button'
+import { Header } from '@/components/Header'
+import { ChatPane } from '@/components/ChatPane'
+import { Inspector } from '@/components/Inspector'
+import { InputRow } from '@/components/InputRow'
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-bg text-text p-8">
-      <h1 className="text-xl font-semibold">MCP DevOps Lab</h1>
-      <Button className="mt-4">Click me</Button>
+    <div className="h-screen flex flex-col bg-bg text-text">
+      <Header />
+      <div className="flex-1 flex min-h-0">
+        <ChatPane />
+        <Inspector />
+      </div>
+      <InputRow />
     </div>
   )
 }
