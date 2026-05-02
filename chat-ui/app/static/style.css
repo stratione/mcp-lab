@@ -1621,3 +1621,171 @@ header h1 {
 .compare-halu-label input[type="checkbox"] {
   cursor: pointer;
 }
+
+/* ── Walkthrough modal ───────────────────────────────────────────────────── */
+
+.walk-step-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.walk-step-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.walk-step-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2a2b35;
+}
+
+.walk-step-dot.active {
+  background: #818cf8;
+}
+
+.walk-step-dot.done {
+  background: #4f46e5;
+}
+
+.walk-step-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.walk-step-intro {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #d4d4d8;
+  margin-bottom: 14px;
+}
+
+.walk-block {
+  margin-top: 14px;
+}
+
+.walk-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #818cf8;
+  margin-bottom: 6px;
+}
+
+.walk-code-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.walk-code-row pre {
+  flex: 1;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.walk-action-btn {
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #d4d4d8;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.walk-action-btn:hover {
+  background: #374151;
+  color: #fff;
+}
+
+.walk-action-btn.primary {
+  background: #4f46e5;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.walk-action-btn.primary:hover {
+  background: #6366f1;
+}
+
+.walk-action-btn.copied {
+  background: #065f46;
+  border-color: #10b981;
+  color: #d1fae5;
+}
+
+.walk-expect {
+  background: #0f1117;
+  border-left: 3px solid #4f46e5;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a1a1aa;
+  margin-top: 10px;
+}
+
+.walk-expect strong {
+  color: #c7d2fe;
+}
+
+.walk-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid #2a2b35;
+}
+
+.walk-nav-left {
+  display: flex;
+  gap: 8px;
+}
+
+.walk-nav-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.walk-skip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.walk-skip input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.walk-link {
+  color: #818cf8;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px dashed #4f46e5;
+}
+
+.walk-link:hover {
+  color: #a5b4fc;
+  border-bottom-style: solid;
+}

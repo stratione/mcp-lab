@@ -15,6 +15,7 @@
       <button id="compare-btn" class="help-btn" title="Side-by-side compare: same prompt against two providers in parallel">&#8646;</button>
       <button id="clear-btn" class="help-btn" title="Clear chat history">&times;</button>
       <button id="dashboard-btn" class="help-btn" title="Lab Dashboard">&#9783;</button>
+      <button id="walkthrough-btn" class="help-btn" title="Self-guided walkthrough">&#129517;</button>
       <button id="settings-btn" class="help-btn" title="Settings">&#9881;</button>
       <button id="help-btn" class="help-btn" title="Quick Reference">?</button>
     </div>
@@ -54,7 +55,7 @@
   </div>
 
   <div class="chat-area" id="chat-area">
-    <div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions.</div>
+    <div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions. New here? <a href="#" class="walk-link" data-walk-open="1">Take the self-guided walkthrough &rarr;</a></div>
   </div>
 
   <div class="typing-indicator" id="typing">Thinking...</div>
@@ -135,6 +136,10 @@
 
   <div id="dashboard-modal" class="modal-overlay" style="display:none;">
     <div class="modal-content modal-content-wide" id="dashboard-modal-body"></div>
+  </div>
+
+  <div id="walkthrough-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" id="walkthrough-modal-body"></div>
   </div>
 
   <script src="/static/tool_verify.js"></script>

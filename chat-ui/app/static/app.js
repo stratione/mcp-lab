@@ -839,7 +839,7 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   sessionTokens = 0;
   fetch("/api/chat-history", { method: "DELETE" }).catch(() => { });
   chatArea.innerHTML =
-    '<div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions.</div>';
+    '<div class="message assistant">Welcome to the MCP DevOps Lab! Select your LLM provider above and start chatting. I can help you manage users, Git repos, container images, and promotions. New here? <a href="#" class="walk-link" data-walk-open="1">Take the self-guided walkthrough &rarr;</a></div>';
   document.getElementById("token-session-total").textContent = "0 tokens";
 });
 
@@ -1348,8 +1348,267 @@ document.addEventListener("keydown", (e) => {
     if (c && c.style.display !== "none") {
       c.style.display = "none";
     }
+    const w = document.getElementById("walkthrough-modal");
+    if (w && w.style.display !== "none") {
+      w.style.display = "none";
+    }
   }
 });
+
+// ─── Walkthrough modal: self-guided lab tour ─────────────────────────────────
+// Designed for users running the lab without an instructor in the room.
+// Each step gives them: (a) a terminal command to enable a capability, then
+// (b) a chat prompt they can drop straight into the input. The auto-open on
+// first visit is dismissible via the "Don't show again" checkbox.
+const WALKTHROUGH_DISMISSED_KEY = "mcpLabWalkthroughDismissed";
+
+function _walkSteps() {
+  const eng = containerEngine || "docker";
+  return [
+    {
+      title: "Welcome to the MCP DevOps Lab",
+      intro: `This is a self-guided tour. You'll turn on MCP servers one at a time and
+              watch the AI gain real capability against four backend systems
+              (users, Git, registry, promotion). Plan on ~10 minutes.<br><br>
+              Each step gives you a <strong>terminal command</strong> (copy it)
+              and a <strong>chat prompt</strong> (drop into the input below).
+              Run them in order. Click <em>Next</em> to begin.`,
+    },
+    {
+      title: "Step 1 — Feel the struggle (no MCP servers)",
+      intro: `Right now the AI has zero tools. It can talk, but it can't see or
+              touch any of the lab systems. Try asking it to do real work and
+              watch what happens — it will refuse, hedge, or fabricate.`,
+      prompt: "List all users in the system, then create a user named alice with email alice@example.com.",
+      expect: `<strong>What you should see:</strong> the AI either declines (it has no tools) or
+               makes up plausible-looking results. Nothing was actually created.
+               That's the point — without MCP, intent doesn't reach the systems.<br><br>
+               <em>Optional:</em> flip the <code>⚠ Off</code> button in the header to
+               <code>⚠ ON</code> to lock it into "fly blind" mode for an even sharper demo,
+               then flip it back to <code>Off</code> before continuing.`,
+    },
+    {
+      title: "Step 2 — Give the AI users (mcp-user, +8 tools)",
+      intro: `Start the first MCP server. It exposes 8 tools backed by the User API
+              at <code>localhost:8001</code>. Run the command, wait a few seconds, then
+              re-ask the same kind of question.`,
+      terminal: `${eng} compose up -d mcp-user`,
+      prompt: "What roles are available? Then create a user named alice with email alice@example.com, full name 'Alice Anderson', and role dev.",
+      expect: `<strong>What you should see:</strong> the AI calls <code>list_roles</code> first
+               (because the prompt asks it to), then <code>create_user</code> with the right
+               role. The MCP strip at the top of the page should now read
+               <em>"1 of 5 MCP servers online — 8 tools available"</em>. Real data is
+               in the user-api now — verify with the dashboard (☰).`,
+    },
+    {
+      title: "Step 3 — Add Git (mcp-gitea, +7 tools → 15 total)",
+      intro: `Next system: Gitea, hosting the lab's Git repos. Starting mcp-gitea
+              gives the AI repo, branch, and file tools.`,
+      terminal: `${eng} compose up -d mcp-gitea`,
+      prompt: "List all Git repositories. Then create a feature branch called v2-prep in sample-app.",
+      expect: `<strong>What you should see:</strong> the AI lists repos from Gitea and
+               creates the branch. Open <code>http://localhost:3000</code> (login
+               <code>mcpadmin / mcpadmin123</code>) to confirm the branch is real.`,
+    },
+    {
+      title: "Step 4 — Add registry + promotion (+8 tools → 23 total)",
+      intro: `Two more servers: registry (read images) and promotion (move images
+              from dev → prod with an auditable record). Starting both at once.`,
+      terminal: `${eng} compose up -d mcp-registry mcp-promotion`,
+      prompt: "What images are in the dev registry? Then promote sample-app:v1.0.0 from dev to prod and have alice do it.",
+      expect: `<strong>What you should see:</strong> the AI inspects the dev registry,
+               then orchestrates a promotion. The promotion service records who
+               promoted what — check <code>http://localhost:8002/promotions</code> to
+               see the audit trail. This is multi-system orchestration the AI couldn't
+               do at all in Step 1.`,
+    },
+    {
+      title: "Step 5 — The Finale (mcp-runner, full pipeline)",
+      intro: `The last server adds build/scan/deploy tools. With all 5 MCP servers
+              up, the AI can do the entire dev → prod pipeline from a single intent
+              sentence.`,
+      terminal: `${eng} compose up -d mcp-runner`,
+      prompt: "Build the hello-app from the sample-app repo, scan it, promote it to prod, and deploy it. Use eve as the promoter.",
+      expect: `<strong>What you should see:</strong> the AI sequences ~5+ tool calls
+               across 4 backend systems autonomously: pull source from Gitea →
+               build → scan → promote dev→prod → deploy. The dashboard (☰) shows
+               every system reflecting the change. <em>This</em> is the payoff —
+               natural-language intent compiled into reliable, auditable execution.`,
+    },
+    {
+      title: "Step 6 — Compare two LLMs side by side",
+      intro: `Tools are only half the story; model capability is the other. Click
+              the <code>⇆</code> button in the header to open the compare panel,
+              then click <em>Try the Finale</em> and <em>Run Both</em> to see the
+              same prompt run against (e.g.) local Ollama vs Anthropic in parallel.`,
+      expect: `<strong>What to look for:</strong> tool sequencing quality, recovery from
+               errors, and how the smaller local model handles the same request.
+               This is the moment learners realize <em>capability = model × tools</em>,
+               not just one or the other.<br><br>
+               You can re-open this walkthrough any time from the
+               <code>&#129517;</code> button in the header. <strong>You're done. Have fun.</strong>`,
+    },
+  ];
+}
+
+let _walkIdx = 0;
+
+function _walkRenderStep() {
+  const steps = _walkSteps();
+  const step = steps[_walkIdx];
+  const body = document.getElementById("walkthrough-modal-body");
+  if (!body || !step) return;
+
+  const dots = steps
+    .map((_, i) => {
+      const cls = i === _walkIdx ? "active" : i < _walkIdx ? "done" : "";
+      return `<span class="walk-step-dot ${cls}"></span>`;
+    })
+    .join("");
+
+  const terminalBlock = step.terminal
+    ? `<div class="walk-block">
+         <div class="walk-block-label">1. Run this in your terminal</div>
+         <div class="walk-code-row">
+           <pre id="walk-terminal-pre">${step.terminal}</pre>
+           <button class="walk-action-btn" id="walk-copy-term">Copy</button>
+         </div>
+       </div>`
+    : "";
+
+  const promptBlock = step.prompt
+    ? `<div class="walk-block">
+         <div class="walk-block-label">${step.terminal ? "2. " : ""}Then ask the AI</div>
+         <div class="walk-code-row">
+           <pre id="walk-prompt-pre">${step.prompt}</pre>
+           <button class="walk-action-btn primary" id="walk-insert-prompt">Insert into chat</button>
+         </div>
+       </div>`
+    : "";
+
+  const expectBlock = step.expect
+    ? `<div class="walk-expect">${step.expect}</div>`
+    : "";
+
+  const isLast = _walkIdx === steps.length - 1;
+  const nextLabel = isLast ? "Finish" : "Next →";
+
+  body.innerHTML = `
+    <button id="walk-close" class="modal-close">&times;</button>
+    <div class="walk-step-pager">
+      <span>Step ${_walkIdx + 1} of ${steps.length}</span>
+      <div class="walk-step-dots">${dots}</div>
+    </div>
+    <div class="walk-step-title">${step.title}</div>
+    <div class="walk-step-intro">${step.intro}</div>
+    ${terminalBlock}
+    ${promptBlock}
+    ${expectBlock}
+    <div class="walk-nav">
+      <label class="walk-skip">
+        <input type="checkbox" id="walk-dont-show"
+          ${localStorage.getItem(WALKTHROUGH_DISMISSED_KEY) === "1" ? "checked" : ""}>
+        Don't auto-open this next time
+      </label>
+      <div class="walk-nav-right">
+        <button class="walk-action-btn" id="walk-prev"
+          ${_walkIdx === 0 ? "disabled style='opacity:0.4;cursor:default'" : ""}>← Prev</button>
+        <button class="walk-action-btn primary" id="walk-next">${nextLabel}</button>
+      </div>
+    </div>
+  `;
+
+  // Wire up handlers for this rendered step.
+  document.getElementById("walk-close").addEventListener("click", _walkClose);
+  document.getElementById("walk-prev").addEventListener("click", () => {
+    if (_walkIdx > 0) { _walkIdx--; _walkRenderStep(); }
+  });
+  document.getElementById("walk-next").addEventListener("click", () => {
+    if (isLast) { _walkClose(); return; }
+    _walkIdx++;
+    _walkRenderStep();
+  });
+  document.getElementById("walk-dont-show").addEventListener("change", (e) => {
+    localStorage.setItem(WALKTHROUGH_DISMISSED_KEY, e.target.checked ? "1" : "0");
+  });
+
+  const copyTermBtn = document.getElementById("walk-copy-term");
+  if (copyTermBtn) {
+    copyTermBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(step.terminal);
+        copyTermBtn.textContent = "Copied ✓";
+        copyTermBtn.classList.add("copied");
+        setTimeout(() => {
+          copyTermBtn.textContent = "Copy";
+          copyTermBtn.classList.remove("copied");
+        }, 1500);
+      } catch (_) {
+        copyTermBtn.textContent = "Copy failed";
+      }
+    });
+  }
+
+  const insertBtn = document.getElementById("walk-insert-prompt");
+  if (insertBtn) {
+    insertBtn.addEventListener("click", () => {
+      const ta = document.getElementById("user-input");
+      if (ta) {
+        ta.value = step.prompt;
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      _walkClose();
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }
+    });
+  }
+}
+
+function _walkOpen(stepIdx) {
+  if (typeof stepIdx === "number") _walkIdx = stepIdx;
+  _walkRenderStep();
+  const m = document.getElementById("walkthrough-modal");
+  if (m) m.style.display = "flex";
+}
+
+function _walkClose() {
+  const m = document.getElementById("walkthrough-modal");
+  if (m) m.style.display = "none";
+}
+
+const _walkBtn = document.getElementById("walkthrough-btn");
+if (_walkBtn) {
+  _walkBtn.addEventListener("click", () => _walkOpen(0));
+}
+
+// Delegated handler so the welcome-message "walkthrough" link keeps working
+// after Clear chat re-renders the welcome message.
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-walk-open]");
+  if (!t) return;
+  e.preventDefault();
+  _walkOpen(0);
+});
+
+const _walkOverlay = document.getElementById("walkthrough-modal");
+if (_walkOverlay) {
+  _walkOverlay.addEventListener("click", (e) => {
+    if (e.target === _walkOverlay) _walkClose();
+  });
+}
+
+function maybeAutoOpenWalkthrough() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("walkthrough") === "open") { _walkOpen(0); return; }
+    if (params.get("walkthrough") === "skip") return;
+    if (localStorage.getItem(WALKTHROUGH_DISMISSED_KEY) === "1") return;
+    // Defer slightly so containerEngine has a chance to be detected.
+    setTimeout(() => _walkOpen(0), 600);
+  } catch (_) { /* ignore */ }
+}
 
 // ─── Init ───
 loadProviders();
@@ -1357,3 +1616,4 @@ loadHallucinationMode();
 loadTools(); // self-rescheduling: 3s while any server offline, 30s when all online
 loadSavedChat();
 maybeOpenDashboardFromUrl();
+maybeAutoOpenWalkthrough();
