@@ -146,6 +146,18 @@ echo "[2/4] Starting services (this may take a minute on first run)..."
 cd "$PROJECT_DIR"
 $COMPOSE up -d
 
+# Pre-build the MCP server images even though we don't start them now.
+# Without this the chat-ui's "Start" button (which runs
+# `compose up -d --no-build <service>`) fails on first click with
+# "no such image" because compose has nothing to run. Build is fast on
+# subsequent runs because of layer caching.
+echo "[2b/4] Pre-building MCP server images so the GUI Start button works on first click..."
+COMPOSE_PROFILES=user,gitea,registry,promotion $COMPOSE build \
+  mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner \
+  > /tmp/mcp-build.log 2>&1 \
+  && echo "    MCP images built (log: /tmp/mcp-build.log)" \
+  || echo "    WARNING: MCP image build failed — see /tmp/mcp-build.log"
+
 # 3. Wait for bootstrap to finish and grab the Gitea token
 echo "[3/4] Waiting for bootstrap to complete..."
 ATTEMPTS=0

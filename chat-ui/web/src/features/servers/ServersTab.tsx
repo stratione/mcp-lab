@@ -84,9 +84,9 @@ function ServerRow({ server, engine, hostDir }: { server: McpServer; engine: str
         </span>
       </div>
       {open && <ServerInstructions name={server.name} engine={engine} hostDir={hostDir} isOnline={isOnline} />}
-      {open && hostDir && (
+      {open && (
         <p className="bg-bg border-t border-border text-[10px] text-faint px-2 py-1">
-          Commands include <code className="font-mono">cd {hostDir}</code> so they work even if your terminal is in <code className="font-mono">scripts/</code>.
+          Run from the <code className="font-mono">mcp-lab/</code> directory (the project root).
         </p>
       )}
       {verifyResult && (
@@ -99,12 +99,11 @@ function ServerRow({ server, engine, hostDir }: { server: McpServer; engine: str
 function ServerInstructions({
   name,
   engine,
-  hostDir,
   isOnline,
 }: {
   name: string
   engine: string
-  hostDir: string
+  hostDir: string  // accepted for symmetry; not rendered (we don't want to leak the user's home path)
   isOnline: boolean
 }) {
   const qc = useQueryClient()
@@ -112,11 +111,8 @@ function ServerInstructions({
   // (mcp_client.py:134 host.replace("mcp-", "")) — restore it before
   // showing the command and before calling /api/mcp-control.
   const fullName = name.startsWith('mcp-') ? name : `mcp-${name}`
-  // Prefix with `cd <abs project root>` so the command works no matter
-  // where the user is sitting in their terminal (most common: scripts/).
-  const cdPrefix = hostDir ? `cd ${hostDir} && ` : ''
-  const startCmd = `${cdPrefix}${engine} compose up -d ${fullName}`
-  const stopCmd = `${cdPrefix}${engine} compose stop ${fullName}`
+  const startCmd = `${engine} compose up -d ${fullName}`
+  const stopCmd = `${engine} compose stop ${fullName}`
 
   const startMut = useMutation({
     mutationFn: () => mcpControl(fullName, 'start'),
