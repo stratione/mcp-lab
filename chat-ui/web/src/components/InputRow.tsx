@@ -21,7 +21,6 @@ export function InputRow() {
     if (pending !== null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(pending)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPending(null)
       queueMicrotask(autoGrow)
       ta.current?.focus()
