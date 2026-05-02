@@ -6,7 +6,6 @@
 // wizard uses the same channel). Copy button puts the text on the
 // clipboard for users who'd rather paste manually.
 
-import { useState } from 'react'
 import { useServers } from '@/features/servers/useServers'
 import { useLab } from '@/lib/store'
 import { promptsFor, titleFor, type PromptSuggestion } from '@/lib/mcp-prompts'
@@ -22,8 +21,8 @@ export function TryTab() {
   return (
     <div className="p-3 space-y-3 text-sm">
       <p className="text-[11px] text-muted">
-        Pick a prompt — it drops straight into the chat input. As you turn on more MCP
-        servers, more prompts show up here.
+        Click any prompt — it drops straight into the chat input, ready to send or edit.
+        As you turn on more MCP servers, more prompts show up here.
       </p>
 
       {allOffline && (
@@ -61,35 +60,24 @@ function PromptRow({
   suggestion: PromptSuggestion
   onPick: (text: string) => void
 }) {
-  const [copied, setCopied] = useState(false)
-  async function copy() {
-    await navigator.clipboard.writeText(suggestion.prompt)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
-  }
   return (
-    <li className="bg-surface-2 border border-border rounded-md px-2 py-1.5 flex items-start gap-2">
+    <li>
       <button
         type="button"
         onClick={() => onPick(suggestion.prompt)}
-        className="flex-1 text-left text-[12px] hover:text-text"
+        className="w-full text-left bg-surface-2 border border-border rounded-md px-2 py-1.5 hover:border-primary/40 hover:bg-surface group"
         title="Drop this prompt into the chat input"
       >
-        “{suggestion.prompt}”
-        {suggestion.tool && (
-          <span className="ml-1 text-[10px] text-faint font-mono">→ {suggestion.tool}</span>
+        <div className="text-[12px] text-muted group-hover:text-text">
+          “{suggestion.prompt}”
+        </div>
+        {(suggestion.tool || suggestion.hint) && (
+          <div className="mt-0.5 text-[10px] text-faint">
+            {suggestion.tool && <span className="font-mono">→ {suggestion.tool}</span>}
+            {suggestion.tool && suggestion.hint && <span> · </span>}
+            {suggestion.hint && <span className="italic">{suggestion.hint}</span>}
+          </div>
         )}
-        {suggestion.hint && (
-          <span className="ml-1 text-[10px] text-faint italic">({suggestion.hint})</span>
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={copy}
-        className="text-[10px] text-muted hover:text-text border border-border rounded px-1.5 py-0.5 shrink-0"
-        title="Copy to clipboard"
-      >
-        {copied ? 'copied' : 'copy'}
       </button>
     </li>
   )
