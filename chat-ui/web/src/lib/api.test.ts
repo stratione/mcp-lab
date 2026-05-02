@@ -68,9 +68,8 @@ describe('api client', () => {
   })
 
   it('POSTs /api/probe with {url} and returns ProbeResult', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(JSON.stringify({ status: 200, body: [{ id: 1 }] }), { status: 200 })
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ status: 200, body: [{ id: 1 }] }), { status: 200 })
     )
     vi.stubGlobal('fetch', fetchMock)
     const r = await probeUrl('http://localhost:8001/users')
@@ -81,9 +80,8 @@ describe('api client', () => {
   })
 
   it('POSTs /api/mcp-control with service+action', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(JSON.stringify({ ok: true, service: 'mcp-user', action: 'start' }), { status: 200 })
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ ok: true, service: 'mcp-user', action: 'start' }), { status: 200 })
     )
     vi.stubGlobal('fetch', fetchMock)
     await mcpControl('mcp-user', 'start')
