@@ -33,4 +33,22 @@ describe('useLab store', () => {
     useLab.getState().addTokens(50)
     expect(useLab.getState().sessionTokens).toBe(150)
   })
+
+  it('toggles workshop mode', () => {
+    expect(useLab.getState().workshopMode).toBe(false)
+    useLab.getState().setWorkshopMode(true)
+    expect(useLab.getState().workshopMode).toBe(true)
+  })
+
+  it('tracks workshop step', () => {
+    useLab.getState().setWorkshopStep(3)
+    expect(useLab.getState().workshopStep).toBe(3)
+  })
+
+  it('sets and clears pendingPrompt', () => {
+    useLab.getState().setPendingPrompt('List all users.')
+    expect(useLab.getState().pendingPrompt).toBe('List all users.')
+    useLab.getState().setPendingPrompt(null)
+    expect(useLab.getState().pendingPrompt).toBeNull()
+  })
 })

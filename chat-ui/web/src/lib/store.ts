@@ -53,6 +53,15 @@ export type LabState = {
 
   walkthroughKick: number
   kickWalkthrough: () => void
+
+  workshopMode: boolean
+  setWorkshopMode: (v: boolean) => void
+
+  workshopStep: number
+  setWorkshopStep: (n: number) => void
+
+  pendingPrompt: string | null
+  setPendingPrompt: (s: string | null) => void
 }
 
 export const useLab = create<LabState>((set) => ({
@@ -87,4 +96,13 @@ export const useLab = create<LabState>((set) => ({
 
   walkthroughKick: 0,
   kickWalkthrough: () => set((s) => ({ walkthroughKick: s.walkthroughKick + 1 })),
+
+  workshopMode: false,
+  setWorkshopMode: (workshopMode) => set({ workshopMode }),
+
+  workshopStep: 0,
+  setWorkshopStep: (workshopStep) => set({ workshopStep }),
+
+  pendingPrompt: null,
+  setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
 }))
