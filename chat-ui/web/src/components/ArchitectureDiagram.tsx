@@ -93,10 +93,13 @@ export function ArchitectureDiagram() {
       {/* User → chat-ui */}
       <line x1="120" y1="145" x2="285" y2="145" stroke="#60a5fa" strokeWidth="2" markerEnd="url(#arrow-blue)" />
 
-      {/* chat-ui ↔ LLM (bi-dir) */}
+      {/* chat-ui ↔ LLM (bi-dir, orchestration loop) */}
       <line x1="450" y1="145" x2="600" y2="145" stroke="#fbbf24" strokeWidth="2" markerStart="url(#arrow-amber-start)" markerEnd="url(#arrow-amber)" />
-      <text x="525" y="138" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#fbbf24" fontWeight="600">
-        inference
+      <text x="525" y="135" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#fbbf24" fontWeight="700">
+        prompt + tool defs
+      </text>
+      <text x="525" y="161" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="10" fill="currentColor" opacity="0.6">
+        reply or tool_call
       </text>
 
       {/* MCP servers (5 boxes) */}
@@ -136,6 +139,10 @@ export function ArchitectureDiagram() {
           markerEnd="url(#arrow-purple)"
         />
       ))}
+      {/* Annotation on the fan-out so people don't think the LLM talks to MCP */}
+      <text x="200" y="252" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="10" fill="#a78bfa" fontWeight="600">
+        JSON-RPC tool/call
+      </text>
 
       {/* Backing services row */}
       {/* user-api */}
@@ -180,14 +187,25 @@ export function ArchitectureDiagram() {
       {/* Footer — currentColor at reduced opacity reads on both light and dark */}
       <text
         x="400"
-        y="535"
+        y="525"
         textAnchor="middle"
         fontFamily="Virgil, Comic Sans MS, system-ui"
         fontSize="13"
         fill="currentColor"
-        opacity="0.6"
+        opacity="0.7"
       >
-        Chat-UI calls MCP tools; each tool calls the underlying API.
+        chat-ui is the MCP client. The LLM proposes tool calls in its reply;
+      </text>
+      <text
+        x="400"
+        y="545"
+        textAnchor="middle"
+        fontFamily="Virgil, Comic Sans MS, system-ui"
+        fontSize="13"
+        fill="currentColor"
+        opacity="0.7"
+      >
+        chat-ui executes them, feeds results back, and loops until done.
       </text>
     </svg>
   )
