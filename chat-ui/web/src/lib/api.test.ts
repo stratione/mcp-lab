@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { sendChat, getMcpStatus, setProvider, setHallucinationMode } from './api'
+import { sendChat, getMcpStatus, setProvider, setHallucinationMode, probeUrl, mcpControl } from './api'
 
 describe('api client', () => {
   beforeEach(() => {
@@ -65,5 +65,29 @@ describe('api client', () => {
     })
     const r = await setHallucinationMode(true)
     expect(r.enabled).toBe(true)
+  })
+
+  it('POSTs /api/probe with {url} and returns ProbeResult', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ status: 200, body: [{ id: 1 }] }), { status: 200 })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await probeUrl('http://localhost:8001/users')
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(init.body as string)).toEqual({ url: 'http://localhost:8001/users' })
+    expect(r.status).toBe(200)
+  })
+
+  it('POSTs /api/mcp-control with service+action', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ ok: true, service: 'mcp-user', action: 'start' }), { status: 200 })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await mcpControl('mcp-user', 'start')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(init.body as string)).toEqual({ service: 'mcp-user', action: 'start' })
   })
 })

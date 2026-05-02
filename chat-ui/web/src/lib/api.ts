@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   ChatResponseSchema,
   McpStatusResponseSchema,
+  ProbeResultSchema,
   ProvidersResponseSchema,
   ToolsResponseSchema,
   HallucinationStateSchema,
@@ -100,6 +101,12 @@ export const setHallucinationMode = (enabled: boolean) =>
 
 export const probeServer = (name: string) =>
   call('/api/probe', VerifyResponseSchema, json({ name }))
+
+export const probeUrl = (url: string) =>
+  call('/api/probe', ProbeResultSchema, json({ url }))
+
+export const mcpControl = (service: string, action: 'start' | 'stop') =>
+  call('/api/mcp-control', z.unknown(), json({ service, action }))
 
 export const sendChatCompare = (body: unknown) =>
   call('/api/chat-compare', z.unknown(), json(body))

@@ -94,3 +94,9 @@ export const VerifyResponseSchema = z.object({
   output: z.string().default(''),
   error: z.string().optional(),
 })
+
+export const ProbeResultSchema = z.object({
+  status: z.number(),
+  body: z.unknown(),
+})
+export type ProbeResult = z.infer<typeof ProbeResultSchema>
