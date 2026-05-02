@@ -104,15 +104,30 @@ export function Workshop() {
       data-testid="workshop-dock"
       className="fixed bottom-20 right-4 w-96 z-30 bg-surface border border-border rounded-lg shadow-lg p-4 text-sm"
     >
-      <div className="text-xs text-muted mb-2 flex justify-between">
+      <div className="text-xs text-muted mb-2 flex items-center justify-between gap-2">
         <span>Workshop · step {step + 1} of {PHASE_COUNT}</span>
-        <button
-          className="text-faint hover:text-muted"
-          onClick={() => setStep(Math.max(step - 1, 0))}
-          aria-label="Previous step"
-        >
-          ← back
-        </button>
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            className="px-1.5 py-0.5 rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-40"
+            onClick={() => setStep(Math.max(step - 1, 0))}
+            disabled={step === 0}
+            aria-label="Previous step"
+            data-testid="workshop-back"
+          >
+            ← back
+          </button>
+          <button
+            type="button"
+            className="px-1.5 py-0.5 rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-40"
+            onClick={() => setStep(Math.min(step + 1, PHASE_COUNT - 1))}
+            disabled={step >= PHASE_COUNT - 1}
+            aria-label="Next step"
+            data-testid="workshop-forward"
+          >
+            forward →
+          </button>
+        </span>
       </div>
       {card}
       <div className="mt-3 pt-2 border-t border-border text-[10px] text-faint text-right">

@@ -109,9 +109,9 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 
 ### UI Issues
 - [ ] **Missing Settings Icon**: The "Settings" modal (gear icon) is missing from the dashboard. Only `×`, `☷`, and `?` icons are present.
-- [ ] **Workshop wizard Next button contrast**: letters on the Next button are hard to read — bump foreground/background contrast to meet WCAG AA.
-- [ ] **Free navigation through workshop instructions**: let users move forward and back through wizard steps freely without requiring the commands in each step to actually be run first.
-- [ ] **Workshop wizard: add the runner commands + bring the MCP server up**: surface the Gitea Actions runner command(s) inside the wizard step and ensure the MCP server is started (or restarted) as part of the workshop bring-up flow.
+- [x] **Workshop wizard Next button contrast** — root cause: shadcn primitives reference `text-primary-foreground` / `bg-destructive` etc., but `tailwind.config.ts` only defined our custom `primary-fg` / `err` aliases, so the shadcn classes resolved to undefined and text fell back to inherited (low-contrast) color. Fix: added shadcn-convention aliases (`primary-foreground`, `secondary`, `destructive`, `accent`, `popover`, `card`, `muted-foreground`, `input`, `ring`, `background`, `foreground`) pointing at the same CSS variables. (2026-05-02)
+- [x] **Free navigation through workshop instructions** — dropped `disabled={!online}` / `disabled={!done}` gates on EnableCard / VerifyCard "Next →" buttons; added a paired `forward →` button to the dock header so users can step backward AND forward freely without running the commands. Step-complete affordance preserved as a subtle text hint. (2026-05-02)
+- [x] **Workshop wizard: add the runner commands + bring the MCP server up** — IntroCard now exposes a collapsible "Runner commands · bring the lab up" section with the conductor (`./scripts/7-workshop.sh`) and an all-at-once shortcut (`docker/podman compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion`), each with copy buttons. Engine label is engine-aware (docker/podman). (2026-05-02)
 
 ### Data Issues
 - [ ] **Missing User Data**: User ID 1 ("Alice") is missing from `list_users` output. Only IDs 2, 3, 4, 5 are returned.

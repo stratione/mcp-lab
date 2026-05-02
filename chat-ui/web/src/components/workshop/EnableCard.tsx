@@ -47,8 +47,13 @@ export function EnableCard({ mcp, onNext }: { mcp: string; onNext: () => void })
           <span className="text-muted">Waiting for {mcp} to come online…</span>
         )}
       </div>
-      <div className="flex justify-end">
-        <Button size="sm" disabled={!online} onClick={onNext}>Next →</Button>
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] text-faint">
+          {online ? 'Step complete.' : 'Skip ahead anytime — you can come back.'}
+        </span>
+        <Button size="sm" onClick={onNext} data-testid="workshop-enable-next">
+          Next →
+        </Button>
       </div>
     </div>
   )
