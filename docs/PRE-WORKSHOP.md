@@ -145,10 +145,80 @@ You should get a reply within a few seconds.
 Once you've followed `scripts/1-preflight.sh` and `scripts/2-setup.sh` and opened <http://localhost:3001/?workshop=1>:
 
 1. Click the **provider chip** in the top-right of the header (it shows `⬩ ollama · llama3.1 · 0 tok ▾`).
-2. Type the model name into the **Model** field — for example `gemma4:e4b`.
+2. Pick a provider (Ollama / OpenAI / Anthropic / Google), then a model from the dropdown — `Auto (recommended)` works if you don't care.
 3. Click **Apply**.
 
-That's it. Any model you've pulled with `ollama pull` is usable — the chat-ui doesn't maintain its own list, it just sends whatever name you type to the local Ollama daemon.
+The chat-ui auto-detects what you've pulled with Ollama; for cloud providers it lists what your API key can see.
+
+---
+
+## (Optional) Cloud LLM API keys
+
+The lab runs **fully on Ollama with no keys** — you can do the entire workshop without any cloud account. Add a key only if you want to demo OpenAI / Anthropic / Google Gemini alongside the local model.
+
+### Where the keys live
+
+`scripts/2-setup.sh` creates `.env.secrets` in the project root with empty placeholders the first time you run it. Open it in your editor:
+
+```bash
+$EDITOR .env.secrets
+```
+
+You'll see three slots, all blank by default:
+
+```bash
+# Get your key at: https://console.anthropic.com/settings/keys
+ANTHROPIC_API_KEY=
+
+# Get your key at: https://platform.openai.com/api-keys
+OPENAI_API_KEY=
+
+# Get your key at: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=
+```
+
+Paste in whichever you have — the file is gitignored and `chmod 600` so it never leaves your machine.
+
+### Apply the change
+
+After editing, restart the chat-ui so it re-reads the env:
+
+```bash
+./scripts/restart.sh --core
+```
+
+### Or paste live in the Chat UI
+
+If you don't want to touch the file, you can paste the key into the provider chip's **API key** field on the fly — the chat-ui keeps it in memory for the session. Faster for trying a key without committing it to disk.
+
+### Verifying
+
+A quick way to confirm a key works (zero token cost — these are free listing endpoints):
+
+```bash
+# Anthropic
+curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  https://api.anthropic.com/v1/models
+
+# OpenAI
+curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  https://api.openai.com/v1/models
+
+# Google Gemini
+curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_API_KEY"
+```
+
+`HTTP 200` on all three = you're good. Any 4xx (401/403) = bad or expired key.
+
+### Workshop hygiene
+
+- **Never** screen-share `.env.secrets` or paste it in chat.
+- The chat-ui never echoes your key back to the browser (it returns a redacted preview like `sk…XYZW`), but the file on disk is the secret — protect it.
+- For a recorded demo, prefer the live-paste path so the key is in memory and dies with the session.
 
 ---
 

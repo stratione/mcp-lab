@@ -73,17 +73,24 @@ def ollama_auto() -> str:
 
 # ─── OpenAI ──────────────────────────────────────────────────────────────
 
+# Refresh against https://platform.openai.com/docs/models when this drifts.
+# Knowledge cutoff: Jan 2026. The live /v1/models call replaces this list
+# whenever an API key is present, so this only kicks in for keyless previews.
 _OPENAI_FALLBACK: list[dict[str, Any]] = [
     {"id": "gpt-5",          "label": "GPT-5",                   "supports_tools": True},
     {"id": "gpt-5-mini",     "label": "GPT-5 mini",              "supports_tools": True},
+    {"id": "gpt-5-nano",     "label": "GPT-5 nano",              "supports_tools": True},
     {"id": "gpt-4.1",        "label": "GPT-4.1",                 "supports_tools": True},
+    {"id": "gpt-4.1-mini",   "label": "GPT-4.1 mini",            "supports_tools": True},
     {"id": "gpt-4o",         "label": "GPT-4o",                  "supports_tools": True},
     {"id": "gpt-4o-mini",    "label": "GPT-4o mini",             "supports_tools": True},
-    {"id": "o1",             "label": "o1 (reasoning)",          "supports_tools": True},
+    {"id": "o4-mini",        "label": "o4-mini (reasoning)",     "supports_tools": True},
+    {"id": "o3",             "label": "o3 (reasoning)",          "supports_tools": True},
     {"id": "o3-mini",        "label": "o3-mini (reasoning)",     "supports_tools": True},
+    {"id": "o1",             "label": "o1 (reasoning)",          "supports_tools": True},
 ]
 
-_OPENAI_AUTO = "gpt-4o"
+_OPENAI_AUTO = "gpt-5-mini"
 
 
 async def openai_models(api_key: str) -> list[dict[str, Any]]:
@@ -122,11 +129,15 @@ def openai_auto() -> str:
 
 # ─── Anthropic ───────────────────────────────────────────────────────────
 
+# Refresh against https://docs.anthropic.com/en/docs/about-claude/models when
+# this drifts. Knowledge cutoff: Jan 2026. The live /v1/models call replaces
+# this whenever an API key is present, so this is only for keyless previews.
 _ANTHROPIC_FALLBACK: list[dict[str, Any]] = [
-    {"id": "claude-opus-4-7",        "label": "Claude Opus 4.7",         "supports_tools": True},
-    {"id": "claude-sonnet-4-6",      "label": "Claude Sonnet 4.6",       "supports_tools": True},
-    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5",     "supports_tools": True},
-    {"id": "claude-sonnet-4-5-20250929","label": "Claude Sonnet 4.5",    "supports_tools": True},
+    {"id": "claude-opus-4-7",          "label": "Claude Opus 4.7 (most capable)", "supports_tools": True},
+    {"id": "claude-sonnet-4-6",        "label": "Claude Sonnet 4.6 (balanced)",   "supports_tools": True},
+    {"id": "claude-haiku-4-5-20251001","label": "Claude Haiku 4.5 (fast)",        "supports_tools": True},
+    {"id": "claude-sonnet-4-5-20250929","label": "Claude Sonnet 4.5",             "supports_tools": True},
+    {"id": "claude-opus-4-1-20250805", "label": "Claude Opus 4.1",                "supports_tools": True},
 ]
 
 _ANTHROPIC_AUTO = "claude-sonnet-4-6"
@@ -166,14 +177,19 @@ def anthropic_auto() -> str:
 
 # ─── Google Gemini ───────────────────────────────────────────────────────
 
+# Refresh against https://ai.google.dev/gemini-api/docs/models when this
+# drifts. Knowledge cutoff: Jan 2026. The live models.list call replaces
+# this whenever an API key is present, so this is only for keyless previews.
 _GOOGLE_FALLBACK: list[dict[str, Any]] = [
-    {"id": "gemini-2.5-pro",    "label": "Gemini 2.5 Pro",        "supports_tools": True},
-    {"id": "gemini-2.5-flash",  "label": "Gemini 2.5 Flash",      "supports_tools": True},
-    {"id": "gemini-2.0-flash",  "label": "Gemini 2.0 Flash",      "supports_tools": True},
-    {"id": "gemini-2.0-pro",    "label": "Gemini 2.0 Pro",        "supports_tools": True},
+    {"id": "gemini-2.5-pro",         "label": "Gemini 2.5 Pro (most capable)",  "supports_tools": True},
+    {"id": "gemini-2.5-flash",       "label": "Gemini 2.5 Flash (balanced)",    "supports_tools": True},
+    {"id": "gemini-2.5-flash-lite",  "label": "Gemini 2.5 Flash Lite (cheap)",  "supports_tools": True},
+    {"id": "gemini-2.0-flash",       "label": "Gemini 2.0 Flash",               "supports_tools": True},
+    {"id": "gemini-2.0-pro",         "label": "Gemini 2.0 Pro",                 "supports_tools": True},
+    {"id": "gemini-1.5-pro",         "label": "Gemini 1.5 Pro (legacy)",        "supports_tools": True},
 ]
 
-_GOOGLE_AUTO = "gemini-2.0-flash"
+_GOOGLE_AUTO = "gemini-2.5-flash"
 
 
 async def google_models(api_key: str) -> list[dict[str, Any]]:

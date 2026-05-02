@@ -22,6 +22,7 @@ const AUTO_VALUE = 'auto'
 export function ProviderChip() {
   const [s, setS] = useState(loadSettings())
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
   const tokens = useLab((x) => x.sessionTokens)
 
   const { data: catalog, isLoading: catalogLoading, refetch: refetchCatalog } = useQuery<ModelCatalog>({
@@ -51,6 +52,13 @@ export function ProviderChip() {
       })
       saveSettings(s)
       refetchCatalog()
+      // Close the popover and drop the user straight into the chat input
+      // so they can start typing without an extra click.
+      setOpen(false)
+      requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input"]')
+        input?.focus()
+      })
     } finally {
       setBusy(false)
     }
@@ -62,7 +70,7 @@ export function ProviderChip() {
       : s.model || '—'
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
