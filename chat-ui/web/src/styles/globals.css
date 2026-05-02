@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ui-scale: 1;
+
+  /* Light theme tokens (RGB triplets so Tailwind can apply opacity) */
+  --bg: 250 250 250;
+  --surface: 255 255 255;
+  --surface-2: 244 244 245;
+  --border: 229 229 229;
+  --text: 10 10 10;
+  --muted: 82 82 82;
+  --faint: 115 115 115;
+  --primary: 10 10 10;
+  --primary-fg: 255 255 255;
+  --ok: 22 163 74;
+  --warn: 245 158 11;
+  --err: 239 68 68;
+  --tool-bg: 219 234 254;
+  --tool-fg: 29 78 216;
+  color-scheme: light;
+}
+
+:root.dark {
+  --bg: 10 10 10;
+  --surface: 15 15 16;
+  --surface-2: 23 23 23;
+  --border: 38 38 38;
+  --text: 250 250 250;
+  --muted: 163 163 163;
+  --faint: 115 115 115;
+  --primary: 250 250 250;
+  --primary-fg: 10 10 10;
+  --ok: 34 197 94;
+  --warn: 245 158 11;
+  --err: 239 68 68;
+  --tool-bg: 49 46 129;
+  --tool-fg: 165 180 252;
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+body { background: rgb(var(--bg)); color: rgb(var(--text)); font-family: theme('fontFamily.sans'); }
+
+:root { --ui-scale: 1; }
+:root[data-density='compact'] { --ui-scale: 0.85; }
+:root[data-density='comfortable'] { --ui-scale: 1; }
+:root[data-density='large'] { --ui-scale: 1.18; }
