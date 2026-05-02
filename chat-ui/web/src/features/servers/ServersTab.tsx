@@ -17,7 +17,10 @@ export function ServersTab() {
 function ServerRow({ server }: { server: McpServer }) {
   const [verifyResult, setVerifyResult] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const dotColor = server.status === 'online' ? 'bg-ok' : server.status === 'degraded' ? 'bg-warn' : 'bg-err'
+  const isOnline = server.status === 'online'
+  const isDegraded = server.status === 'degraded'
+  const statusColor = isOnline ? 'text-ok' : isDegraded ? 'text-warn' : 'text-err'
+  const statusGlyph = isOnline ? '▲' : isDegraded ? '◆' : '▼'
 
   async function verify() {
     setBusy(true)
@@ -35,7 +38,12 @@ function ServerRow({ server }: { server: McpServer }) {
     <div className="bg-surface-2 border border-border rounded-md text-sm">
       <div className="flex items-center justify-between px-2.5 py-2">
         <span className="flex items-center gap-2">
-          <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+          <span
+            className={`inline-flex items-center justify-center w-4 text-[10px] font-bold ${statusColor}`}
+            aria-label={`status: ${server.status}`}
+          >
+            {statusGlyph}
+          </span>
           {server.name}
         </span>
         <span className="flex items-center gap-2 text-xs text-faint">
