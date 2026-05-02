@@ -46,9 +46,9 @@ async def _run(*args: str, ctx: Context | None = None) -> tuple[int, bytes, byte
 def register(mcp: FastMCP):
     @mcp.tool()
     async def deploy_app(
-        image_name: str,
-        tag: str,
-        environment: str = "prod",
+        image_name: str = "hello-app",
+        tag: str = "latest",
+        environment: str = "dev",
         ctx: Context | None = None,
     ) -> str:
         """
@@ -59,10 +59,16 @@ def register(mcp: FastMCP):
 
         Port mapping: dev→9080, staging→9081, prod→9082.
 
+        DEFAULTS: when the user says "deploy the hello world app" with no
+        further specifics, call this tool with NO arguments — it deploys
+        "hello-app:latest" to "dev". Only ask the user for image_name / tag /
+        environment if they explicitly mention something different (e.g.
+        "deploy v2 to prod" → tag="v2", environment="prod").
+
         Args:
-            image_name: Name of the image to deploy.
-            tag: Tag of the image.
-            environment: Target environment (dev, staging, prod).
+            image_name: Image to deploy. Defaults to "hello-app".
+            tag: Image tag. Defaults to "latest".
+            environment: dev / staging / prod. Defaults to "dev".
 
         Returns:
             JSON string with deployment status and accessible URL.

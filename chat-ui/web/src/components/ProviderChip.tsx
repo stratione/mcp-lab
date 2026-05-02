@@ -1,11 +1,13 @@
 // chat-ui/web/src/components/ProviderChip.tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { setProvider } from '@/lib/api'
+import { setProvider, getModels, type ModelCatalog } from '@/lib/api'
 import { loadSettings, saveSettings } from '@/lib/settings'
 import { useLab } from '@/lib/store'
+import { useQuery } from '@tanstack/react-query'
+import { ModelManager } from './ModelManager'
 
 const PROVIDERS = [
   { v: 'ollama', label: 'Ollama (Local)' },
@@ -15,53 +17,127 @@ const PROVIDERS = [
   { v: 'pretend', label: 'Demo LLM' },
 ]
 
+const AUTO_VALUE = 'auto'
+
 export function ProviderChip() {
   const [s, setS] = useState(loadSettings())
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
   const tokens = useLab((x) => x.sessionTokens)
+
+  const { data: catalog, isLoading: catalogLoading, refetch: refetchCatalog } = useQuery<ModelCatalog>({
+    queryKey: ['models', s.provider, s.apiKey],
+    queryFn: ({ signal }) => getModels(s.provider, signal),
+    staleTime: 30_000,
+  })
+
+  // If the saved model isn't in the catalog any more (e.g. switched provider),
+  // gently fall back to "auto" so the dropdown always has a valid selection.
+  useEffect(() => {
+    if (!catalog) return
+    const ids = new Set(catalog.models.map((m) => m.id))
+    if (s.model && s.model !== AUTO_VALUE && !ids.has(s.model)) {
+      setS((cur) => ({ ...cur, model: AUTO_VALUE }))
+    }
+  }, [catalog, s.model])
 
   async function apply() {
     setBusy(true)
     try {
-      await setProvider({ provider: s.provider, api_key: s.apiKey || undefined, model: s.model || undefined, base_url: s.baseUrl })
+      await setProvider({
+        provider: s.provider,
+        api_key: s.apiKey || undefined,
+        model: s.model || AUTO_VALUE,
+        base_url: s.baseUrl,
+      })
       saveSettings(s)
+      refetchCatalog()
+      // Close the popover and drop the user straight into the chat input
+      // so they can start typing without an extra click.
+      setOpen(false)
+      requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input"]')
+        input?.focus()
+      })
     } finally {
       setBusy(false)
     }
   }
 
+  const displayedModel =
+    s.model === AUTO_VALUE && catalog
+      ? `auto → ${catalog.auto_resolves_to}`
+      : s.model || '—'
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="text-xs text-muted px-2 py-1 rounded-md border border-border bg-bg whitespace-nowrap hover:text-text"
           data-testid="provider-chip"
         >
-          ⬩ {s.provider} · {s.model || '—'} · {tokens.toLocaleString()} tok ▾
+          ⬩ {s.provider} · {displayedModel} · {tokens.toLocaleString()} tok ▾
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[320px] p-3 space-y-3">
+      <PopoverContent align="start" className="w-[340px] p-3 space-y-3">
         <div>
           <Label>Provider</Label>
           <select
             className="w-full bg-bg border border-border rounded-md text-sm px-2 py-1.5"
             value={s.provider}
-            onChange={(e) => setS({ ...s, provider: e.target.value })}
+            onChange={(e) => setS({ ...s, provider: e.target.value, model: AUTO_VALUE })}
           >
-            {PROVIDERS.map((p) => <option key={p.v} value={p.v}>{p.label}</option>)}
+            {PROVIDERS.map((p) => (
+              <option key={p.v} value={p.v}>
+                {p.label}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <Label>Model</Label>
-          <Input value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} placeholder="llama3.1" />
+          <select
+            className="w-full bg-bg border border-border rounded-md text-sm px-2 py-1.5"
+            value={s.model || AUTO_VALUE}
+            onChange={(e) => setS({ ...s, model: e.target.value })}
+            disabled={catalogLoading}
+            data-testid="model-select"
+          >
+            <option value={AUTO_VALUE}>
+              ✨ Auto (recommended) — {catalog?.auto_resolves_to ?? '…'}
+            </option>
+            {catalog?.models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.installed === false ? '○ ' : m.installed === true ? '● ' : ''}
+                {m.label}
+                {m.installed === false ? '  (not pulled)' : ''}
+              </option>
+            ))}
+          </select>
+          {s.provider === 'ollama' && (
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-[10px] text-faint">
+                ● installed · ○ in catalog
+              </p>
+              <ModelManager />
+            </div>
+          )}
         </div>
         <div>
           <Label>API key</Label>
-          <Input type="password" value={s.apiKey} onChange={(e) => setS({ ...s, apiKey: e.target.value })} placeholder="sk-…" />
+          <Input
+            type="password"
+            value={s.apiKey}
+            onChange={(e) => setS({ ...s, apiKey: e.target.value })}
+            placeholder={s.provider === 'ollama' ? 'not required' : 'sk-…'}
+            disabled={s.provider === 'ollama' || s.provider === 'pretend'}
+          />
         </div>
         <div className="flex justify-between items-center text-xs text-muted">
-          <span>Session tokens: <span className="text-text">{tokens.toLocaleString()}</span></span>
+          <span>
+            Session tokens: <span className="text-text">{tokens.toLocaleString()}</span>
+          </span>
           <Button size="sm" onClick={apply} disabled={busy}>
             {busy ? 'Applying…' : 'Apply'}
           </Button>

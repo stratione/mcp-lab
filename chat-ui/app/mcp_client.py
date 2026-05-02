@@ -117,8 +117,14 @@ async def list_tools() -> list[dict]:
     )
 
     for server_url, tools in zip(MCP_SERVER_URLS, results):
+        category = _server_label(server_url)  # 'user', 'gitea', ...
         for tool in tools:
             new_map[tool["name"]] = server_url
+            # Stamp the tool with its source server so the chat-ui doesn't
+            # have to guess from name prefixes (which gets it wrong every
+            # time a tool is renamed — cf. list_gitea_repos vs list_repos).
+            if not tool.get("category"):
+                tool["category"] = category
             all_tools.append(tool)
 
     _tool_server_map = new_map

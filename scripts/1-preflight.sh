@@ -9,6 +9,23 @@ PASS="✅"
 WARN="⚠️ "
 FAIL="❌"
 
+# Print a script path that works from the user's current directory:
+#   project root  →  ./scripts/<name>
+#   inside scripts/  →  ./<name>
+#   anywhere else  →  absolute path
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+hint_path() {
+  local target="$SCRIPT_DIR/$1"
+  if [ "$PWD" = "$PROJECT_DIR" ]; then
+    echo "./scripts/$1"
+  elif [ "$PWD" = "$SCRIPT_DIR" ]; then
+    echo "./$1"
+  else
+    echo "$target"
+  fi
+}
+
 echo ""
 echo "========================================"
 echo "  MCP DevOps Lab — Preflight Check"
@@ -178,7 +195,7 @@ if $ALL_GOOD; then
   echo "  $PASS  All checks passed!"
   echo ""
   if [ -n "$COMPOSE_CMD" ]; then
-    echo "  Ready to run:  ./scripts/1-setup.sh"
+    echo "  Ready to run:  $(hint_path 2-setup.sh)"
   fi
   echo ""
   echo "========================================"
@@ -188,7 +205,7 @@ else
   echo ""
   echo "  $FAIL  Some checks failed. Fix the issues above, then re-run:"
   echo ""
-  echo "         ./scripts/0-preflight.sh"
+  echo "         $(hint_path 1-preflight.sh)"
   echo ""
 
   # ── Install guidance ───────────────────────────────────────────────────
@@ -241,7 +258,7 @@ else
       echo "  Download Docker Desktop: https://www.docker.com/products/docker-desktop"
       echo ""
     fi
-    echo "  After installing, re-run:  ./scripts/0-preflight.sh"
+    echo "  After installing, re-run:  $(hint_path 1-preflight.sh)"
     echo ""
   fi
 

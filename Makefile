@@ -16,7 +16,7 @@ test-e2e:
 	cd chat-ui && ./node_modules/.bin/cypress run --browser chrome --headless
 
 # Slow integration tests that need real running containers
-# (full lab up: ./scripts/1-setup.sh + all 5 MCP servers).
+# (full lab up: ./scripts/2-setup.sh + all 5 MCP servers).
 test-integration:
 	cd chat-ui && python3 -m pytest -v -m integration
 

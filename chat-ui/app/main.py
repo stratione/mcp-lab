@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from .models import (
     ChatRequest, ProviderConfig, ChatResponse, TokenUsage,
     ConfidenceResult, VerifyRequest, VerifyResponse,
@@ -17,6 +17,7 @@ from .models import (
 )
 from .mcp_client import list_tools, check_servers
 from .llm_providers import get_provider
+from .model_catalog import list_models, resolve_auto
 
 app = FastAPI(title="MCP DevOps Lab Chat UI", version="1.0.0")
 
@@ -128,8 +129,21 @@ async def set_provider(config: ProviderConfig):
     provider = _provider_config.get("provider", "ollama")
     if not _provider_config.get("api_key"):
         _provider_config["api_key"] = _resolve_api_key(provider)
+    # Resolve the "auto" sentinel to the provider's recommended model id so
+    # downstream code (llm_providers, /api/chat) never sees the literal "auto".
+    if (_provider_config.get("model") or "").lower() == "auto":
+        _provider_config["model"] = resolve_auto(provider)
     # NEVER echo the api_key back over the wire (D-007).
     return {"status": "ok", "config": _safe_provider_view(_provider_config)}
+
+
+@app.get("/api/models")
+async def get_models(provider: str):
+    """Per-provider model catalog (live where possible, curated fallback).
+    Used by the chat-ui's model-picker dropdown to make selection dummy-proof.
+    """
+    api_key = _resolve_api_key(provider, _provider_config.get("api_key", "") if _provider_config.get("provider") == provider else "")
+    return await list_models(provider, api_key)
 
 
 @app.get("/api/tools")
@@ -141,7 +155,87 @@ async def get_tools():
         return {"tools": [], "error": str(e)}
 
 
+# ─── Ollama model manager ────────────────────────────────────────────────
+# Lets workshop participants pull/list/delete local models from the GUI
+# without dropping to a terminal. Ollama-only — cloud providers manage
+# their own model lifecycles.
+
+_OLLAMA_BASE = os.environ.get("OLLAMA_URL", "http://host.containers.internal:11434").rstrip("/")
+# Defense-in-depth allowlist for tag names sent to /api/pull and /api/delete.
+# Matches Ollama's own naming: family[:tag][/path]. Refuses paths with .., /
+# attempts that escape, or whitespace.
+_OLLAMA_TAG_RE = re.compile(r"^[a-zA-Z0-9._\-]+(?:[:/][a-zA-Z0-9._\-]+)*$")
+
+
+@app.get("/api/ollama/installed")
+async def ollama_installed():
+    """List models the local Ollama daemon has already pulled."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as c:
+            r = await c.get(f"{_OLLAMA_BASE}/api/tags")
+            r.raise_for_status()
+            return r.json()
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Ollama unreachable: {e}")
+
+
+@app.post("/api/ollama/pull")
+async def ollama_pull(request: Request):
+    """Stream Ollama's /api/pull progress as Server-Sent Events.
+
+    Each upstream JSONL line becomes one SSE `data:` frame. The connection
+    closes when the pull finishes (status: "success") or when the client
+    disconnects (we then close the upstream stream so Ollama aborts the
+    in-flight download instead of finishing it on a closed socket)."""
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    if not _OLLAMA_TAG_RE.match(name):
+        raise HTTPException(status_code=400, detail=f"Invalid model name: {name!r}")
+
+    async def event_stream():
+        try:
+            async with httpx.AsyncClient(timeout=None) as c:
+                async with c.stream(
+                    "POST",
+                    f"{_OLLAMA_BASE}/api/pull",
+                    json={"name": name, "stream": True},
+                ) as resp:
+                    if resp.status_code >= 400:
+                        err = (await resp.aread()).decode("utf-8", errors="replace")
+                        yield f"event: error\ndata: {json.dumps({'status': resp.status_code, 'detail': err})}\n\n"
+                        return
+                    async for line in resp.aiter_lines():
+                        if not line.strip():
+                            continue
+                        yield f"data: {line}\n\n"
+        except httpx.RequestError as e:
+            yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.delete("/api/ollama/models/{name:path}")
+async def ollama_delete(name: str):
+    """Remove a locally pulled model."""
+    if not _OLLAMA_TAG_RE.match(name):
+        raise HTTPException(status_code=400, detail=f"Invalid model name: {name!r}")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            r = await c.request("DELETE", f"{_OLLAMA_BASE}/api/delete", json={"name": name})
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"Model not installed: {name}")
+            r.raise_for_status()
+            return {"deleted": name}
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Ollama unreachable: {e}")
+
+
 _CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
+_HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", "")
 
 
 @app.get("/api/mcp-status")
@@ -150,9 +244,22 @@ async def mcp_status():
         servers = await check_servers()
         total = sum(s["tool_count"] for s in servers)
         online = sum(1 for s in servers if s["status"] == "online")
-        return {"servers": servers, "total_tools": total, "online_count": online, "engine": _CONTAINER_ENGINE}
+        return {
+            "servers": servers,
+            "total_tools": total,
+            "online_count": online,
+            "engine": _CONTAINER_ENGINE,
+            "host_project_dir": _HOST_PROJECT_DIR,
+        }
     except Exception as e:
-        return {"servers": [], "total_tools": 0, "online_count": 0, "engine": _CONTAINER_ENGINE, "error": str(e)}
+        return {
+            "servers": [],
+            "total_tools": 0,
+            "online_count": 0,
+            "engine": _CONTAINER_ENGINE,
+            "host_project_dir": _HOST_PROJECT_DIR,
+            "error": str(e),
+        }
 
 
 _ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion", "mcp-runner"}
@@ -174,6 +281,13 @@ async def mcp_control(request: Request):
     body = await request.json()
     service = body.get("service", "")
     action = body.get("action", "")
+
+    # Tolerate stripped names ("user", "gitea") because mcp_client.check_servers
+    # returns names with the "mcp-" prefix removed (host.replace("mcp-", "")).
+    # Callers reading from /api/mcp-status pass the stripped form straight
+    # through; auto-restore the prefix so they don't have to know.
+    if service not in _ALLOWED_MCP_SERVICES and f"mcp-{service}" in _ALLOWED_MCP_SERVICES:
+        service = f"mcp-{service}"
 
     if service not in _ALLOWED_MCP_SERVICES:
         raise HTTPException(status_code=400, detail=f"Unknown service: {service}")

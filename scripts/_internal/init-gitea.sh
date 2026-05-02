@@ -119,4 +119,27 @@ else
   echo "    Dockerfile already exists (OK)"
 fi
 
+echo "  [5/5] Seeding workshop demo users..."
+# These extra users power the "MCP can act on your behalf" demo. Workshop
+# attendees can pass username + password to any gitea_* tool and watch
+# the resulting commit/repo show up under that identity in Gitea.
+# Passwords are intentionally memorable (lab-only, no secrets).
+for entry in "diana:diana-lab-123:diana@lab.local" "bob:bob-lab-123:bob@lab.local" "alice:alice-lab-123:alice@lab.local"; do
+  USER_NAME="${entry%%:*}"
+  REST="${entry#*:}"
+  USER_PASS="${REST%%:*}"
+  USER_EMAIL="${entry##*:}"
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "$USER_NAME:$USER_PASS" "$GITEA_URL/api/v1/user" 2>/dev/null)
+  if [ "$STATUS" = "200" ]; then
+    echo "    $USER_NAME already exists (OK)"
+  else
+    curl -sf -X POST "$GITEA_URL/api/v1/admin/users" \
+      -u "$ADMIN_USER:$ADMIN_PASS" \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"$USER_NAME\",\"password\":\"$USER_PASS\",\"email\":\"$USER_EMAIL\",\"must_change_password\":false}" \
+      > /dev/null 2>&1 && echo "    $USER_NAME created (password: $USER_PASS)" \
+      || echo "    Could not create $USER_NAME"
+  fi
+done
+
 echo "  Gitea initialization complete."

@@ -10,7 +10,7 @@
 #
 # Usage:
 #   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-#   source "$SCRIPT_DIR/_detect-engine.sh"
+#   source "$SCRIPT_DIR/_internal/_detect-engine.sh"
 #   # Now use $ENGINE and $COMPOSE
 
 _DETECT_PROJECT_DIR="$(dirname "${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}")"
@@ -105,6 +105,6 @@ elif $_docker_available; then
 
 else
   echo "ERROR: Neither Podman nor Docker is running."
-  echo "  Run ./scripts/0-preflight.sh for install instructions."
+  echo "  Run ./scripts/1-preflight.sh for install instructions."
   exit 1
 fi

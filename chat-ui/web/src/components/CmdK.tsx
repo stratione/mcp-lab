@@ -11,8 +11,7 @@ import {
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useLab } from '@/lib/store'
 import { applyTheme } from '@/lib/theme'
-import { useQuery } from '@tanstack/react-query'
-import { getTools, setHallucinationMode, mcpControl } from '@/lib/api'
+import { setHallucinationMode, mcpControl } from '@/lib/api'
 import { LESSONS } from '@/components/workshop/lessons'
 
 export function CmdK() {
@@ -26,11 +25,6 @@ export function CmdK() {
   const workshopStep = useLab((s) => s.workshopStep)
   const setWorkshopStep = useLab((s) => s.setWorkshopStep)
   const setPending = useLab((s) => s.setPendingPrompt)
-  const { data: tools } = useQuery({
-    queryKey: ['tools'],
-    queryFn: ({ signal }) => getTools(signal),
-    staleTime: 5 * 60_000,
-  })
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -74,24 +68,8 @@ export function CmdK() {
               <CommandItem onSelect={go(() => setTab('tools'))}>Focus inspector → Tools</CommandItem>
               <CommandItem onSelect={go(() => setTab('trace'))}>Focus inspector → Trace</CommandItem>
               <CommandItem onSelect={go(() => setTab('compare'))}>Focus inspector → Compare</CommandItem>
+              <CommandItem onSelect={go(() => setTab('try'))}>Focus inspector → Try</CommandItem>
             </CommandGroup>
-            {tools?.tools?.length ? (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading={`Tools (${tools.tools.length})`}>
-                  {tools.tools.map((t) => (
-                    <CommandItem
-                      key={t.name}
-                      value={`tool ${t.name} ${t.description}`}
-                      onSelect={go(() => setTab('tools'))}
-                    >
-                      <span className="font-mono">{t.name}</span>
-                      <span className="ml-2 text-xs text-muted truncate">{t.description}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            ) : null}
             {workshopMode ? (
               <>
                 <CommandSeparator />

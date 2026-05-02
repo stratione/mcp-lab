@@ -60,6 +60,7 @@ export const McpStatusResponseSchema = z.object({
   total_tools: z.number().default(0),
   online_count: z.number().default(0),
   engine: z.string().default('docker'),
+  host_project_dir: z.string().default(''),
   error: z.string().optional(),
 })
 export type McpStatusResponse = z.infer<typeof McpStatusResponseSchema>

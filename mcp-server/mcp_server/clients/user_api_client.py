@@ -57,6 +57,10 @@ async def deactivate_user(user_id: int) -> dict:
     return await update_user(user_id, is_active=False)
 
 
+async def activate_user(user_id: int) -> dict:
+    return await update_user(user_id, is_active=True)
+
+
 async def delete_user(user_id: int) -> None:
     async with httpx.AsyncClient() as client:
         resp = await client.delete(f"{config.USER_API_URL}/users/{user_id}", timeout=10.0)

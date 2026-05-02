@@ -55,8 +55,8 @@ async def _run(*args: str, cwd: str | None = None, ctx: Context | None = None) -
 def register(mcp: FastMCP):
     @mcp.tool()
     async def build_image(
-        repo_url: str,
-        image_name: str,
+        repo_url: str = "http://gitea:3000/mcpadmin/hello-app",
+        image_name: str = "hello-app",
         tag: str = "latest",
         ctx: Context | None = None,
     ) -> str:
@@ -64,10 +64,16 @@ def register(mcp: FastMCP):
         Clone a git repository, build a container image from its Dockerfile,
         and push it to the dev registry.
 
+        DEFAULTS: when the user mentions "the hello world app" (or just "the app",
+        or "the demo app") with no other details, call this tool with NO arguments
+        — it will build the lab's pre-seeded hello-world app from gitea
+        (http://gitea:3000/mcpadmin/hello-app) as image "hello-app:latest". Don't
+        prompt for repo_url / image_name / tag in that case; the defaults are correct.
+
         Args:
-            repo_url: URL of the git repository to clone (e.g. http://gitea:3000/mcpadmin/sample-app).
-            image_name: Name of the image to build (without registry prefix).
-            tag: Tag for the image (default: latest).
+            repo_url: Git repo URL to clone. Defaults to the lab's hello-world app.
+            image_name: Image name (without registry prefix). Defaults to "hello-app".
+            tag: Image tag. Defaults to "latest".
 
         Returns:
             JSON string with build status and the full registry-qualified image name.
@@ -139,13 +145,16 @@ def register(mcp: FastMCP):
 
     @mcp.tool()
     async def scan_image(
-        image_name: str,
+        image_name: str = "hello-app",
         tag: str = "latest",
         ctx: Context | None = None,
     ) -> str:
         """
         Run a (mock) security scan on a container image and return a JSON
         report of vulnerabilities.
+
+        DEFAULTS: if the user just says "scan the image" or "scan the hello world
+        app", call with no arguments — defaults to "hello-app:latest".
 
         Args:
             image_name: Name of the image to scan.

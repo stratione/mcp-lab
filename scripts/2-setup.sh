@@ -11,7 +11,7 @@ ENV_EXAMPLE="$PROJECT_DIR/.env.example"
 ENV_SECRETS_FILE="$PROJECT_DIR/.env.secrets"
 
 # ── Detect container engine (prompts user if both are available) ──
-source "$SCRIPT_DIR/_detect-engine.sh"
+source "$SCRIPT_DIR/_internal/_detect-engine.sh"
 
 # Render a simple terminal progress bar.
 # Args: current total label
@@ -106,6 +106,15 @@ else
   echo "CONTAINER_ENGINE=$ENGINE" >> "$ENV_FILE"
 fi
 
+# Record the host-side absolute path to the project so the Chat UI can
+# render copy-able commands that work from ANY directory the user happens
+# to be sitting in (terminal opens to scripts/, not the project root).
+if grep -q "^HOST_PROJECT_DIR=" "$ENV_FILE"; then
+  sed_inplace "s|^HOST_PROJECT_DIR=.*|HOST_PROJECT_DIR=$PROJECT_DIR|" "$ENV_FILE"
+else
+  echo "HOST_PROJECT_DIR=$PROJECT_DIR" >> "$ENV_FILE"
+fi
+
 # Pick the right host-gateway hostname for Ollama based on the engine.
 # Docker Desktop:        host.docker.internal
 # Podman on macOS/Linux: host.containers.internal
@@ -136,6 +145,18 @@ esac
 echo "[2/4] Starting services (this may take a minute on first run)..."
 cd "$PROJECT_DIR"
 $COMPOSE up -d
+
+# Pre-build the MCP server images even though we don't start them now.
+# Without this the chat-ui's "Start" button (which runs
+# `compose up -d --no-build <service>`) fails on first click with
+# "no such image" because compose has nothing to run. Build is fast on
+# subsequent runs because of layer caching.
+echo "[2b/4] Pre-building MCP server images so the GUI Start button works on first click..."
+COMPOSE_PROFILES=user,gitea,registry,promotion $COMPOSE build \
+  mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner \
+  > /tmp/mcp-build.log 2>&1 \
+  && echo "    MCP images built (log: /tmp/mcp-build.log)" \
+  || echo "    WARNING: MCP image build failed — see /tmp/mcp-build.log"
 
 # 3. Wait for bootstrap to finish and grab the Gitea token
 echo "[3/4] Waiting for bootstrap to complete..."
@@ -205,9 +226,19 @@ echo "========================================================"
 echo ""
 echo "  Congrats! Your MCP DevOps Lab is up and running!"
 echo ""
-echo "  Open your browser:  http://localhost:3001"
+echo "  Open your browser:    http://localhost:3001/?workshop=1"
 echo ""
-echo "  Gitea admin:  mcpadmin / mcpadmin123"
+echo "  Gitea admin:          mcpadmin / mcpadmin123"
+echo ""
+echo "  ── Optional: Cloud LLM keys ──"
+echo "  The lab works on Ollama with no keys. To use OpenAI / Anthropic"
+echo "  / Google Gemini instead, edit .env.secrets (already created with"
+echo "  empty placeholders + provider links) and run:"
+echo ""
+echo "      ./scripts/restart.sh --core"
+echo ""
+echo "  Or paste a key live in the Chat UI's provider chip — no restart"
+echo "  needed for that path."
 echo ""
 echo "========================================================"
 echo ""

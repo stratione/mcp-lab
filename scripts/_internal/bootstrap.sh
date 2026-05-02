@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Engine is injected from compose (CONTAINER_ENGINE), set by 1-setup.sh
+# Engine is injected from compose (CONTAINER_ENGINE), set by 2-setup.sh
 # based on the user's docker/podman choice. Defaults to docker if unset.
 ENGINE="${CONTAINER_ENGINE:-docker}"
 
@@ -18,10 +18,10 @@ echo "[*] Dependencies already healthy (compose healthchecks passed)."
 
 # Run init scripts
 echo "[*] Initializing Gitea..."
-sh /scripts/init-gitea.sh
+sh /scripts/_internal/init-gitea.sh
 
 echo "[*] Seeding dev registry with sample image..."
-sh /scripts/seed-registry.sh
+sh /scripts/_internal/seed-registry.sh
 
 echo ""
 echo "========================================================"
@@ -74,8 +74,7 @@ echo ""
 echo "  5 sample images have been pushed to the dev registry automatically."
 echo ""
 echo "  Navigate to:  http://localhost:3001"
-echo "  Start lab:    ./scripts/2-start-lab.sh"
-echo "  Refresh lab:                   ./scripts/3-refresh-lab.sh"
-echo "  Open API docs only:            ./scripts/4-open-api-docs.sh"
+echo "  Restart lab:  ./scripts/restart.sh           (--core | --all)"
+echo "  Tear down:    ./scripts/3-teardown.sh"
 echo ""
 echo "========================================================"

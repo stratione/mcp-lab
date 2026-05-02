@@ -31,3 +31,7 @@ mcp-server/.pytest_cache/
 
 # Brainstorming visual companion
 .superpowers/
+
+# Playwright MCP test artifacts (ad-hoc browser drives during development)
+scripts/.playwright-mcp/
+scripts/*.png

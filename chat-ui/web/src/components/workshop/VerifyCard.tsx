@@ -46,8 +46,13 @@ export function VerifyCard({ prompt, probe, teach, onNext }: Props) {
           : 'probing…'}
       </pre>
       <p className="text-xs text-muted italic">{teach}</p>
-      <div className="flex justify-end">
-        <Button size="sm" disabled={!done} onClick={onNext}>Next →</Button>
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] text-faint">
+          {done ? 'Probe complete.' : 'Skip ahead anytime — you can come back.'}
+        </span>
+        <Button size="sm" onClick={onNext} data-testid="workshop-verify-next">
+          Next →
+        </Button>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 # MCP Lab — Remote Access via Tunnel
 
-The `6-tunnel.sh` script exposes a local MCP server port to the public internet using Cloudflare Tunnel or ngrok. This lets remote clients — including cloud LLMs like Claude.ai — connect to your lab without a VPN.
+The `tunnel.sh` script exposes a local MCP server port to the public internet using Cloudflare Tunnel or ngrok. This lets remote clients — including cloud LLMs like Claude.ai — connect to your lab without a VPN.
 
 ---
 
@@ -35,13 +35,13 @@ brew install ngrok
 
 ```bash
 # Tunnel mcp-user (port 8003) — default
-./scripts/6-tunnel.sh
+./scripts/tunnel.sh
 
 # Tunnel a specific MCP server
-./scripts/6-tunnel.sh 8003    # mcp-user   — 6 user tools
-./scripts/6-tunnel.sh 8004    # mcp-gitea  — 7 git tools
-./scripts/6-tunnel.sh 8005    # mcp-registry — 3 registry tools
-./scripts/6-tunnel.sh 8006    # mcp-promotion — 3 promotion tools
+./scripts/tunnel.sh 8003    # mcp-user   — 6 user tools
+./scripts/tunnel.sh 8004    # mcp-gitea  — 7 git tools
+./scripts/tunnel.sh 8005    # mcp-registry — 3 registry tools
+./scripts/tunnel.sh 8006    # mcp-promotion — 3 promotion tools
 ```
 
 The script prints a public HTTPS URL like:
@@ -102,13 +102,13 @@ Each MCP server needs its own tunnel in a separate terminal:
 
 ```bash
 # Terminal 1 — user tools
-./scripts/6-tunnel.sh 8003
+./scripts/tunnel.sh 8003
 
 # Terminal 2 — gitea tools
-./scripts/6-tunnel.sh 8004
+./scripts/tunnel.sh 8004
 
 # Terminal 3 — registry tools
-./scripts/6-tunnel.sh 8005
+./scripts/tunnel.sh 8005
 ```
 
 Add each public URL as a separate MCP server in your client.
@@ -122,6 +122,6 @@ Add each public URL as a separate MCP server in your client.
 - **The MCP server must be running** before you start the tunnel. Start it first:
   ```bash
   docker compose up -d mcp-user   # or: podman compose up -d mcp-user
-  ./scripts/6-tunnel.sh 8003
+  ./scripts/tunnel.sh 8003
   ```
 - **Cloudflare terms** — quick tunnels are for experimentation only. See [Cloudflare ToS](https://www.cloudflare.com/website-terms/) for production use requirements.
