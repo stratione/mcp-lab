@@ -12,7 +12,7 @@ export function Header() {
   // Workshop / Walkthrough button: toggles workshopMode and surfaces the
   // Walkthrough inspector tab so the tour is immediately visible. The
   // walkthrough lives permanently as a tab next to Try — there's no
-  // floating panel. ?workshop=1 still works as a deep link via Workshop.tsx.
+  // floating panel and no URL deep link. This button is the only entry.
   const workshopMode = useLab((s) => s.workshopMode)
   const setWorkshopMode = useLab((s) => s.setWorkshopMode)
   const setInspectorTab = useLab((s) => s.setInspectorTab)

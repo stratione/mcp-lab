@@ -7,7 +7,6 @@ import { CmdK } from '@/components/CmdK'
 import { useShortcuts } from '@/lib/shortcuts'
 import { Shortcuts } from '@/components/Shortcuts'
 import { Walkthrough } from '@/components/Walkthrough'
-import { Workshop } from '@/components/workshop/Workshop'
 import { useLab } from '@/lib/store'
 
 export default function App() {
@@ -32,7 +31,6 @@ export default function App() {
       <InputRow />
       <CmdK />
       <Shortcuts />
-      <Workshop />
       <Walkthrough />
     </div>
   )

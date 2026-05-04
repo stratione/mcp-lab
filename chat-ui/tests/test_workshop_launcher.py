@@ -2,11 +2,12 @@
 
 The shell-based workshop launcher (`scripts/workshop.sh`) was removed —
 participants now mirror the presenter step-by-step (preflight → setup →
-open `http://localhost:3001/?workshop=1`). These tests pin the API + UI
-contracts the wizard still depends on:
+open http://localhost:3001 and click the ◇ Walkthrough button). These
+tests pin the API + UI contracts the wizard still depends on:
 
   - DELETE /api/chat-history clears persisted state.
-  - The compiled UI bundle handles the `?dashboard=open` query param.
+  - The chat-ui source handles the `?dashboard=open` query param so the
+    inspector deep-link still works.
 """
 
 import pytest

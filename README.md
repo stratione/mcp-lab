@@ -156,7 +156,7 @@ To switch models inside the chat-ui, click the provider chip in the header and t
 
 The web-based Chat UI (http://localhost:3001) is a React SPA backed by FastAPI. It includes:
 
-- **Workshop wizard** — click the **◇ Walkthrough** button in the header (or use `http://localhost:3001/?workshop=1` as a deep link) for a guided tour: backing data, Try-it prompts, MCP Internals, single-click MCP server start
+- **Workshop wizard** — click the **◇ Walkthrough** button in the header to open the 35-step SDLC tour. It lives permanently as a tab next to **Try** in the right inspector so you can flip between context tabs without losing your place
 - **Hallucination Mode toggle** — header switch that strips the LLM of every MCP tool and forces a permissive system prompt, producing the "fabricated user list" cold-open moment on demand
 - **Compare tab (side-by-side)** — same prompt fired in parallel at two providers (e.g. Ollama vs Anthropic) so the audience watches a frontier model orchestrate the pipeline while a local model fumbles
 - **Architecture diagram modal** — click the header logo for an embedded, dark-mode-friendly diagram of the lab topology
@@ -843,7 +843,7 @@ Everyone — presenter and participants — runs the same three numbered scripts
 | `scripts/2-setup.sh`      | First time setup  | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token. |
 | `scripts/3-teardown.sh`   | Cleanup           | Reuses saved engine choice, removes containers, images, and volumes (full reset). |
 
-After step 2, open **http://localhost:3001** in your browser and click the **◇ Walkthrough** button in the header to start the guided tour. (`?workshop=1` still works as a deep link.)
+After step 2, open **http://localhost:3001** in your browser and click the **◇ Walkthrough** button in the header to start the guided tour. The walkthrough renders inline in the right-side inspector tab next to Try, and stays out of the way of the chat input.
 
 ### Dev / optional (un-numbered)
 

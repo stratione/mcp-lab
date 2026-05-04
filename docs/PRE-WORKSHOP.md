@@ -142,7 +142,7 @@ You should get a reply within a few seconds.
 
 ## Step 6 — Switching models in the chat-ui (during the workshop)
 
-Once you've followed `scripts/1-preflight.sh` and `scripts/2-setup.sh` and opened <http://localhost:3001/?workshop=1>:
+Once you've followed `scripts/1-preflight.sh` and `scripts/2-setup.sh`, opened <http://localhost:3001>, and clicked the **◇ Walkthrough** button in the header:
 
 1. Click the **provider chip** in the top-right of the header (it shows `⬩ ollama · llama3.1 · 0 tok ▾`).
 2. Pick a provider (Ollama / OpenAI / Anthropic / Google), then a model from the dropdown — `Auto (recommended)` works if you don't care.

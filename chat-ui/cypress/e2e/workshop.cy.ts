@@ -1,5 +1,12 @@
-describe('workshop wizard (?workshop=1)', () => {
+describe('workshop walkthrough (header button → inspector tab)', () => {
   beforeEach(() => {
+    // Pre-mark the first-run welcome modal as seen so it doesn't intercept
+    // clicks on the header walkthrough button. Same key the Walkthrough
+    // component sets after the user closes it once.
+    cy.window().then((win) => {
+      win.localStorage.setItem('mcp-lab.walkthrough.seen.v1', '1')
+    })
+
     // Start with all MCPs offline.
     cy.intercept('GET', '/api/mcp-status', {
       statusCode: 200,
@@ -40,16 +47,19 @@ describe('workshop wizard (?workshop=1)', () => {
     cy.intercept('POST', '/api/chat', cy.spy().as('chatPost')).as('chat')
   })
 
-  it('hides the dock when ?workshop=1 is absent', () => {
+  it('does not render the walkthrough body until the button is clicked', () => {
     cy.visit('/')
     cy.get('[data-testid=workshop-dock]').should('not.exist')
   })
 
   it('walks intro → cold-open → mcp-user enable + verify, never auto-sends', () => {
-    cy.visit('/?workshop=1')
+    cy.visit('/')
+
+    // Open the walkthrough via the header button. This flips workshopMode
+    // and switches the inspector to the Walkthrough tab in one step.
+    cy.get('[data-testid=walkthrough-button]').click()
     cy.get('[data-testid=workshop-dock]').should('be.visible')
     cy.get('[data-testid=workshop-intro]').contains('Welcome to the MCP Lab')
-    // Navigation lives in the bottom dock now (no per-card Next/Begin).
     cy.get('[data-testid=workshop-forward]').click()
 
     // Cold-open hallucinate

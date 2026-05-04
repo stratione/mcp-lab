@@ -13,33 +13,10 @@ import { ToolReliabilityHint } from './ToolReliabilityHint'
 const STEP_KEY = 'mcp-lab.workshop.step.v1'
 
 /**
- * URL deep-link handler. The walkthrough body itself is rendered inside
- * the Inspector's "Walkthrough" tab (next to Try) — there is no floating
- * panel anymore. This component just watches for ?workshop=1 and flips
- * the workshop into "running" mode + selects the walkthrough tab on first
- * mount, then returns null. Mounted once at the App level.
- */
-export function Workshop() {
-  const setMode = useLab((s) => s.setWorkshopMode)
-  const setStep = useLab((s) => s.setWorkshopStep)
-  const setTab = useLab((s) => s.setInspectorTab)
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('workshop') === '1') {
-      setMode(true)
-      setTab('walkthrough')
-      const saved = parseInt(localStorage.getItem(STEP_KEY) ?? '0', 10)
-      setStep(Number.isFinite(saved) ? saved : 0)
-    }
-  }, [setMode, setStep, setTab])
-
-  return null
-}
-
-/**
- * The walkthrough body — chrome-less, rendered inside the Inspector's
- * Walkthrough tab. Persists step changes whenever workshop is active.
+ * Chrome-less walkthrough body. Rendered inside the Inspector's
+ * Walkthrough tab — the only home for the SDLC tour now that the
+ * floating panel and ?workshop=1 deep-link have been removed. Persists
+ * step changes whenever the workshop is active.
  */
 export function WorkshopBody() {
   const step = useLab((s) => s.workshopStep)

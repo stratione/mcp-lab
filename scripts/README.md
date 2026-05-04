@@ -13,8 +13,8 @@ After step 2, open this URL in your browser:
     http://localhost:3001
 
 Click the **◇ Walkthrough** button in the header to start the guided tour.
-(The `?workshop=1` URL flag also still works as a deep link if you want to
-open the tour automatically — same effect as clicking the button.)
+The walkthrough renders inline in the right-side inspector tab (next to
+Try) so attendees can flip between context tabs without losing their place.
 
 ## Dev / optional
 
