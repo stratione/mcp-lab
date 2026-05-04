@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLab } from '@/lib/store'
 import { STEPS, PHASE_COUNT, phaseFor } from './lessons'
@@ -11,11 +11,7 @@ import { WrapCard } from './WrapCard'
 import { ToolReliabilityHint } from './ToolReliabilityHint'
 
 const STEP_KEY = 'mcp-lab.workshop.step.v1'
-const POS_KEY = 'mcp-lab.workshop.floating.pos.v1'
-const PANEL_W = 384  // 24rem — matches Tailwind w-96
-const PANEL_H_MAX = 600  // soft cap so the panel never overruns viewport
-
-type Pos = { x: number; y: number }
+const COLLAPSED_KEY = 'mcp-lab.workshop.collapsed.v1'
 
 /**
  * Workshop dispatcher. Renders the floating panel when
@@ -44,58 +40,50 @@ export function Workshop() {
 }
 
 /**
- * Draggable, non-modal floating panel. No overlay, no focus trap — the
- * chat input below stays fully usable while the walkthrough is up.
+ * Pinned, non-modal floating panel. No overlay, no focus trap, no drag —
+ * the chat input below stays fully usable while the walkthrough is up. A
+ * collapse toggle shrinks the panel to a small status pill ("Step N/35")
+ * for maximum chat real estate; users click to expand again.
  */
 function WorkshopFloating() {
-  const [pos, setPos] = useState<Pos>(() => loadPos())
-  const dragOffset = useRef<{ dx: number; dy: number } | null>(null)
-
-  // Persist position whenever it changes.
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => window.localStorage.getItem(COLLAPSED_KEY) === '1',
+  )
   useEffect(() => {
-    window.localStorage.setItem(POS_KEY, JSON.stringify(pos))
-  }, [pos])
+    window.localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
 
-  // Re-clamp into the viewport when the window resizes — otherwise dragging
-  // the browser narrower can leave the panel offscreen.
-  useEffect(() => {
-    const onResize = () => setPos(clampPos)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  if (collapsed) return <CollapsedPill onExpand={() => setCollapsed(false)} />
+  return <ExpandedPanel onCollapse={() => setCollapsed(true)} />
+}
 
-  function startDrag(e: React.MouseEvent) {
-    // Only the drag handle should initiate moves. Clicks on buttons /
-    // inputs inside the panel must not steal them.
-    e.preventDefault()
-    dragOffset.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
-    document.body.style.userSelect = 'none'
-    function move(ev: MouseEvent) {
-      if (!dragOffset.current) return
-      setPos(clampPos({
-        x: ev.clientX - dragOffset.current.dx,
-        y: ev.clientY - dragOffset.current.dy,
-      }))
-    }
-    function up() {
-      dragOffset.current = null
-      document.body.style.userSelect = ''
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', up)
-    }
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-  }
+function CollapsedPill({ onExpand }: { onExpand: () => void }) {
+  const step = useLab((s) => s.workshopStep)
+  const safeIndex = Math.min(Math.max(step, 0), STEPS.length - 1)
+  const phase = phaseFor(safeIndex)
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      title={`Click to expand the walkthrough (${phase.title})`}
+      data-testid="workshop-pill"
+      className="fixed bottom-20 right-4 z-30 px-3 py-1.5 rounded-full bg-surface border border-border shadow-md text-xs text-text hover:bg-surface-2 flex items-center gap-2"
+    >
+      <span className="text-faint">▴ Walkthrough</span>
+      <span className="font-mono text-muted">{safeIndex + 1}/{PHASE_COUNT}</span>
+    </button>
+  )
+}
 
+function ExpandedPanel({ onCollapse }: { onCollapse: () => void }) {
   return (
     <div
-      style={{ left: pos.x, top: pos.y, width: PANEL_W, maxHeight: PANEL_H_MAX }}
-      className="fixed z-30 bg-surface border border-border rounded-lg shadow-xl text-sm flex flex-col overflow-hidden"
+      className="fixed bottom-20 right-4 z-30 w-96 max-h-[70vh] bg-surface border border-border rounded-lg shadow-xl text-sm flex flex-col overflow-hidden"
       data-testid="workshop-dock"
-      role="dialog"
+      role="region"
       aria-label="Workshop walkthrough"
     >
-      <DragHeader onMouseDown={startDrag} />
+      <PanelHeader onCollapse={onCollapse} />
       <div className="overflow-y-auto p-4">
         <WorkshopBody />
       </div>
@@ -103,28 +91,30 @@ function WorkshopFloating() {
   )
 }
 
-function DragHeader({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
   const setMode = useLab((s) => s.setWorkshopMode)
   const setLayout = useLab((s) => s.setWalkthroughLayout)
   const setTab = useLab((s) => s.setInspectorTab)
   return (
-    <div
-      onMouseDown={onMouseDown}
-      className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-surface-2 cursor-move select-none"
-      data-testid="workshop-drag-handle"
-      title="Drag to move"
-    >
+    <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-surface-2">
       <span className="text-[10px] text-faint tracking-wider uppercase">
-        ⋮⋮ Walkthrough
+        Walkthrough
       </span>
       <div className="flex items-center gap-1">
         <button
           type="button"
           className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={(e) => {
-            // stopPropagation so the header's onMouseDown doesn't start a
-            // drag on the same click that toggles the layout.
-            e.stopPropagation()
+          onClick={onCollapse}
+          title="Collapse to a small pill so the chat has more room"
+          aria-label="Collapse walkthrough"
+          data-testid="workshop-collapse"
+        >
+          —
+        </button>
+        <button
+          type="button"
+          className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
+          onClick={() => {
             setLayout('inspector')
             setTab('walkthrough')
           }}
@@ -136,10 +126,7 @@ function DragHeader({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => voi
         <button
           type="button"
           className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={(e) => {
-            e.stopPropagation()
-            setMode(false)
-          }}
+          onClick={() => setMode(false)}
           title="Close the walkthrough"
           aria-label="Close walkthrough"
           data-testid="workshop-close"
@@ -265,43 +252,5 @@ function renderCard(s: (typeof STEPS)[number]): ReactNode {
       return <CapstoneVerifyCard />
     case 'wrap':
       return <WrapCard />
-  }
-}
-
-// ─── pos helpers ──────────────────────────────────────────────────────────
-
-function loadPos(): Pos {
-  if (typeof window === 'undefined') return defaultPos()
-  try {
-    const raw = window.localStorage.getItem(POS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-        return clampPos(parsed)
-      }
-    }
-  } catch {
-    /* fall through */
-  }
-  return defaultPos()
-}
-
-function defaultPos(): Pos {
-  // Bottom-right by default — same place the old dock lived, so muscle
-  // memory survives the migration.
-  if (typeof window === 'undefined') return { x: 0, y: 0 }
-  return clampPos({
-    x: window.innerWidth - PANEL_W - 16,
-    y: window.innerHeight - PANEL_H_MAX - 80,
-  })
-}
-
-function clampPos(p: Pos): Pos {
-  if (typeof window === 'undefined') return p
-  const maxX = Math.max(0, window.innerWidth - PANEL_W - 4)
-  const maxY = Math.max(0, window.innerHeight - 80)
-  return {
-    x: Math.min(Math.max(0, p.x), maxX),
-    y: Math.min(Math.max(0, p.y), maxY),
   }
 }
