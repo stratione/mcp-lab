@@ -37,6 +37,9 @@ mcp-server/.pytest_cache/
 # Anything here is a build artifact and must not be committed.
 chat-ui/app/static/
 
-# Playwright MCP test artifacts (ad-hoc browser drives during development)
-scripts/.playwright-mcp/
+# Playwright MCP test artifacts (ad-hoc browser drives during development).
+# Match anywhere — earlier patterns only covered scripts/, but artifacts also
+# land at the repo root when a session is run from there.
+**/.playwright-mcp/
+walkthrough-*.png
 scripts/*.png
