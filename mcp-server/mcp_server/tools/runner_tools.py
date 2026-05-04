@@ -32,11 +32,7 @@ import urllib.parse
 from mcp.server.fastmcp import FastMCP, Context
 
 from .. import config
-
-
-PODMAN_REMOTE_URL = os.environ.get(
-    "PODMAN_REMOTE_URL", "unix:///var/run/docker.sock"
-)
+from ..engine import engine_cmd
 
 
 async def _run(
@@ -161,30 +157,29 @@ def register(mcp: FastMCP):
                     "repo_url": repo_url,
                 }, indent=2)
 
-            # 2. podman build via remote socket
+            # 2. engine build via the local socket (docker → docker build,
+            #    podman → podman --remote build).
             rc, _, stderr = await _run(
-                "podman", "--remote", "--url", PODMAN_REMOTE_URL,
-                "build", "-t", local_tag, ".",
+                *engine_cmd("build", "-t", local_tag, "."),
                 cwd=workdir, ctx=ctx,
             )
             if rc != 0:
                 return json.dumps({
                     "status": "error",
-                    "step": "podman_build",
+                    "step": "engine_build",
                     "error": stderr.decode(errors="replace").strip(),
                 }, indent=2)
 
-            # 3. podman save → OCI tarball (so skopeo can push it)
+            # 3. engine save → OCI tarball (so skopeo can push it)
             tarball = os.path.join(workdir, "img.tar")
             rc, _, stderr = await _run(
-                "podman", "--remote", "--url", PODMAN_REMOTE_URL,
-                "save", "-o", tarball, local_tag,
+                *engine_cmd("save", "-o", tarball, local_tag),
                 ctx=ctx,
             )
             if rc != 0:
                 return json.dumps({
                     "status": "error",
-                    "step": "podman_save",
+                    "step": "engine_save",
                     "error": stderr.decode(errors="replace").strip(),
                 }, indent=2)
 

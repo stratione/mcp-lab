@@ -20,15 +20,11 @@ import tempfile
 from mcp.server.fastmcp import FastMCP, Context
 
 from .. import config
+from ..engine import engine_cmd
 
 
 # Host port mapping per environment
 ENV_PORTS = {"dev": 9080, "staging": 9081, "prod": 9082}
-
-
-PODMAN_REMOTE_URL = os.environ.get(
-    "PODMAN_REMOTE_URL", "unix:///var/run/docker.sock"
-)
 
 
 async def _run(*args: str, ctx: Context | None = None) -> tuple[int, bytes, bytes]:
@@ -95,8 +91,7 @@ def register(mcp: FastMCP):
 
         # 1. Remove old container by the same name (idempotent)
         rc, _, _ = await _run(
-            "podman", "--remote", "--url", PODMAN_REMOTE_URL,
-            "rm", "-f", container_name,
+            *engine_cmd("rm", "-f", container_name),
             ctx=ctx,
         )
         steps.append(f"Removed old container '{container_name}' (if any)")
@@ -121,32 +116,32 @@ def register(mcp: FastMCP):
             steps.append(f"Fetched {full_image_remote} via skopeo")
 
             rc, _, stderr = await _run(
-                "podman", "--remote", "--url", PODMAN_REMOTE_URL,
-                "load", "-i", tarball,
+                *engine_cmd("load", "-i", tarball),
                 ctx=ctx,
             )
             if rc != 0:
                 return json.dumps({
                     "status": "error",
-                    "step": "podman_load",
+                    "step": "engine_load",
                     "error": stderr.decode(errors="replace").strip(),
                 }, indent=2)
             steps.append(f"Loaded image into local engine as {local_tag}")
 
         # 3. Run the container on the lab network with host port mapping.
         rc, stdout, stderr = await _run(
-            "podman", "--remote", "--url", PODMAN_REMOTE_URL,
-            "run", "-d",
-            "--name", container_name,
-            "--network", "mcp-lab_mcp-lab-net",
-            "-p", f"{host_port}:8080",
-            local_tag,
+            *engine_cmd(
+                "run", "-d",
+                "--name", container_name,
+                "--network", "mcp-lab_mcp-lab-net",
+                "-p", f"{host_port}:8080",
+                local_tag,
+            ),
             ctx=ctx,
         )
         if rc != 0:
             return json.dumps({
                 "status": "error",
-                "step": "podman_run",
+                "step": "engine_run",
                 "error": stderr.decode(errors="replace").strip(),
                 "steps_completed": steps,
             }, indent=2)

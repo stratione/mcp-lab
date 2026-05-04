@@ -211,6 +211,9 @@ services:
       - MCP_TRANSPORT=streamable-http
       - DEV_REGISTRY_HOST=registry-dev:5000
       - PROD_REGISTRY_HOST=registry-prod:5000
+      # CONTAINER_ENGINE selects between the docker CLI (engine=docker) and
+      # podman --remote (engine=podman). Set by 2-setup.sh in .env.
+      - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
       - PODMAN_REMOTE_URL=unix:///var/run/docker.sock
     command: [ "python", "-m", "mcp_server.server_runner" ]
     # label=disable bypasses rootless Podman's SELinux denial of socket
