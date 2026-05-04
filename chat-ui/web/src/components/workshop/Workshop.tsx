@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useLab } from '@/lib/store'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LESSONS, PHASE_COUNT } from './lessons'
 import { IntroCard } from './IntroCard'
 import { HallucinateCard } from './HallucinateCard'
@@ -32,8 +33,6 @@ export function Workshop() {
   useEffect(() => {
     if (mode) localStorage.setItem(STEP_KEY, String(step))
   }, [mode, step])
-
-  if (!mode) return null
 
   let card: ReactNode
   if (step === 0) {
@@ -96,69 +95,59 @@ export function Workshop() {
   const clearMessages = useLab((s) => s.clearMessages)
 
   return (
-    <div
-      data-testid="workshop-dock"
-      className="fixed bottom-20 right-4 w-96 z-30 bg-surface border border-border rounded-lg shadow-lg p-4 text-sm"
-    >
-      <div className="text-xs text-muted mb-2 flex items-center justify-between gap-2">
-        <span>Workshop · step {step + 1} of {PHASE_COUNT}</span>
-        <button
-          type="button"
-          className="px-1.5 py-0.5 rounded border border-border bg-bg text-muted hover:text-text"
-          onClick={() => setMode(false)}
-          aria-label="Close workshop"
-          data-testid="workshop-close"
-          title="Close workshop (your progress is saved — click the ◇ Walkthrough button in the header to reopen)"
-        >
-          ✕
-        </button>
-      </div>
-      <ToolReliabilityHint />
-      {card}
-      <div className="mt-3 pt-2 border-t border-border flex items-center justify-between gap-2">
-        <button
-          type="button"
-          className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed"
-          onClick={() => setStep(Math.max(step - 1, 0))}
-          disabled={step === 0}
-          aria-label="Previous step"
-          data-testid="workshop-back"
-        >
-          ← back
-        </button>
-        <span className="text-[10px] text-faint">
-          Stuck? Press <kbd className="font-mono">{modKey}</kbd> for commands.
-        </span>
-        <button
-          type="button"
-          className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-text hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed"
-          onClick={() => setStep(Math.min(step + 1, PHASE_COUNT - 1))}
-          disabled={step >= PHASE_COUNT - 1}
-          aria-label="Next step"
-          data-testid="workshop-forward"
-        >
-          forward →
-        </button>
-      </div>
-      {/* Clear-chat affordance: long histories degrade small models around the
-          26K-token mark; clearing keeps the user on the current step but
-          starts the LLM context fresh. Subtle so it doesn't compete with the
-          back/forward buttons, but always available. */}
-      <div className="mt-2 text-right">
-        <button
-          type="button"
-          className="text-[10px] text-faint hover:text-text underline-offset-2 hover:underline"
-          onClick={() => {
-            if (window.confirm('Clear the chat history? Your workshop step is preserved.')) {
-              clearMessages()
-            }
-          }}
-          data-testid="workshop-clear-chat"
-          title="Resets the conversation that's sent to the LLM. Helpful if replies get sloppy after a long session."
-        >
-          Clear chat history
-        </button>
-      </div>
-    </div>
+    <Dialog open={mode} onOpenChange={setMode}>
+      <DialogContent
+        data-testid="workshop-dock"
+        className="max-w-md text-sm"
+      >
+        <DialogHeader>
+          <DialogTitle className="text-xs font-normal text-muted">
+            Workshop · step {step + 1} of {PHASE_COUNT}
+          </DialogTitle>
+        </DialogHeader>
+        <ToolReliabilityHint />
+        {card}
+        <div className="mt-3 pt-2 border-t border-border flex items-center justify-between gap-2">
+          <button
+            type="button"
+            className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setStep(Math.max(step - 1, 0))}
+            disabled={step === 0}
+            aria-label="Previous step"
+            data-testid="workshop-back"
+          >
+            ← back
+          </button>
+          <span className="text-[10px] text-faint">
+            Stuck? Press <kbd className="font-mono">{modKey}</kbd> for commands.
+          </span>
+          <button
+            type="button"
+            className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-text hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setStep(Math.min(step + 1, PHASE_COUNT - 1))}
+            disabled={step >= PHASE_COUNT - 1}
+            aria-label="Next step"
+            data-testid="workshop-forward"
+          >
+            forward →
+          </button>
+        </div>
+        <div className="mt-2 text-right">
+          <button
+            type="button"
+            className="text-[10px] text-faint hover:text-text underline-offset-2 hover:underline"
+            onClick={() => {
+              if (window.confirm('Clear the chat history? Your workshop step is preserved.')) {
+                clearMessages()
+              }
+            }}
+            data-testid="workshop-clear-chat"
+            title="Resets the conversation that's sent to the LLM. Helpful if replies get sloppy after a long session."
+          >
+            Clear chat history
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

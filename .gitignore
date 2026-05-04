@@ -32,6 +32,11 @@ mcp-server/.pytest_cache/
 # Brainstorming visual companion
 .superpowers/
 
+# chat-ui static bundle — built fresh inside the chat-ui Dockerfile
+# (web-builder stage runs `vite build` and COPYs dist into the image).
+# Anything here is a build artifact and must not be committed.
+chat-ui/app/static/
+
 # Playwright MCP test artifacts (ad-hoc browser drives during development)
 scripts/.playwright-mcp/
 scripts/*.png

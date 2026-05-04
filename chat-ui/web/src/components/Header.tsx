@@ -9,7 +9,7 @@ import { useLab } from '@/lib/store'
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
   const [anatomyOpen, setAnatomyOpen] = useState(false)
-  // Workshop / Walkthrough button: toggles the dock open/closed. Replaces the
+  // Workshop / Walkthrough button: toggles the modal open/closed. Replaces the
   // ?workshop=1 URL flag as the primary entry point — the flag still works
   // as a deep link (Workshop.tsx detects it on mount) but new users land on
   // a clean localhost:3001 and click this button when they want the tour.
