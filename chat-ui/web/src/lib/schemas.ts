@@ -56,13 +56,20 @@ export type McpServer = z.infer<typeof McpServerSchema>
 export const McpStatusSchema = z.array(McpServerSchema)
 
 // McpStatusResponseSchema matches the actual /api/mcp-status response shape:
-// { servers: [...], total_tools: number, online_count: number, engine: string }
+// { servers: [...], total_tools: number, online_count: number, engine: string,
+//   prebuild_status: { "mcp-user": "ready" | "preparing", ... } }
+//
+// prebuild_status reflects whether the compose-built image for each MCP exists
+// on disk yet. After tier-aware setup, off-tier MCPs are built in the background
+// and their entries flip from "preparing" to "ready" once `docker image inspect`
+// succeeds. UI uses this to label Start buttons during the post-setup window.
 export const McpStatusResponseSchema = z.object({
   servers: z.array(McpServerSchema),
   total_tools: z.number().default(0),
   online_count: z.number().default(0),
   engine: z.string().default('docker'),
   host_project_dir: z.string().default(''),
+  prebuild_status: z.record(z.string(), z.enum(['ready', 'preparing'])).default({}),
   error: z.string().optional(),
 })
 export type McpStatusResponse = z.infer<typeof McpStatusResponseSchema>

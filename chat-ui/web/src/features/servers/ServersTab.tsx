@@ -18,17 +18,39 @@ export function ServersTab() {
   })
   const engine = env.data?.engine ?? 'docker'
   const hostDir = env.data?.host_project_dir ?? ''
+  // After tier-aware setup, off-tier MCP images build in the background.
+  // The envelope reports each as "ready" or "preparing" so we can label
+  // Start buttons accordingly until the image lands on disk.
+  const prebuildStatus = env.data?.prebuild_status ?? {}
 
   if (isLoading) return <div className="p-3 text-sm text-muted">Loading…</div>
   if (error) return <div className="p-3 text-sm text-err">Failed to load servers.</div>
   return (
     <div className="p-3 flex flex-col gap-1.5">
-      {data?.map((s) => <ServerRow key={s.name} server={s} engine={engine} hostDir={hostDir} />)}
+      {data?.map((s) => (
+        <ServerRow
+          key={s.name}
+          server={s}
+          engine={engine}
+          hostDir={hostDir}
+          prebuildStatus={prebuildStatus}
+        />
+      ))}
     </div>
   )
 }
 
-function ServerRow({ server, engine, hostDir }: { server: McpServer; engine: string; hostDir: string }) {
+function ServerRow({
+  server,
+  engine,
+  hostDir,
+  prebuildStatus,
+}: {
+  server: McpServer
+  engine: string
+  hostDir: string
+  prebuildStatus: Record<string, 'ready' | 'preparing'>
+}) {
   const [open, setOpen] = useState(false)
   const isOnline = server.status === 'online'
   const isDegraded = server.status === 'degraded'
@@ -78,6 +100,7 @@ function ServerRow({ server, engine, hostDir }: { server: McpServer; engine: str
           hostDir={hostDir}
           hostUrl={hostUrl}
           isOnline={isOnline}
+          prebuildStatus={prebuildStatus}
         />
       )}
       {open && (
@@ -94,12 +117,14 @@ function ServerInstructions({
   engine,
   hostUrl,
   isOnline,
+  prebuildStatus,
 }: {
   name: string
   engine: string
   hostDir: string  // accepted for symmetry; not rendered (we don't want to leak the user's home path)
   hostUrl: string | null
   isOnline: boolean
+  prebuildStatus: Record<string, 'ready' | 'preparing'>
 }) {
   const qc = useQueryClient()
   // /api/mcp-status returns names with the "mcp-" prefix stripped
@@ -160,6 +185,11 @@ function ServerInstructions({
 
   const startBusy = waitingStart || startMut.isPending
   const stopBusy = waitingStop || stopMut.isPending
+  // After `make small/medium`, off-tier MCP images build in the background.
+  // While that's running the Start button is disabled and shows "Preparing…"
+  // — the row will flip to a normal "Start" button as soon as the image
+  // lands on disk (mcp-status polls every few seconds, so this auto-clears).
+  const isPreparing = !isOnline && prebuildStatus[fullName] === 'preparing'
 
   return (
     <div className="bg-bg border-t border-border p-2 space-y-1.5">
@@ -168,10 +198,15 @@ function ServerInstructions({
           <Button
             size="sm"
             onClick={() => startMut.mutate()}
-            disabled={startBusy}
+            disabled={startBusy || isPreparing}
             data-testid={`server-row-start-${name}`}
+            title={
+              isPreparing
+                ? 'Image is still building in the background — usually ready within ~60s of running make small/medium.'
+                : undefined
+            }
           >
-            {startBusy ? 'Starting…' : 'Start'}
+            {isPreparing ? 'Preparing…' : startBusy ? 'Starting…' : 'Start'}
           </Button>
         ) : (
           <Button

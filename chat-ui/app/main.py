@@ -321,18 +321,61 @@ _CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
 _HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", "")
 
 
+_ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion", "mcp-runner"}
+
+
+def _image_exists(service: str) -> bool:
+    """Return True iff compose's built image for `service` exists locally.
+    Compose names built images `<project>-<service>` so with `-p mcp-lab`
+    that's `mcp-lab-mcp-user`, `mcp-lab-mcp-gitea`, etc.
+    `docker image inspect` exits 0 if found, non-zero if not. We use docker
+    here because the chat-ui container mounts the host docker socket — the
+    same code path the mcp-control endpoint uses.
+    """
+    image_name = f"mcp-lab-{service}"
+    try:
+        result = subprocess.run(
+            ["docker", "image", "inspect", image_name],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        # If docker itself is unreachable, treat as "preparing" rather than
+        # blocking — the user can still navigate the UI.
+        return False
+
+
+def _prebuild_status(server_names: list[str]) -> dict[str, str]:
+    """Map mcp-* service name → "ready" | "preparing" based on whether the
+    compose-built image is on disk yet. Used by the chat-ui to label Start
+    buttons during the post-setup background-build window."""
+    out: dict[str, str] = {}
+    for name in server_names:
+        full = name if name.startswith("mcp-") else f"mcp-{name}"
+        if full not in _ALLOWED_MCP_SERVICES:
+            continue
+        out[full] = "ready" if _image_exists(full) else "preparing"
+    return out
+
+
 @app.get("/api/mcp-status")
 async def mcp_status():
     try:
         servers = await check_servers()
         total = sum(s["tool_count"] for s in servers)
         online = sum(1 for s in servers if s["status"] == "online")
+        # The chat-ui shows a "preparing…" badge on Start buttons whose image
+        # isn't built yet. After 2-setup.sh kicks off background builds for
+        # off-tier MCPs, those entries flip from "preparing" to "ready" as
+        # each build finishes (typically within ~60s on first run).
+        prebuild = _prebuild_status([s["name"] for s in servers])
         return {
             "servers": servers,
             "total_tools": total,
             "online_count": online,
             "engine": _CONTAINER_ENGINE,
             "host_project_dir": _HOST_PROJECT_DIR,
+            "prebuild_status": prebuild,
         }
     except Exception as e:
         return {
@@ -341,11 +384,11 @@ async def mcp_status():
             "online_count": 0,
             "engine": _CONTAINER_ENGINE,
             "host_project_dir": _HOST_PROJECT_DIR,
+            "prebuild_status": {},
             "error": str(e),
         }
 
 
-_ALLOWED_MCP_SERVICES = {"mcp-user", "mcp-gitea", "mcp-registry", "mcp-promotion", "mcp-runner"}
 _COMPOSE_FILES = [
     pathlib.Path("/app/docker-compose.yml"),
     pathlib.Path("/app/compose.yml"),
@@ -376,6 +419,16 @@ async def mcp_control(request: Request):
         raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
     if action not in ("start", "stop"):
         raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+
+    # Pre-flight: if user clicks Start before the image is built (background
+    # builds from 2-setup.sh take ~60s after the foreground "lab ready" message),
+    # return a friendly 503 instead of a confusing compose error. Stop is
+    # always safe to attempt — no image needed to stop a running container.
+    if action == "start" and not _image_exists(service):
+        raise HTTPException(
+            status_code=503,
+            detail=f"{service} is still preparing in the background. Try again in ~30s.",
+        )
 
     # Always use "docker" CLI inside the container — the host socket is mounted
     # at /var/run/docker.sock regardless of whether the host uses Docker or Podman.

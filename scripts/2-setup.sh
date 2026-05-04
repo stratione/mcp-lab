@@ -92,22 +92,30 @@ if [ -z "$TIER" ]; then
 fi
 
 # Tier → service list and a description for messaging.
-# Note: TIER controls what STARTS at boot. All 5 mcp-* images are still
-# pre-built unconditionally below, so the chat-ui's per-service "Start"
-# button works for ANY tool category regardless of tier.
+# Note: TIER controls what STARTS at boot. The MCP images that BELONG to this
+# tier are pre-built synchronously below; the rest are pre-built in the
+# BACKGROUND so the chat-ui's "Start <service>" button still works for any
+# tool category, but first-time setup doesn't make the user wait through
+# 4 builds they may not need before the lab even opens.
 case "$TIER" in
   small)
     TIER_SERVICES="user-api chat-ui mcp-user bootstrap"
+    TIER_FG_BUILDS="mcp-user"
+    TIER_BG_BUILDS="mcp-gitea mcp-registry mcp-promotion mcp-runner"
     TIER_DESC="small (~700 MB) — user-api + chat-ui + mcp-user"
     TIER_HAS_GITEA=0
     ;;
   medium)
     TIER_SERVICES="user-api gitea chat-ui mcp-user mcp-gitea bootstrap"
+    TIER_FG_BUILDS="mcp-user mcp-gitea"
+    TIER_BG_BUILDS="mcp-registry mcp-promotion mcp-runner"
     TIER_DESC="medium (~900 MB) — adds Gitea + mcp-gitea"
     TIER_HAS_GITEA=1
     ;;
   large)
     TIER_SERVICES=""  # empty = bare `compose up -d` (everything)
+    TIER_FG_BUILDS="mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
+    TIER_BG_BUILDS=""  # large already builds them all upfront
     TIER_DESC="large (~1.5 GB) — full lab"
     TIER_HAS_GITEA=1
     ;;
@@ -259,19 +267,33 @@ else
   $COMPOSE up -d $TIER_SERVICES
 fi
 
-# Pre-build ALL 5 MCP server images — even ones outside the current tier.
-# Why: the chat-ui's "Start" button calls `compose up -d --no-build <service>`,
-# which fails with "no such image" if the image hasn't been built yet. A user
-# in the small tier might still click "Start mcp-gitea" from the dashboard to
-# level up, and that click must succeed. Building is fast on subsequent runs
-# (layer cache), so we pay the cost once at setup and every later Start click
-# is instant. Tier only gates what RUNS, not what's BUILDABLE on click.
-echo "[2b/4] Pre-building all 5 MCP server images so the chat-ui Start button works for any service..."
+# Pre-build the MCP images for THIS tier synchronously, then kick off the
+# rest in the background. Why split it: the chat-ui's "Start" button uses
+# `compose up -d --no-build <service>` and fails on missing images. We still
+# want every Start button to work — but a first-time small-tier user shouldn't
+# wait through 4 builds for services they may never click. The chat-ui surfaces
+# "preparing…" badges via /api/mcp-status until the background build finishes.
+echo "[2b/4] Pre-building MCP images for tier '$TIER' ($TIER_FG_BUILDS)..."
 COMPOSE_PROFILES=user,gitea,registry,promotion,runner $COMPOSE build \
-  mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner \
-  > /tmp/mcp-build.log 2>&1 \
-  && echo "    MCP images built (log: /tmp/mcp-build.log)" \
-  || echo "    WARNING: MCP image build failed — see /tmp/mcp-build.log"
+  $TIER_FG_BUILDS \
+  > /tmp/mcp-build-fg.log 2>&1 \
+  && echo "    Foreground builds done (log: /tmp/mcp-build-fg.log)" \
+  || echo "    WARNING: foreground MCP build failed — see /tmp/mcp-build-fg.log"
+
+if [ -n "$TIER_BG_BUILDS" ]; then
+  echo "[2c/4] Kicking off background build for other MCP images: $TIER_BG_BUILDS"
+  echo "         (chat-ui will show 'preparing…' on those Start buttons until ready, ~60s)"
+  echo "         (live log: tail -f /tmp/mcp-build-bg.log)"
+  # nohup + & + disown so the build survives this script exiting and doesn't
+  # tie up the user's terminal. A marker file tells the chat-ui when it's done.
+  rm -f /tmp/mcp-build-bg.log /tmp/mcp-build-bg.done
+  (
+    COMPOSE_PROFILES=user,gitea,registry,promotion,runner $COMPOSE build \
+      $TIER_BG_BUILDS > /tmp/mcp-build-bg.log 2>&1
+    echo $? > /tmp/mcp-build-bg.done
+  ) &
+  disown $!
+fi
 
 # 3. Wait for bootstrap to finish and grab the Gitea token
 echo "[3/4] Waiting for bootstrap to complete..."
