@@ -9,14 +9,12 @@ import { useLab } from '@/lib/store'
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
   const [anatomyOpen, setAnatomyOpen] = useState(false)
-  // Workshop / Walkthrough button: toggles workshopMode. The walkthrough
-  // renders as either a draggable floating panel or as a tab in the right
-  // inspector — controlled by walkthroughLayout. Replaces the ?workshop=1
-  // URL flag as the primary entry point (the flag still works as a deep
-  // link in Workshop.tsx).
+  // Workshop / Walkthrough button: toggles workshopMode and surfaces the
+  // Walkthrough inspector tab so the tour is immediately visible. The
+  // walkthrough lives permanently as a tab next to Try — there's no
+  // floating panel. ?workshop=1 still works as a deep link via Workshop.tsx.
   const workshopMode = useLab((s) => s.workshopMode)
   const setWorkshopMode = useLab((s) => s.setWorkshopMode)
-  const walkthroughLayout = useLab((s) => s.walkthroughLayout)
   const setInspectorTab = useLab((s) => s.setInspectorTab)
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b border-border bg-surface">
@@ -77,13 +75,9 @@ export function Header() {
           onClick={() => {
             const next = !workshopMode
             setWorkshopMode(next)
-            // When opening into inspector layout, also surface the right
-            // tab — otherwise the user clicks the button, the panel
-            // technically opens, but they're sitting on Servers/Tools/etc
-            // and see no change.
-            if (next && walkthroughLayout === 'inspector') {
-              setInspectorTab('walkthrough')
-            }
+            // Surface the Walkthrough tab when opening so the user
+            // doesn't click the button, then wonder where the tour went.
+            if (next) setInspectorTab('walkthrough')
           }}
           className={
             'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +

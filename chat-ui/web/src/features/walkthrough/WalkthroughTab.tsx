@@ -1,8 +1,7 @@
-// Inspector tab that hosts the walkthrough when walkthroughLayout ===
-// 'inspector'. Reuses <WorkshopBody /> so the floating panel and the
-// docked tab render byte-identical content. When the walkthrough is in
-// floating mode (or off entirely), this tab shows a small placeholder
-// pointing the user back to whichever surface is active.
+// Inspector tab that hosts the walkthrough. The walkthrough lives here
+// permanently — there's no separate floating panel anymore — so attendees
+// can find it next to Try and stay in one place while moving through the
+// SDLC tour.
 
 import { WorkshopBody } from '@/components/workshop/Workshop'
 import { useLab } from '@/lib/store'
@@ -10,66 +9,31 @@ import { useLab } from '@/lib/store'
 export function WalkthroughTab() {
   const mode = useLab((s) => s.workshopMode)
   const setMode = useLab((s) => s.setWorkshopMode)
-  const layout = useLab((s) => s.walkthroughLayout)
-  const setLayout = useLab((s) => s.setWalkthroughLayout)
 
   if (!mode) {
     return (
       <div className="p-4 text-sm space-y-3">
         <h3 className="font-semibold text-text">Walkthrough</h3>
         <p className="text-muted">
-          The 35-step SDLC walkthrough isn't running. Start it to see the
-          tour appear here (or as a floating panel pinned to the
-          bottom-right corner).
+          The 35-step SDLC walkthrough isn't running. Start it and the tour
+          will render here — every step lives next to your existing Try /
+          Tools / Servers tabs so you can flip between context without
+          losing your place.
         </p>
         <button
           type="button"
           className="px-3 py-1.5 text-xs rounded border border-border bg-surface-2 text-text hover:bg-bg"
-          onClick={() => {
-            setMode(true)
-            setLayout('inspector')
-          }}
+          onClick={() => setMode(true)}
           data-testid="walkthrough-tab-start"
         >
-          Start walkthrough here
-        </button>
-      </div>
-    )
-  }
-
-  if (layout !== 'inspector') {
-    return (
-      <div className="p-4 text-sm space-y-3">
-        <h3 className="font-semibold text-text">Walkthrough is floating</h3>
-        <p className="text-muted">
-          The walkthrough is currently pinned to the bottom-right corner of
-          the page. Pop it in here to free up that space.
-        </p>
-        <button
-          type="button"
-          className="px-3 py-1.5 text-xs rounded border border-border bg-surface-2 text-text hover:bg-bg"
-          onClick={() => setLayout('inspector')}
-          data-testid="walkthrough-tab-pop-in"
-        >
-          ↪ Pop into this tab
+          Start walkthrough
         </button>
       </div>
     )
   }
 
   return (
-    <div className="p-3">
-      <div className="flex items-center justify-end mb-2">
-        <button
-          type="button"
-          className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={() => setLayout('floating')}
-          title="Pop the walkthrough back out as a floating panel"
-          data-testid="walkthrough-tab-pop-out"
-        >
-          ↗ pop out
-        </button>
-      </div>
+    <div className="p-3" data-testid="workshop-dock">
       <WorkshopBody />
     </div>
   )

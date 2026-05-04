@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useLab } from '@/lib/store'
 import { STEPS, PHASE_COUNT, phaseFor } from './lessons'
@@ -11,136 +11,35 @@ import { WrapCard } from './WrapCard'
 import { ToolReliabilityHint } from './ToolReliabilityHint'
 
 const STEP_KEY = 'mcp-lab.workshop.step.v1'
-const COLLAPSED_KEY = 'mcp-lab.workshop.collapsed.v1'
 
 /**
- * Workshop dispatcher. Renders the floating panel when
- * walkthroughLayout === 'floating' and workshopMode is on. Returns null
- * for the inspector layout — that path renders <WorkshopBody /> inside
- * the Inspector's Walkthrough tab instead.
+ * URL deep-link handler. The walkthrough body itself is rendered inside
+ * the Inspector's "Walkthrough" tab (next to Try) — there is no floating
+ * panel anymore. This component just watches for ?workshop=1 and flips
+ * the workshop into "running" mode + selects the walkthrough tab on first
+ * mount, then returns null. Mounted once at the App level.
  */
 export function Workshop() {
-  const mode = useLab((s) => s.workshopMode)
   const setMode = useLab((s) => s.setWorkshopMode)
   const setStep = useLab((s) => s.setWorkshopStep)
-  const layout = useLab((s) => s.walkthroughLayout)
+  const setTab = useLab((s) => s.setInspectorTab)
 
-  // One-time mount: detect ?workshop=1 and restore persisted step.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('workshop') === '1') {
       setMode(true)
+      setTab('walkthrough')
       const saved = parseInt(localStorage.getItem(STEP_KEY) ?? '0', 10)
       setStep(Number.isFinite(saved) ? saved : 0)
     }
-  }, [setMode, setStep])
+  }, [setMode, setStep, setTab])
 
-  if (!mode || layout !== 'floating') return null
-  return <WorkshopFloating />
+  return null
 }
 
 /**
- * Pinned, non-modal floating panel. No overlay, no focus trap, no drag —
- * the chat input below stays fully usable while the walkthrough is up. A
- * collapse toggle shrinks the panel to a small status pill ("Step N/35")
- * for maximum chat real estate; users click to expand again.
- */
-function WorkshopFloating() {
-  const [collapsed, setCollapsed] = useState<boolean>(
-    () => window.localStorage.getItem(COLLAPSED_KEY) === '1',
-  )
-  useEffect(() => {
-    window.localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0')
-  }, [collapsed])
-
-  if (collapsed) return <CollapsedPill onExpand={() => setCollapsed(false)} />
-  return <ExpandedPanel onCollapse={() => setCollapsed(true)} />
-}
-
-function CollapsedPill({ onExpand }: { onExpand: () => void }) {
-  const step = useLab((s) => s.workshopStep)
-  const safeIndex = Math.min(Math.max(step, 0), STEPS.length - 1)
-  const phase = phaseFor(safeIndex)
-  return (
-    <button
-      type="button"
-      onClick={onExpand}
-      title={`Click to expand the walkthrough (${phase.title})`}
-      data-testid="workshop-pill"
-      className="fixed bottom-20 right-4 z-30 px-3 py-1.5 rounded-full bg-surface border border-border shadow-md text-xs text-text hover:bg-surface-2 flex items-center gap-2"
-    >
-      <span className="text-faint">▴ Walkthrough</span>
-      <span className="font-mono text-muted">{safeIndex + 1}/{PHASE_COUNT}</span>
-    </button>
-  )
-}
-
-function ExpandedPanel({ onCollapse }: { onCollapse: () => void }) {
-  return (
-    <div
-      className="fixed bottom-20 right-4 z-30 w-96 max-h-[70vh] bg-surface border border-border rounded-lg shadow-xl text-sm flex flex-col overflow-hidden"
-      data-testid="workshop-dock"
-      role="region"
-      aria-label="Workshop walkthrough"
-    >
-      <PanelHeader onCollapse={onCollapse} />
-      <div className="overflow-y-auto p-4">
-        <WorkshopBody />
-      </div>
-    </div>
-  )
-}
-
-function PanelHeader({ onCollapse }: { onCollapse: () => void }) {
-  const setMode = useLab((s) => s.setWorkshopMode)
-  const setLayout = useLab((s) => s.setWalkthroughLayout)
-  const setTab = useLab((s) => s.setInspectorTab)
-  return (
-    <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border bg-surface-2">
-      <span className="text-[10px] text-faint tracking-wider uppercase">
-        Walkthrough
-      </span>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={onCollapse}
-          title="Collapse to a small pill so the chat has more room"
-          aria-label="Collapse walkthrough"
-          data-testid="workshop-collapse"
-        >
-          —
-        </button>
-        <button
-          type="button"
-          className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={() => {
-            setLayout('inspector')
-            setTab('walkthrough')
-          }}
-          title="Dock the walkthrough into the right-hand inspector instead"
-          data-testid="workshop-dock-to-inspector"
-        >
-          → dock
-        </button>
-        <button
-          type="button"
-          className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
-          onClick={() => setMode(false)}
-          title="Close the walkthrough"
-          aria-label="Close walkthrough"
-          data-testid="workshop-close"
-        >
-          ✕
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/**
- * The walkthrough body, with no chrome. Reused by the floating panel and
- * the Inspector's Walkthrough tab so both layouts render identical content.
+ * The walkthrough body — chrome-less, rendered inside the Inspector's
+ * Walkthrough tab. Persists step changes whenever workshop is active.
  */
 export function WorkshopBody() {
   const step = useLab((s) => s.workshopStep)
@@ -148,8 +47,6 @@ export function WorkshopBody() {
   const mode = useLab((s) => s.workshopMode)
   const clearMessages = useLab((s) => s.clearMessages)
 
-  // Persist step changes. Same key whether we're floating or in the inspector
-  // — the content is identical, only the chrome differs.
   useEffect(() => {
     if (mode) localStorage.setItem(STEP_KEY, String(step))
   }, [mode, step])
