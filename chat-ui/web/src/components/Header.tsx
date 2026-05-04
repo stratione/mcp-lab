@@ -4,10 +4,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ArchitectureDiagram } from './ArchitectureDiagram'
 import { McpServerDiagram } from './McpServerDiagram'
 import { McpHelpDialog } from './McpHelpDialog'
+import { useLab } from '@/lib/store'
 
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
   const [anatomyOpen, setAnatomyOpen] = useState(false)
+  // Workshop / Walkthrough button: toggles the dock open/closed. Replaces the
+  // ?workshop=1 URL flag as the primary entry point — the flag still works
+  // as a deep link (Workshop.tsx detects it on mount) but new users land on
+  // a clean localhost:3001 and click this button when they want the tour.
+  const workshopMode = useLab((s) => s.workshopMode)
+  const setWorkshopMode = useLab((s) => s.setWorkshopMode)
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b border-border bg-surface">
       <div className="flex items-center gap-3">
@@ -62,6 +69,25 @@ export function Header() {
             <McpServerDiagram />
           </DialogContent>
         </Dialog>
+        <button
+          type="button"
+          onClick={() => setWorkshopMode(!workshopMode)}
+          className={
+            'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +
+            (workshopMode
+              ? 'text-text bg-surface-2'
+              : 'text-muted hover:text-text')
+          }
+          data-testid="walkthrough-button"
+          aria-pressed={workshopMode}
+          title={
+            workshopMode
+              ? 'Close the guided walkthrough (your progress is saved).'
+              : 'Open a guided tour through the lab — ask without tools, enable an MCP, watch grounded answers replace hallucinations.'
+          }
+        >
+          ◇ {workshopMode ? 'Walkthrough (open)' : 'Walkthrough'}
+        </button>
         <McpHelpDialog />
       </div>
       <CornerMenu />

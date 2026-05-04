@@ -156,7 +156,7 @@ To switch models inside the chat-ui, click the provider chip in the header and t
 
 The web-based Chat UI (http://localhost:3001) is a React SPA backed by FastAPI. It includes:
 
-- **Workshop wizard** — open `http://localhost:3001/?workshop=1` for a guided tour: backing data, Try-it prompts, MCP Internals, single-click MCP server start
+- **Workshop wizard** — click the **◇ Walkthrough** button in the header (or use `http://localhost:3001/?workshop=1` as a deep link) for a guided tour: backing data, Try-it prompts, MCP Internals, single-click MCP server start
 - **Hallucination Mode toggle** — header switch that strips the LLM of every MCP tool and forces a permissive system prompt, producing the "fabricated user list" cold-open moment on demand
 - **Compare tab (side-by-side)** — same prompt fired in parallel at two providers (e.g. Ollama vs Anthropic) so the audience watches a frontier model orchestrate the pipeline while a local model fumbles
 - **Architecture diagram modal** — click the header logo for an embedded, dark-mode-friendly diagram of the lab topology
@@ -223,8 +223,9 @@ make small         # smallest footprint, MCP basics only
 # make medium      # adds Gitea + per-user auth demos
 # make large       # full lab (equivalent to ./scripts/2-setup.sh)
 
-# Step 4: Open the workshop wizard
-# http://localhost:3001/?workshop=1
+# Step 4: Open the chat UI
+# http://localhost:3001
+# (click the ◇ Walkthrough button in the header for the guided tour)
 
 # Level up later (no teardown needed):
 # make medium
@@ -842,7 +843,7 @@ Everyone — presenter and participants — runs the same three numbered scripts
 | `scripts/2-setup.sh`      | First time setup  | Detects engine (prompts if both available), creates `.env`, starts all services, seeds data, injects Gitea token. |
 | `scripts/3-teardown.sh`   | Cleanup           | Reuses saved engine choice, removes containers, images, and volumes (full reset). |
 
-After step 2, open **http://localhost:3001/?workshop=1** in your browser. The `?workshop=1` query parameter opens the in-UI wizard.
+After step 2, open **http://localhost:3001** in your browser and click the **◇ Walkthrough** button in the header to start the guided tour. (`?workshop=1` still works as a deep link.)
 
 ### Dev / optional (un-numbered)
 

@@ -108,7 +108,7 @@ export function Workshop() {
           onClick={() => setMode(false)}
           aria-label="Close workshop"
           data-testid="workshop-close"
-          title="Close workshop (your progress is saved — re-open with ?workshop=1)"
+          title="Close workshop (your progress is saved — click the ◇ Walkthrough button in the header to reopen)"
         >
           ✕
         </button>

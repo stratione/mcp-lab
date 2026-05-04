@@ -10,9 +10,11 @@ Everyone — presenter and participants — runs the same three scripts in order
 
 After step 2, open this URL in your browser:
 
-    http://localhost:3001/?workshop=1
+    http://localhost:3001
 
-The `?workshop=1` query parameter opens the in-UI wizard.
+Click the **◇ Walkthrough** button in the header to start the guided tour.
+(The `?workshop=1` URL flag also still works as a deep link if you want to
+open the tour automatically — same effect as clicking the button.)
 
 ## Dev / optional
 
