@@ -92,6 +92,29 @@ export const setProvider = (cfg: {
   base_url?: string
 }) => call('/api/provider', z.unknown(), json(cfg))
 
+// ── Provider key health check ──
+// Cheap auth-only ping — calls /v1/models on the provider, which doesn't
+// consume tokens. Useful for the chip's "Test connection" button. The api_key
+// in the body, if supplied, is used for THIS call only and never persisted.
+export type ProviderKeyTestResult = {
+  ok: boolean
+  status: number
+  message: string
+  latency_ms: number
+}
+const ProviderKeyTestResultSchema = z.object({
+  ok: z.boolean(),
+  status: z.number(),
+  message: z.string(),
+  latency_ms: z.number(),
+})
+export const testProviderKey = (cfg: {
+  provider: string
+  api_key?: string
+  base_url?: string
+}): Promise<ProviderKeyTestResult> =>
+  call('/api/test-provider-key', ProviderKeyTestResultSchema, json(cfg))
+
 export type ModelEntry = {
   id: string
   label: string

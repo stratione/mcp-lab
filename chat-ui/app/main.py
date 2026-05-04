@@ -105,6 +105,89 @@ async def get_providers():
     }
 
 
+@app.post("/api/test-provider-key")
+async def test_provider_key(request: Request):
+    """Low-cost auth-only ping for the provider chip's "Test connection" button.
+
+    Calls each provider's models-list endpoint — these are auth-checked but
+    don't consume tokens, so testing is free regardless of plan tier.
+
+    Body: {"provider": "openai"|"anthropic"|"google"|"ollama"|"pretend",
+           "api_key": "sk-..." (optional — falls back to env-loaded key),
+           "base_url": "..." (optional, ollama only)}
+
+    Always returns HTTP 200 with {ok, status, message, latency_ms} so the
+    frontend can render "✅ valid" / "❌ 401 unauthorized" / etc inline.
+    The api_key, when supplied in the body, is used for the test call only —
+    not persisted anywhere on the server.
+    """
+    import time
+    body = await request.json()
+    provider = (body.get("provider") or "").lower()
+    explicit_key = body.get("api_key") or ""
+    base_url = body.get("base_url") or ""
+
+    if provider == "pretend":
+        return {"ok": True, "status": 200, "message": "demo provider — no key needed", "latency_ms": 0}
+
+    # Validate the provider name BEFORE checking for a key, so unknown names
+    # don't masquerade as "no key configured" (which would suggest a fix that
+    # wouldn't work).
+    if provider not in ("openai", "anthropic", "google", "ollama"):
+        return {"ok": False, "status": 0, "message": f"unknown provider: {provider}", "latency_ms": 0}
+
+    # Resolve the key: explicit (from popover) > env-loaded > nothing.
+    key = explicit_key or _API_KEYS.get(provider, "")
+
+    # Ollama uses base_url, no key.
+    if provider == "ollama":
+        url = (base_url or _provider_config.get("base_url") or "http://host.containers.internal:11434").rstrip("/")
+        url = f"{url}/api/tags"
+        t0 = time.monotonic()
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as c:
+                r = await c.get(url)
+            dt = int((time.monotonic() - t0) * 1000)
+            if r.status_code == 200:
+                models = r.json().get("models", []) if r.headers.get("content-type", "").startswith("application/json") else []
+                return {"ok": True, "status": 200, "message": f"Ollama reachable ({len(models)} model{'s' if len(models) != 1 else ''} pulled)", "latency_ms": dt}
+            return {"ok": False, "status": r.status_code, "message": f"HTTP {r.status_code}", "latency_ms": dt}
+        except Exception as e:
+            return {"ok": False, "status": 0, "message": f"unreachable ({type(e).__name__}): {e}", "latency_ms": int((time.monotonic() - t0) * 1000)}
+
+    if not key:
+        return {"ok": False, "status": 0, "message": "no API key configured for this provider", "latency_ms": 0}
+
+    if provider == "openai":
+        url = "https://api.openai.com/v1/models"
+        headers = {"Authorization": f"Bearer {key}"}
+    elif provider == "anthropic":
+        url = "https://api.anthropic.com/v1/models"
+        headers = {"x-api-key": key, "anthropic-version": "2023-06-01"}
+    else:  # provider == "google"  (validated above)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+        headers = {}
+
+    t0 = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            r = await c.get(url, headers=headers)
+        dt = int((time.monotonic() - t0) * 1000)
+        if r.status_code == 200:
+            return {"ok": True, "status": 200, "message": "key is valid", "latency_ms": dt}
+        if r.status_code == 401:
+            return {"ok": False, "status": 401, "message": "401 Unauthorized — key is wrong, revoked, or expired", "latency_ms": dt}
+        if r.status_code == 403:
+            return {"ok": False, "status": 403, "message": "403 Forbidden — key valid but lacks model-list permission", "latency_ms": dt}
+        if r.status_code == 429:
+            return {"ok": False, "status": 429, "message": "429 — rate limited or billing on hold", "latency_ms": dt}
+        return {"ok": False, "status": r.status_code, "message": f"HTTP {r.status_code}", "latency_ms": dt}
+    except httpx.TimeoutException:
+        return {"ok": False, "status": 0, "message": "timeout (>10s) — network or provider issue", "latency_ms": int((time.monotonic() - t0) * 1000)}
+    except Exception as e:
+        return {"ok": False, "status": 0, "message": f"connection error ({type(e).__name__}): {e}", "latency_ms": int((time.monotonic() - t0) * 1000)}
+
+
 @app.get("/api/hallucination-mode")
 async def get_hallucination_mode():
     return {"enabled": _hallucination_mode}
@@ -465,35 +548,73 @@ def _verify_with_heuristics(reply: str, tool_calls: list[dict]) -> dict:
     }
 
 
-SYSTEM_PROMPT_BASE = """You are a helpful DevOps assistant in the MCP DevOps Lab. You have access to tools provided by MCP (Model Context Protocol) servers that let you manage users, Git repositories (Gitea), container registries, and image promotions.
- 
-When asked to perform tasks, use the available tools. Be concise in your responses and explain what you did after completing actions.
- 
+SYSTEM_PROMPT_BASE = """You are a helpful DevOps assistant. You have access to the tools listed below — use them when appropriate. Be concise in your responses and explain what you did after completing actions.
+
 IMPORTANT:
-1. You only have access to the tools listed below. Do not assume other tools exist.
-2. If a server is reported as OFFLINE, you CANNOT use its tools.
-3. If asked to do something that requires an offline tool, explain that the server is offline and suggest starting it (e.g., "The user server is offline. Run 'docker compose up -d mcp-user' to enable it.").
-4. When creating resources (users, repos, etc.), you MUST ASK the user for required details (e.g., email, full name, role) if they are not provided. Do NOT guess or hallucinate these values.
- 
+1. You only have access to the tools listed below. Do not assume other tools exist, do not invent or guess additional tool names, and do not mention "MCP", "servers", "compose", "docker", or any infrastructure terms to the user.
+2. If a request can't be satisfied by the listed tools, just say you can't do it — don't speculate about what's missing or how the user could enable more capabilities. The user is in charge of what tools you have; that's not your concern.
+3. When creating resources (users, repos, etc.), you MUST ASK the user for required details (e.g., email, full name, role) if they are not provided. Do NOT guess or hallucinate these values.
+
 {mcp_context}"""
 
 
+# Vanilla helpful-assistant prompt used when ZERO MCP servers are online.
+# This is the workshop's cold-open posture: the model knows nothing about MCP,
+# acts like a normal chatbot, and either tries to help or admits it can't.
+# That is exactly the contrast the workshop wants — without this, the model
+# sees "MCP servers exist but are OFFLINE" in its system prompt and helpfully
+# leaks that abstraction back to the user ("the user server is offline, run
+# docker compose up -d mcp-user") which spoils the surprise of bringing the
+# first MCP online.
+VANILLA_SYSTEM_PROMPT = (
+    "You are a helpful assistant. Answer the user's questions and have a "
+    "normal conversation. Be honest about what you can and cannot do."
+)
+
+
 def _build_system_prompt(servers: list[dict], tools: list[dict]) -> str:
-    """Build system prompt with live MCP server and tool context."""
-    if not servers:
-        mcp_context = "No MCP servers are currently connected."
-    else:
-        online = [s for s in servers if s["status"] == "online"]
-        offline = [s for s in servers if s["status"] == "offline"]
-        lines = [f"You are connected to {len(online)} of {len(servers)} MCP servers:"]
-        for s in servers:
-            status = "ONLINE" if s["status"] == "online" else "OFFLINE"
-            tool_names = ", ".join(s["tools"]) if s["tools"] else "none"
-            lines.append(f"  - mcp-{s['name']} ({status}): {s['tool_count']} tools [{tool_names}]")
-        if tools:
-            lines.append(f"\nTotal available tools: {len(tools)}")
-        mcp_context = "\n".join(lines)
+    """Build system prompt with live tool context.
+
+    Two key principles, both driven by the workshop's pedagogy:
+
+      1. When no MCP server is online → vanilla helpful-assistant prompt,
+         no mention of MCP / tools / servers. The LLM behaves like any other
+         chatbot and either tries to help or admits it can't.
+
+      2. When one or more MCP servers ARE online → list ONLY the online ones
+         (and ONLY their tools). Offline servers are never mentioned. The LLM
+         must not learn that mcp-promotion exists until mcp-promotion is
+         actually started — otherwise it'll happily explain to the user that
+         "mcp-promotion is offline, run docker compose up -d mcp-promotion",
+         which spoils every progressive-enablement reveal in the workshop.
+    """
+    online = [s for s in servers if s["status"] == "online"]
+    if not online:
+        return VANILLA_SYSTEM_PROMPT
+
+    lines = ["Available tools (grouped by capability):"]
+    for s in online:
+        tool_names = ", ".join(s["tools"]) if s["tools"] else "none"
+        lines.append(f"  - {s['tool_count']} tools: [{tool_names}]")
+    if tools:
+        lines.append(f"\nTotal tools available right now: {len(tools)}.")
+    mcp_context = "\n".join(lines)
     return SYSTEM_PROMPT_BASE.format(mcp_context=mcp_context)
+
+
+def _tools_for_llm(servers: list[dict], tools: list[dict]) -> list[dict]:
+    """Hide every tool (including the synthetic list_mcp_servers meta-tool)
+    from the LLM when no MCP server is online.
+
+    Without this, the LLM can call list_mcp_servers, see the OFFLINE status of
+    every server, and explain it to the user — defeating the cold-open. Once
+    at least one server is online, the full tool list is exposed normally.
+    The /api/tools endpoint and the lab dashboard still see the full list;
+    only the LLM-facing slice is filtered.
+    """
+    if not any(s.get("status") == "online" for s in servers):
+        return []
+    return tools
 
 
 @app.post("/api/chat")
@@ -526,6 +647,8 @@ async def chat(req: ChatRequest):
                     source="hallucination", details="Hallucination Mode is ON — tools disabled, permissive prompt.",
                 ),
                 hallucination_mode=True,
+                provider=str(_provider_config.get("provider") or ""),
+                model=str(_provider_config.get("model") or ""),
             )
 
         # Get available MCP tools and server status (grounded mode).
@@ -548,9 +671,11 @@ async def chat(req: ChatRequest):
             messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": req.message})
 
-        # Call LLM
+        # Call LLM. Tools are filtered to [] when no MCP server is online so
+        # the cold-open posture (vanilla prompt + zero tools) is consistent.
+        tools_for_llm = _tools_for_llm(servers, all_tools)
         provider = get_provider(_provider_config)
-        result = await provider.chat(messages, all_tools)
+        result = await provider.chat(messages, tools_for_llm)
 
         usage_data = result.get("token_usage", {})
         tool_calls_data = [
@@ -568,6 +693,8 @@ async def chat(req: ChatRequest):
             ),
             confidence=ConfidenceResult(**verification),
             hallucination_mode=False,
+            provider=str(_provider_config.get("provider") or ""),
+            model=str(_provider_config.get("model") or ""),
         )
     except Exception as e:
         return JSONResponse(
@@ -642,7 +769,8 @@ async def chat_compare(req: CompareRequest):
             tools_for_pane: list = []
         else:
             sys_prompt = grounded_sys_prompt
-            tools_for_pane = all_tools
+            # Same cold-open scrub as the single-pane handler: zero MCP online → zero tools.
+            tools_for_pane = _tools_for_llm(servers, all_tools)
 
         messages = [{"role": "system", "content": sys_prompt},
                     {"role": "user", "content": req.message}]

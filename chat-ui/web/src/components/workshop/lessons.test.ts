@@ -19,8 +19,9 @@ describe('LESSONS config', () => {
     }
   })
 
-  it('PHASE_COUNT counts intro + cold-open + 3 cards per MCP + capstone + wrap', () => {
-    // 1 (welcome) + 1 (cold-open) + 4*3 (per-MCP) + 1 (capstone) + 1 (wrap) = 16
-    expect(PHASE_COUNT).toBe(16)
+  it('PHASE_COUNT counts intro + cold-open + 3 cards per MCP + capstone-hallucinate + capstone-verify + wrap', () => {
+    // 1 (welcome) + 1 (cold-open) + 4*3 (per-MCP) + 1 (capstone-hallucinate) +
+    // 1 (capstone-verify) + 1 (wrap) = 17
+    expect(PHASE_COUNT).toBe(17)
   })
 })

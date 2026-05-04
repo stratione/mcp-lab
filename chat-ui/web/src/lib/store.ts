@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ToolCall } from './schemas'
 
 export type Role = 'user' | 'assistant' | 'system'
@@ -9,6 +10,11 @@ export type ChatMessageView = {
   toolCalls?: ToolCall[]
   status?: 'pending' | 'ok' | 'error' | 'stopped'
   error?: string
+  // The provider+model that produced this message (assistant only). Rendered
+  // as a small tag next to the bubble so users can tell which model answered
+  // each message — useful when switching providers mid-conversation.
+  provider?: string
+  model?: string
 }
 
 export type TraceEntry = {
@@ -64,45 +70,74 @@ export type LabState = {
   setPendingPrompt: (s: string | null) => void
 }
 
-export const useLab = create<LabState>((set) => ({
-  messages: [],
-  appendMessage: (m) => set((s) => ({ messages: [...s.messages, m] })),
-  patchMessage: (id, patch) =>
-    set((s) => ({ messages: s.messages.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
-  clearMessages: () => set({ messages: [], sessionTokens: 0, traces: [] }),
+export const useLab = create<LabState>()(
+  persist(
+    (set) => ({
+      messages: [],
+      appendMessage: (m) => set((s) => ({ messages: [...s.messages, m] })),
+      patchMessage: (id, patch) =>
+        set((s) => ({ messages: s.messages.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
+      clearMessages: () => set({ messages: [], sessionTokens: 0, traces: [] }),
 
-  traces: [],
-  appendTrace: (t) => set((s) => ({ traces: [...s.traces, t] })),
-  clearTraces: () => set({ traces: [] }),
+      traces: [],
+      appendTrace: (t) => set((s) => ({ traces: [...s.traces, t] })),
+      clearTraces: () => set({ traces: [] }),
 
-  inspectorTab: 'servers',
-  setInspectorTab: (t) => set({ inspectorTab: t }),
+      inspectorTab: 'servers',
+      setInspectorTab: (t) => set({ inspectorTab: t }),
 
-  cmdkOpen: false,
-  setCmdkOpen: (cmdkOpen) => set({ cmdkOpen }),
+      cmdkOpen: false,
+      setCmdkOpen: (cmdkOpen) => set({ cmdkOpen }),
 
-  shortcutsOpen: false,
-  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+      shortcutsOpen: false,
+      setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
 
-  abort: null,
-  setAbort: (abort) => set({ abort }),
+      abort: null,
+      setAbort: (abort) => set({ abort }),
 
-  sessionTokens: 0,
-  addTokens: (n) => set((s) => ({ sessionTokens: s.sessionTokens + n })),
-  resetTokens: () => set({ sessionTokens: 0 }),
+      sessionTokens: 0,
+      addTokens: (n) => set((s) => ({ sessionTokens: s.sessionTokens + n })),
+      resetTokens: () => set({ sessionTokens: 0 }),
 
-  flyingBlind: false,
-  setFlyingBlind: (flyingBlind) => set({ flyingBlind }),
+      flyingBlind: false,
+      setFlyingBlind: (flyingBlind) => set({ flyingBlind }),
 
-  walkthroughKick: 0,
-  kickWalkthrough: () => set((s) => ({ walkthroughKick: s.walkthroughKick + 1 })),
+      walkthroughKick: 0,
+      kickWalkthrough: () => set((s) => ({ walkthroughKick: s.walkthroughKick + 1 })),
 
-  workshopMode: false,
-  setWorkshopMode: (workshopMode) => set({ workshopMode }),
+      workshopMode: false,
+      setWorkshopMode: (workshopMode) => set({ workshopMode }),
 
-  workshopStep: 0,
-  setWorkshopStep: (workshopStep) => set({ workshopStep }),
+      workshopStep: 0,
+      setWorkshopStep: (workshopStep) => set({ workshopStep }),
 
-  pendingPrompt: null,
-  setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
-}))
+      pendingPrompt: null,
+      setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
+    }),
+    {
+      // Persist chat history + traces + token totals across browser refresh.
+      // Everything else is ephemeral UI state (which tab is open, whether
+      // CmdK is showing, the active AbortController, etc.) and is intentionally
+      // excluded — persisting it would surprise users by re-opening dialogs
+      // on reload, and AbortController isn't even serializable.
+      name: 'mcp-lab.chat.v1',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({
+        messages: s.messages,
+        traces: s.traces,
+        sessionTokens: s.sessionTokens,
+      }),
+      // If a 'pending' message was on screen when the user refreshed, it'll
+      // never resolve — convert it to an error so the UI shows a Retry button
+      // instead of a frozen "…" forever.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        state.messages = state.messages.map((m) =>
+          m.status === 'pending'
+            ? { ...m, status: 'error', error: 'Request was interrupted by a page reload.' }
+            : m,
+        )
+      },
+    },
+  ),
+)

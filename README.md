@@ -27,7 +27,8 @@ A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transf
 - [Managing Services](#managing-services)
 - [Troubleshooting](#troubleshooting)
 - [Claude Code (stdio mode)](#claude-code-stdio-mode)
-- [Workshop Proposal](#workshop-proposal)
+- [Hallucination Mode (the cold-open moment)](#hallucination-mode-the-cold-open-moment)
+- [Conference Proposal](#conference-proposal)
 
 ---
 
@@ -153,58 +154,99 @@ To switch models inside the chat-ui, click the provider chip in the header and t
 
 ### Chat UI Features
 
-The web-based Chat UI (http://localhost:3001) includes:
+The web-based Chat UI (http://localhost:3001) is a React SPA backed by FastAPI. It includes:
 
-- **Multi-provider support** — switch between Ollama, OpenAI, Anthropic, and Google Gemini from the UI
-- **MCP status panel** — click the MCP strip bar to see which servers are online/offline and their tools; auto-refreshes every 3 seconds while any server is offline, 30 seconds when all are up
-- **Lab Dashboard** — click the grid button to see all services with live status badges (UP/DOWN), a "Verify User API" section with runnable curl commands, and start/stop guidance for MCP servers
-- **Stop button** — the Send button turns into a red Stop button while a request is in-flight, allowing you to cancel hung requests
-- **Tool call cards** — every MCP tool call shows as a collapsible card with arguments and results
-- **Hallucination detection** — automatic heuristic badge (verified/uncertain/unverified) on every response
-- **LLM verification** — on-demand "Verify with LLM" button for deeper fact-checking against tool results
+- **Workshop wizard** — open `http://localhost:3001/?workshop=1` for a guided tour: backing data, Try-it prompts, MCP Internals, single-click MCP server start
+- **Hallucination Mode toggle** — header switch that strips the LLM of every MCP tool and forces a permissive system prompt, producing the "fabricated user list" cold-open moment on demand
+- **Compare tab (side-by-side)** — same prompt fired in parallel at two providers (e.g. Ollama vs Anthropic) so the audience watches a frontier model orchestrate the pipeline while a local model fumbles
+- **Architecture diagram modal** — click the header logo for an embedded, dark-mode-friendly diagram of the lab topology
+- **In-GUI Ollama model manager** — pull, list, and delete local Ollama models without leaving the browser
+- **Per-tool Verify buttons** — every tool-call card renders a green Verify button that opens or fetches the source-of-truth URL (Gitea repo, deployed app, registry catalog) so the audience confirms the tool result against the actual system
+- **MCP status panel** — click the MCP strip bar to see which servers are online/offline; expand any row's `›` chevron for inline copy-paste start/stop commands. Auto-refreshes every 3s while any server is offline, 30s when all are up
+- **Tools tab** — accurate per-MCP-server tool listing with auto-refresh and a manual refresh button
+- **Lab Dashboard** — grid view of all services with live status badges (UP/DOWN), a "Verify User API" section with runnable curl commands, and start/stop guidance for MCP servers
+- **Per-call Gitea auth** — when a prompt identifies the actor (e.g. _"as diana, password secret"_), the Gitea MCP tools authenticate per call so the commit is attributed to that user — "MCP acts on your behalf"
+- **Stop button** — the Send button turns into a red Stop button while a request is in-flight to cancel hung requests
+- **Tool call cards** — every MCP tool call shows as a collapsible card with arguments, results, and Verify
+- **Hallucination heuristics** — automatic verified/uncertain/unverified badge on every response, with an on-demand "Verify with LLM" button for deeper fact-checking against tool results
 - **Token tracking** — per-turn and session-wide token counter
 - **Copy button** — hover over any assistant message to copy the prompt + response for debugging
+- **Secret-safe** — `/api/providers` returns `{has_key, key_preview}` only (last-4 preview); the full key never leaves the server, so screen sharing is safe
 - **Color-blind accessible** — status indicators use text labels with arrows (▲ UP / ▼ DOWN) in addition to color
-- **Server-side chat history** — chat is persisted in a Docker volume (not browser localStorage), so tearing down the lab wipes all data cleanly
-- **Quick reference** — click the `?` button for URLs, credentials, and commands
+- **Server-side chat history** — chat is persisted in a Docker volume (not browser localStorage), so `docker compose down -v` wipes all data cleanly
+- **Quick reference** — click the `?` help button for URLs, credentials, and commands; type `thestruggleisreal` anywhere on the page to unlock the cheat sheet
+- **Cypress E2E tests** — `chat-ui/cypress/` covers the workshop wizard, compare flow, hallucination mode, launcher, and per-tool Verify
 
 **12 services** on a single container network (`mcp-lab-net`):
 
 | Service | Port | Role |
 |---------|------|------|
-| **Chat UI** | 3001 | Web chat interface — aggregates tools from all MCP servers |
-| **mcp-user** | 8003 | 8 user management MCP tools (start on demand) |
-| **mcp-gitea** | 8004 | 7 Git/Gitea MCP tools (start on demand) |
+| **Chat UI** | 3001 | Web chat interface (React SPA + FastAPI) — aggregates tools from all MCP servers |
+| **mcp-user** | 8003 | 9 user management MCP tools (start on demand) |
+| **mcp-gitea** | 8004 | 7 Git/Gitea MCP tools with per-call auth (start on demand) |
 | **mcp-registry** | 8005 | 5 container registry MCP tools (start on demand) |
 | **mcp-promotion** | 8006 | 3 image promotion MCP tools (start on demand) |
+| **mcp-runner** | 8007 | 3 CI/CD runner MCP tools: build, scan, deploy (start on demand) |
 | **User API** | 8001 | User CRUD (FastAPI + SQLite) |
 | **Gitea** | 3000 | Git repository hosting |
 | **Registry Dev** | 5001 | Container image registry (development) |
 | **Registry Prod** | 5002 | Container image registry (production) |
 | **Promotion Service** | 8002 | Image promotion with role-based policy checks |
-| **mcp-runner** | 8007 | 3 CI/CD runner MCP tools: build, scan, deploy (start on demand) |
 | **Bootstrap** | -- | One-shot init (Gitea admin, sample repos, seed data) |
+
+> **Tool count:** 9 + 7 + 5 + 3 + 3 = **27 active MCP tools**, plus a `list_mcp_servers` meta-tool exposed by the chat-ui itself. A 28th tool, `delete_all_users`, is intentionally hidden behind `USER_DESTRUCTIVE_TOOLS_ENABLED=true` — it stays in the source as a code-review talking point about footgun tools.
 
 ---
 
 ## Quick Start
 
+### Pick your tier first
+
+The lab ships in three sizes so you can match it to the machine you've got. Each tier is a strict superset of the previous one — you can start at `small` and `make medium` / `make large` later without tearing anything down. Same git clone, same `docker-compose.yml`; the tier just controls **which services get pulled and started**, so disk and RAM scale with what you actually opt into.
+
+| Tier | Disk | Wire (first run) | RAM | Containers | MCP tools | Teaches |
+|---|---|---|---|---|---|---|
+| `small` (~700 MB) | 700 MB | ~600 MB | ~500 MB | 4 | 7 | "What is MCP?" — user-api + 1 MCP server + chat-ui |
+| `medium` (~900 MB) | 900 MB | ~800 MB | ~700 MB | 5 | 14 | + Gitea — "MCP acts on your behalf" (per-call auth) |
+| `large` (~1.5 GB) | 1.5 GB | ~1.0 GB | ~1.5 GB | 8+ | 20 | + registries + promotion + runner — "MCP runs your CI/CD" |
+
 ```bash
-# Step 1: Clone the repo
+# Step 1: Clone (~10 MB regardless of tier)
 git clone https://github.com/stratione/mcp-lab.git
 cd mcp-lab
 
 # Step 2: Check your machine is ready
 ./scripts/1-preflight.sh
 
-# Step 3: Start the lab (creates .env, starts services, seeds data)
-./scripts/2-setup.sh
+# Step 3: Start the lab — pick the tier that matches your machine
+make small         # smallest footprint, MCP basics only
+# make medium      # adds Gitea + per-user auth demos
+# make large       # full lab (equivalent to ./scripts/2-setup.sh)
 
-# Step 4: Open the workshop wizard in your browser
+# Step 4: Open the workshop wizard
 # http://localhost:3001/?workshop=1
 
+# Level up later (no teardown needed):
+# make medium
+# make large
+
 # When you're done:
-# ./scripts/3-teardown.sh
+# make down                  # stop containers, keep volumes
+# ./scripts/3-teardown.sh    # full teardown (volumes + images)
+```
+
+**Bad workshop wifi?** Pre-pull images the night before over good wifi:
+```bash
+make prewarm-small    # or prewarm-medium / prewarm-large
+```
+Pre-warm only pulls and builds — it doesn't start anything. Workshop morning, `make small` (etc.) is then near-instant.
+
+### Or run the legacy single-command setup
+
+The full lab in one shot — equivalent to `make large`, plus it auto-injects the Gitea token into `.env`:
+
+```bash
+./scripts/2-setup.sh
 ```
 
 API docs (open manually if you want them):
@@ -231,19 +273,19 @@ This is the core mechanic of the workshop. Start and stop MCP servers to enable/
 ### Enable MCP servers
 
 ```bash
-# Enable User tools (+8 tools)
+# Enable User tools (+9 tools)
 docker compose up -d mcp-user
 
-# Enable Gitea tools (+7 tools → 15 total)
+# Enable Gitea tools (+7 tools → 16 total)
 docker compose up -d mcp-gitea
 
-# Enable Registry tools (+5 tools → 20 total)
+# Enable Registry tools (+5 tools → 21 total)
 docker compose up -d mcp-registry
 
-# Enable Promotion tools (+3 tools → 23 total)
+# Enable Promotion tools (+3 tools → 24 total)
 docker compose up -d mcp-promotion
 
-# Enable CI/CD Runner tools (+3 tools → 26 total)
+# Enable CI/CD Runner tools (+3 tools → 27 total)
 docker compose up -d mcp-runner
 
 # Enable servers one at a time — work through each phase before starting the next
@@ -287,7 +329,7 @@ Edit `.env` to control which servers start automatically on `docker compose up -
 ```bash
 COMPOSE_PROFILES=                                             # no MCP servers (default)
 COMPOSE_PROFILES=user                                         # user tools only
-COMPOSE_PROFILES=user,gitea,registry,promotion,runner         # all 26 tools
+COMPOSE_PROFILES=user,gitea,registry,promotion,runner         # all 27 tools
 ```
 
 After editing `.env`:
@@ -363,6 +405,8 @@ Try these first — before starting any MCP servers:
 - "Create a user named alice with email alice@example.com, full name 'Alice Anderson', and role dev"
 - "What role does alice have?"
 - "Change alice's role to reviewer"
+- "Deactivate the user named bob"
+- "Reactivate bob"
 
 ### After starting mcp-gitea
 
@@ -370,6 +414,7 @@ Try these first — before starting any MCP servers:
 - "Create a new repo called my-service"
 - "What branches does sample-app have?"
 - "Create a feature branch called v2-prep in sample-app"
+- "As diana with password secret, create a repo called diana-experiments" — per-call auth attributes the action to that user, not to the lab admin
 
 ### After starting mcp-registry
 
@@ -513,7 +558,7 @@ Notice the friction points:
    - **OpenAI / Anthropic / Google**: Enter your API key
 3. Click **Apply**
 
-#### Step 2: Start User MCP Server (+8 tools)
+#### Step 2: Start User MCP Server (+9 tools)
 
 ```bash
 docker compose up -d mcp-user
@@ -531,7 +576,7 @@ Wait ~10 seconds — the Chat UI auto-detects the new server within a few second
 
 Each tool call appears as a collapsible card in the chat. No curl required.
 
-#### Step 3: Start Gitea MCP Server (+7 tools → 15 total)
+#### Step 3: Start Gitea MCP Server (+7 tools → 16 total)
 
 ```bash
 docker compose up -d mcp-gitea
@@ -546,7 +591,7 @@ Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grow
 
 No credentials needed in your prompts — the MCP server handles auth injection.
 
-#### Step 4: Start Registry MCP Server (+5 tools → 20 total)
+#### Step 4: Start Registry MCP Server (+5 tools → 21 total)
 
 ```bash
 docker compose up -d mcp-registry
@@ -558,7 +603,7 @@ Refresh the Chat UI after ~10 seconds. Try:
 - "List tags for sample-app in dev"
 - "Is sample-app available in the prod registry?"
 
-#### Step 5: Start Promotion MCP Server (+3 tools → 23 total)
+#### Step 5: Start Promotion MCP Server (+3 tools → 24 total)
 
 ```bash
 docker compose up -d mcp-promotion
@@ -582,7 +627,7 @@ Compare to Phase 1:
 
 ### Phase 3: Intent-Based DevOps (Full MCP)
 
-> **Goal:** Express complex multi-system intents in natural language. All 26 tools ON.
+> **Goal:** Express complex multi-system intents in natural language. All 27 tools ON.
 
 Enable MCP servers one at a time as you progress through each phase:
 
@@ -663,11 +708,13 @@ What MCP provides as a control plane:
 
 | Category | MCP Server | Port | Count | Tools |
 |----------|-----------|------|-------|-------|
-| **User Management** | `mcp-user` | 8003 | 8 | `list_roles`, `list_users`, `get_user`, `get_user_by_username`, `create_user`, `update_user`, `deactivate_user`, `delete_user` |
-| **Git / Gitea** | `mcp-gitea` | 8004 | 7 | `list_gitea_repos`, `get_gitea_repo`, `create_gitea_repo`, `list_gitea_branches`, `create_gitea_branch`, `get_gitea_file`, `create_gitea_file` |
+| **User Management** | `mcp-user` | 8003 | 9 | `list_roles`, `list_users`, `get_user`, `get_user_by_username`, `create_user`, `update_user`, `deactivate_user`, `activate_user`, `delete_user` |
+| **Git / Gitea** | `mcp-gitea` | 8004 | 7 | `list_gitea_repos`, `get_gitea_repo`, `create_gitea_repo`, `list_gitea_branches`, `create_gitea_branch`, `get_gitea_file`, `create_gitea_file` (each accepts optional `username`/`password` for per-call auth) |
 | **Container Registry** | `mcp-registry` | 8005 | 5 | `list_registries`, `list_registry_images`, `list_image_tags`, `get_image_manifest`, `tag_image` |
 | **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promote_image`, `list_promotions`, `get_promotion_status` |
 | **CI/CD Runner** | `mcp-runner` | 8007 | 3 | `build_image`, `scan_image`, `deploy_app` |
+| **Hidden footgun** | `mcp-user` | 8003 | (1) | `delete_all_users` — only registered when `USER_DESTRUCTIVE_TOOLS_ENABLED=true`. Stays in source as a code-review talking point. |
+| **Chat-UI meta-tool** | `chat-ui` | 3001 | (1) | `list_mcp_servers` — handled in the chat-ui backend, not by any MCP server; lets the LLM introspect which servers are reachable |
 
 Each MCP server is an independent container. Start/stop them to enable/disable tool categories:
 
@@ -689,6 +736,30 @@ curl http://localhost:3000/api/v1/version  # Gitea
 curl http://localhost:5001/v2/_catalog    # Registry Dev
 curl http://localhost:5002/v2/_catalog    # Registry Prod
 curl http://localhost:3001/api/tools      # Chat UI / MCP tools list
+curl http://localhost:3001/api/mcp-status # Chat UI / per-server reachability
+```
+
+### Chat UI API (Port 3001)
+
+```bash
+GET    http://localhost:3001/api/providers          # {has_key, key_preview} per provider — never returns full key
+POST   http://localhost:3001/api/provider           # Set active provider/model
+GET    http://localhost:3001/api/models?provider=…  # List installed models for a provider
+GET    http://localhost:3001/api/tools              # Aggregated tool list across reachable MCP servers
+GET    http://localhost:3001/api/mcp-status         # Per-server status + copy-paste start commands
+POST   http://localhost:3001/api/mcp-control        # Start/stop an MCP server (compose up/stop)
+GET    http://localhost:3001/api/hallucination-mode # Read current toggle state
+POST   http://localhost:3001/api/hallucination-mode # Flip the toggle (strips tools + permissive prompt)
+GET    http://localhost:3001/api/ollama/installed   # List local Ollama models
+POST   http://localhost:3001/api/ollama/pull        # Pull an Ollama model from the UI
+DELETE http://localhost:3001/api/ollama/models/{name} # Delete a local Ollama model
+POST   http://localhost:3001/api/probe              # Server-side fetch of a verify URL (handles Docker→host rewrites)
+GET    http://localhost:3001/api/chat-history       # Server-side chat persistence (volume-backed)
+POST   http://localhost:3001/api/chat-history
+DELETE http://localhost:3001/api/chat-history
+POST   http://localhost:3001/api/chat               # Single-provider chat
+POST   http://localhost:3001/api/chat-compare       # Side-by-side parallel chat across two providers
+POST   http://localhost:3001/api/verify             # Deeper LLM-based verification of a previous response
 ```
 
 ### Web Interfaces
@@ -782,9 +853,10 @@ After step 2, open **http://localhost:3001/?workshop=1** in your browser. The `?
 
 Internal scripts (called automatically — do not run directly):
 - `scripts/_internal/_detect-engine.sh` — shared engine detection helper; prompts if both Docker and Podman are available, saves choice to `.engine`
-- `scripts/bootstrap.sh` — one-shot init container entry point
-- `scripts/init-gitea.sh` — creates Gitea admin user, token, sample repo (seeds `app.py` + `Dockerfile` for a real HTTP hello-app)
-- `scripts/seed-registry.sh` — pushes `sample-app:v1.0.0` to dev registry
+- `scripts/_internal/bootstrap.sh` — one-shot init container entry point
+- `scripts/_internal/init-gitea.sh` — creates Gitea admin user, token, sample repo (seeds `app.py` + `Dockerfile` for a real HTTP hello-app)
+- `scripts/_internal/seed-registry.sh` — pushes `sample-app:v1.0.0` to dev registry
+- `scripts/_proto/` — throwaway prototype scripts kept for reference (FastMCP Context, Podman socket); not part of the workshop path
 
 ---
 
@@ -929,7 +1001,24 @@ Each MCP server supports stdio transport for direct use with Claude Code:
 cd mcp-server && pip install -r requirements.txt
 ```
 
-See `config/mcp/claude-code-config.json` for the full configuration with all 5 servers (`mcp-user`, `mcp-gitea`, `mcp-registry`, `mcp-promotion`, `mcp-runner`). Each has its own stdio launcher script (`run_user.sh`, `run_gitea.sh`, `run_runner.sh`, etc.).
+See `config/mcp/claude-code-config.json` for the full configuration with all 5 servers (`mcp-user`, `mcp-gitea`, `mcp-registry`, `mcp-promotion`, `mcp-runner`). Each has its own stdio launcher script in `mcp-server/`: `run_user.sh`, `run_gitea.sh`, `run_registry.sh`, `run_promotion.sh`, `run_runner.sh`. Transport is selected by the `MCP_TRANSPORT` env var (`stdio` for Claude Code, `streamable-http` for the docker stack).
+
+---
+
+## Hallucination Mode (the cold-open moment)
+
+The Chat UI ships with a **Hallucination Mode** toggle in the header. When ON it:
+
+1. Strips every MCP tool from the LLM's tool list (including the `list_mcp_servers` meta-tool).
+2. Replaces the system prompt with a permissive one that encourages the model to answer from "memory."
+
+The result: ask Ollama "list all users" and it will fabricate a plausible roster — invented usernames, invented emails, invented roles — with zero tool calls. Flip the toggle OFF and the same prompt grounds itself in the real SQLite database.
+
+This is the recommended cold-open for the talk: hallucination ON for one minute, then OFF, then enable MCP servers one at a time to watch the same model become reliable.
+
+State does **not** persist across `chat-ui` restarts — leaving it on by accident between sessions could confuse a future audience, so a deliberate flip every demo is the safer default.
+
+---
 
 ---
 
@@ -951,15 +1040,15 @@ LLMs confidently hallucinate API calls, leak credentials, and ignore policy — 
 
 Every DevOps team experimenting with LLM-assisted operations hits the same wall: the model sounds confident but fabricates API responses, forgets credentials between calls, and has no concept of organizational policy. The Model Context Protocol (MCP) is Anthropic's open standard for giving LLMs structured access to external tools — but most introductions stop at "here's how to write a tool definition." This talk shows what MCP actually changes in practice, using a live demo environment purpose-built to make the difference visceral.
 
-**The environment:** A Docker Compose stack running 12 services on a single network — a User API (FastAPI + SQLite), a Gitea git server, dev and prod container registries, a promotion service with role-based access control, and a CI/CD runner with Docker-in-Docker build and deploy capabilities. Five independent MCP servers expose 26 tools across these systems. A web-based Chat UI connects to all of them via streamable-http JSON-RPC. Everything runs on localhost; the audience can clone the repo and follow along.
+**The environment:** A Docker Compose stack running 12 services on a single network — a User API (FastAPI + SQLite), a Gitea git server, dev and prod container registries, a promotion service with role-based access control, and a CI/CD runner with Docker-in-Docker build and deploy capabilities. Five independent MCP servers expose 27 tools across these systems. A web-based Chat UI connects to all of them via streamable-http JSON-RPC. Everything runs on localhost; the audience can clone the repo and follow along.
 
 **The demo arc:**
 
-*Phase 1 — The Struggle (3 min):* I ask a local LLM (Ollama llama3.1:8b) to "list all users" with zero MCP servers running. It invents three users with plausible names and emails. I ask it to "promote sample-app to production." It fabricates a success response. I then show the same tasks done correctly via raw curl against five different APIs — different auth schemes, different payload formats, manual credential threading. The audience feels the friction.
+*Phase 1 — The Struggle (3 min):* I flip on **Hallucination Mode** and ask a local LLM (Ollama llama3.1:8b) to "list all users" with zero MCP servers running. It invents a plausible roster — fake usernames, fake emails, fake roles — with zero tool calls. I ask it to "promote sample-app to production." It fabricates a success response. I then show the same tasks done correctly via raw curl against five different APIs — different auth schemes, different payload formats, manual credential threading. The audience feels the friction.
 
-*Phase 2 — Progressive Enablement (7 min):* I start MCP servers one at a time. `docker compose up -d mcp-user` — the Chat UI's tool count jumps from 0 to 8. I repeat "list all users" and the LLM now calls the real API, returns real data, and handles validation errors gracefully. I add mcp-gitea (+7 tools), mcp-registry (+5 tools), mcp-promotion (+3 tools), mcp-runner (+3 tools). Each addition is a single command with no config changes. The audience watches capabilities accumulate.
+*Phase 2 — Progressive Enablement (7 min):* I flip Hallucination Mode off and start MCP servers one at a time. `docker compose up -d mcp-user` — the Chat UI's tool count jumps from 0 to 9. I repeat "list all users" and the LLM now calls the real API, returns real data, and handles validation errors gracefully. I add mcp-gitea (+7 tools), mcp-registry (+5 tools), mcp-promotion (+3 tools), mcp-runner (+3 tools). Each addition is a single command with no config changes. The audience watches capabilities accumulate.
 
-*Phase 3 — The Payoff (7 min):* With all 26 tools active, I type: "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it." The LLM chains four tool calls: `build_image` clones from Gitea and pushes to the dev registry; `scan_image` runs a security check; `promote_image` copies the image to prod (and gets rejected because the user is a developer, not a reviewer — real policy enforcement); after a role update, the promotion succeeds; `deploy_app` pulls from prod and runs the container. I curl `localhost:9082` and get `{"message":"Hello from MCP Lab!","version":"1.0.0"}` from a container that didn't exist 30 seconds ago.
+*Phase 3 — The Payoff (7 min):* With all 27 tools active, I type: "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it." The LLM chains four tool calls: `build_image` clones from Gitea and pushes to the dev registry; `scan_image` runs a security check; `promote_image` copies the image to prod (and gets rejected because the user is a developer, not a reviewer — real policy enforcement); after a role update, the promotion succeeds; `deploy_app` pulls from prod and runs the container. I curl `localhost:9082` and get `{"message":"Hello from MCP Lab!","version":"1.0.0"}` from a container that didn't exist 30 seconds ago. Optional encore: open the **Compare tab** to run the same prompt at Ollama and Anthropic in parallel — same panes, same prompt, the frontier model finishes the chain in ~28s while the local model fumbles in ~43s.
 
 *Wrap-up (3 min):* Key takeaways — MCP as a control plane (not just a tool protocol), progressive disclosure as a deployment strategy, why real policy enforcement matters more than mock demos, and how the same architecture works across Ollama, OpenAI, Anthropic, and Google Gemini.
 
@@ -983,7 +1072,7 @@ The same content scales to a 90-minute hands-on workshop where every attendee ru
 | Pre-work | Before lab | Install Docker or Podman, install Ollama + pull `llama3.1:8b` (~4.9 GB), run `1-preflight.sh` |
 | Setup | 10 min | Clone, `./scripts/2-setup.sh`, verify Chat UI at localhost:3001 |
 | Phase 1: The Struggle | 20 min | Hallucination demo, manual curl against 5 APIs, friction |
-| Phase 2: Progressive Enablement | 25 min | Start MCP servers one by one, watch tool count grow from 0 → 26 |
+| Phase 2: Progressive Enablement | 25 min | Start MCP servers one by one, watch tool count grow from 0 → 27 |
 | Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, policy enforcement, multi-system orchestration |
 | Wrap-Up | 10 min | Discussion: MCP vs. API gateways, production considerations, what to build next |
 

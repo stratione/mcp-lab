@@ -49,7 +49,8 @@ describe('workshop wizard (?workshop=1)', () => {
     cy.visit('/?workshop=1')
     cy.get('[data-testid=workshop-dock]').should('be.visible')
     cy.get('[data-testid=workshop-intro]').contains('Welcome to the MCP Lab')
-    cy.contains('button', 'Begin').click()
+    // Navigation lives in the bottom dock now (no per-card Next/Begin).
+    cy.get('[data-testid=workshop-forward]').click()
 
     // Cold-open hallucinate
     cy.get('[data-testid=workshop-hallucinate]').should('exist')
@@ -61,17 +62,16 @@ describe('workshop wizard (?workshop=1)', () => {
     cy.get('[data-testid=chat-send]').should('not.be.disabled')
     cy.get('@chatPost').should('not.have.been.called')
 
-    cy.contains('button', 'Next →').click()
+    cy.get('[data-testid=workshop-forward]').click()
 
     // mcp-user pre-enable hallucinate
     cy.get('[data-testid=workshop-hallucinate]').should('exist')
-    cy.contains('button', 'Next →').click()
+    cy.get('[data-testid=workshop-forward]').click()
 
-    // mcp-user enable card — engine label is podman, Next disabled
+    // mcp-user enable card — engine label is podman.
     cy.get('[data-testid=workshop-enable]').contains('podman compose up -d mcp-user')
-    cy.contains('button', 'Next →').should('be.disabled')
 
-    // Flip mcp-user online and confirm advance is now possible.
+    // Flip mcp-user online and confirm the status flips to ✓.
     cy.intercept('GET', '/api/mcp-status', (req) => {
       req.reply({
         statusCode: 200,
@@ -96,7 +96,7 @@ describe('workshop wizard (?workshop=1)', () => {
       })
     })
     cy.get('[data-testid=workshop-enable-status]', { timeout: 6000 }).should('contain', '✓')
-    cy.contains('button', 'Next →').should('not.be.disabled').click()
+    cy.get('[data-testid=workshop-forward]').click()
 
     // Verify card runs probe; body renders.
     cy.get('[data-testid=workshop-verify]').should('exist')

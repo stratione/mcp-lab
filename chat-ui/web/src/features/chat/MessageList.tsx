@@ -36,7 +36,12 @@ export function MessageList() {
           ) : (
             <div key={m.id} className="flex flex-col gap-1 self-start w-full">
               {m.toolCalls?.map((tc, i) => <ToolCallSummary key={i} call={tc} />)}
-              <AssistantMessage content={m.content} status={m.status} />
+              <AssistantMessage
+                content={m.content}
+                status={m.status}
+                provider={m.provider}
+                model={m.model}
+              />
               {m.status === 'error' && (
                 <div className="flex items-center gap-2 text-err text-xs">
                   <span>⚠ {m.error}</span>

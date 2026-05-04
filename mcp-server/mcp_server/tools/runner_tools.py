@@ -27,6 +27,7 @@ import json
 import os
 import shutil
 import tempfile
+import urllib.parse
 
 from mcp.server.fastmcp import FastMCP, Context
 
@@ -38,13 +39,24 @@ PODMAN_REMOTE_URL = os.environ.get(
 )
 
 
-async def _run(*args: str, cwd: str | None = None, ctx: Context | None = None) -> tuple[int, bytes, bytes]:
-    """Run a subprocess, optionally logging via the FastMCP context."""
+async def _run(
+    *args: str,
+    cwd: str | None = None,
+    env: dict | None = None,
+    ctx: Context | None = None,
+    log_args: tuple[str, ...] | None = None,
+) -> tuple[int, bytes, bytes]:
+    """Run a subprocess, optionally logging via the FastMCP context.
+
+    log_args: when supplied, logged in place of args (used to scrub embedded
+    HTTP-Basic credentials from the clone URL before they reach ctx.info).
+    """
     if ctx is not None:
-        await ctx.info(f"$ {' '.join(args)}")
+        await ctx.info(f"$ {' '.join(log_args if log_args is not None else args)}")
     proc = await asyncio.create_subprocess_exec(
         *args,
         cwd=cwd,
+        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -52,12 +64,53 @@ async def _run(*args: str, cwd: str | None = None, ctx: Context | None = None) -
     return proc.returncode, stdout, stderr
 
 
+def _inject_clone_credentials(
+    repo_url: str,
+    username: str | None,
+    password: str | None,
+) -> str:
+    """Embed HTTP Basic credentials into a git clone URL.
+
+    Resolution order:
+      1. URL already has credentials → leave alone (caller knows what they want)
+      2. username AND password both supplied → use those (per-call auth, the
+         "MCP acts on your behalf" path)
+      3. Fall back to GITEA_TOKEN as the basic-auth password (Gitea PATs work
+         in that slot) so default no-args calls keep working
+      4. Otherwise return repo_url unchanged
+
+    Only http and https schemes get credentials — git+ssh and git:// don't
+    use HTTP Basic.
+    """
+    parsed = urllib.parse.urlparse(repo_url)
+    if parsed.scheme not in ("http", "https"):
+        return repo_url
+    if parsed.username:
+        return repo_url
+
+    if username and password:
+        user, pw = username, password
+    elif config.GITEA_TOKEN:
+        user, pw = "mcpadmin", config.GITEA_TOKEN
+    else:
+        return repo_url
+
+    encoded_user = urllib.parse.quote(user, safe="")
+    encoded_pw = urllib.parse.quote(pw, safe="")
+    netloc = f"{encoded_user}:{encoded_pw}@{parsed.hostname}"
+    if parsed.port:
+        netloc += f":{parsed.port}"
+    return urllib.parse.urlunparse(parsed._replace(netloc=netloc))
+
+
 def register(mcp: FastMCP):
     @mcp.tool()
     async def build_image(
-        repo_url: str = "http://gitea:3000/mcpadmin/hello-app",
+        repo_url: str = "http://gitea:3000/mcpadmin/sample-app",
         image_name: str = "hello-app",
         tag: str = "latest",
+        username: str | None = None,
+        password: str | None = None,
         ctx: Context | None = None,
     ) -> str:
         """
@@ -66,14 +119,22 @@ def register(mcp: FastMCP):
 
         DEFAULTS: when the user mentions "the hello world app" (or just "the app",
         or "the demo app") with no other details, call this tool with NO arguments
-        — it will build the lab's pre-seeded hello-world app from gitea
-        (http://gitea:3000/mcpadmin/hello-app) as image "hello-app:latest". Don't
+        — it will build the lab's pre-seeded sample-app repo from gitea
+        (http://gitea:3000/mcpadmin/sample-app) as image "hello-app:latest". Don't
         prompt for repo_url / image_name / tag in that case; the defaults are correct.
 
+        Auth: if the user identifies themselves (e.g. "as diana, password secret"),
+        pass both username and password — they'll be embedded in the clone URL via
+        HTTP Basic and the clone will be attributed to that user. If neither is
+        given, the lab's GITEA_TOKEN is used as the basic-auth password so the
+        clone still authenticates non-interactively.
+
         Args:
-            repo_url: Git repo URL to clone. Defaults to the lab's hello-world app.
+            repo_url: Git repo URL to clone. Defaults to the lab's sample-app.
             image_name: Image name (without registry prefix). Defaults to "hello-app".
             tag: Image tag. Defaults to "latest".
+            username: Optional Gitea username for HTTP Basic auth on the clone.
+            password: Optional Gitea password (or PAT) paired with username.
 
         Returns:
             JSON string with build status and the full registry-qualified image name.
@@ -82,10 +143,15 @@ def register(mcp: FastMCP):
         local_tag = f"localhost/{image_name}:{tag}"
 
         with tempfile.TemporaryDirectory() as workdir:
-            # 1. git clone
+            # 1. git clone — embed credentials in the URL (so we don't need a TTY)
+            #    and disable git's terminal prompt so a 401 fails fast with a
+            #    readable error instead of "could not read Username for ...".
+            clone_url = _inject_clone_credentials(repo_url, username, password)
+            git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
             rc, _, stderr = await _run(
-                "git", "clone", "--depth", "1", repo_url, ".",
-                cwd=workdir, ctx=ctx,
+                "git", "clone", "--depth", "1", clone_url, ".",
+                cwd=workdir, env=git_env, ctx=ctx,
+                log_args=("git", "clone", "--depth", "1", repo_url, "."),
             )
             if rc != 0:
                 return json.dumps({

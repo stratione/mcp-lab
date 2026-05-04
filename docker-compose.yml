@@ -276,15 +276,23 @@ services:
       - ./scripts:/scripts:ro
     networks:
       - mcp-lab-net
+    # Tier-aware: gitea + registry deps are optional. The small tier brings
+    # bootstrap up alongside user-api alone; the script (bootstrap.sh) probes
+    # for the optional services and only seeds the ones that are reachable.
+    # required:false tells compose to skip a missing optional dep instead of
+    # erroring out — so `make small` works without gitea or registries.
     depends_on:
       user-api:
         condition: service_healthy
       gitea:
         condition: service_healthy
+        required: false
       registry-dev:
         condition: service_healthy
+        required: false
       registry-prod:
         condition: service_healthy
+        required: false
     entrypoint: [ "/bin/sh", "/scripts/_internal/bootstrap.sh" ]
     restart: "no"
 

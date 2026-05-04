@@ -33,6 +33,8 @@ export const ChatResponseSchema = z.object({
   token_usage: TokenUsageSchema.default({ input_tokens: 0, output_tokens: 0, total_tokens: 0 }),
   confidence: ConfidenceSchema.default({ score: 0, label: 'Unknown', source: 'heuristic', details: '' }),
   hallucination_mode: z.boolean().default(false),
+  provider: z.string().default(''),
+  model: z.string().default(''),
 })
 export type ChatResponse = z.infer<typeof ChatResponseSchema>
 

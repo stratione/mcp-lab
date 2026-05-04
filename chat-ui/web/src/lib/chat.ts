@@ -31,6 +31,8 @@ export async function send(input: string) {
       content: res.reply,
       toolCalls: res.tool_calls,
       status: 'ok',
+      provider: res.provider,
+      model: res.model,
     })
     for (const tc of res.tool_calls) {
       const ok = tc.result != null && !String(tc.result).startsWith('Error')

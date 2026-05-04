@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { setProvider, getModels, type ModelCatalog } from '@/lib/api'
+import { setProvider, getModels, testProviderKey, type ModelCatalog, type ProviderKeyTestResult } from '@/lib/api'
 import { loadSettings, saveSettings } from '@/lib/settings'
 import { useLab } from '@/lib/store'
 import { useQuery } from '@tanstack/react-query'
@@ -23,7 +23,38 @@ export function ProviderChip() {
   const [s, setS] = useState(loadSettings())
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
+  // Provider-key test result lives only while the popover is open — clearing
+  // it on provider/key changes prevents stale ✅ tags after the user switches
+  // to a different provider whose key is invalid.
+  const [keyTest, setKeyTest] = useState<ProviderKeyTestResult | null>(null)
+  const [testing, setTesting] = useState(false)
   const tokens = useLab((x) => x.sessionTokens)
+
+  // Reset the test result whenever the user changes provider or key.
+  useEffect(() => {
+    setKeyTest(null)
+  }, [s.provider, s.apiKey, s.baseUrl])
+
+  async function runKeyTest() {
+    setTesting(true)
+    try {
+      const r = await testProviderKey({
+        provider: s.provider,
+        api_key: s.apiKey || undefined,
+        base_url: s.baseUrl || undefined,
+      })
+      setKeyTest(r)
+    } catch (e) {
+      setKeyTest({
+        ok: false,
+        status: 0,
+        message: e instanceof Error ? e.message : 'request failed',
+        latency_ms: 0,
+      })
+    } finally {
+      setTesting(false)
+    }
+  }
 
   const { data: catalog, isLoading: catalogLoading, refetch: refetchCatalog } = useQuery<ModelCatalog>({
     queryKey: ['models', s.provider, s.apiKey],
@@ -133,6 +164,36 @@ export function ProviderChip() {
             placeholder={s.provider === 'ollama' ? 'not required' : 'sk-…'}
             disabled={s.provider === 'ollama' || s.provider === 'pretend'}
           />
+          {s.provider !== 'pretend' && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <button
+                type="button"
+                onClick={runKeyTest}
+                disabled={testing}
+                className="text-[10px] px-2 py-0.5 rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-50"
+                data-testid="test-key-btn"
+                title={
+                  s.provider === 'ollama'
+                    ? 'Pings Ollama at the configured URL — no token cost'
+                    : 'Calls /v1/models on the provider — auth check, no token cost'
+                }
+              >
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {keyTest && (
+                <span
+                  className={`text-[10px] font-mono ${keyTest.ok ? 'text-ok' : 'text-err'}`}
+                  data-testid="test-key-result"
+                  title={keyTest.message}
+                >
+                  {keyTest.ok ? '✅' : '❌'} {keyTest.message}
+                  {keyTest.latency_ms > 0 && (
+                    <span className="text-faint"> ({keyTest.latency_ms}ms)</span>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex justify-between items-center text-xs text-muted">
           <span>

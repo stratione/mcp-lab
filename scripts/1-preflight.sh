@@ -61,37 +61,39 @@ fi
 echo ""
 
 # ── 3. Container Runtime Check ─────────────────────────────────────────────
+# We accept EITHER Podman or Docker. The lab requires only one working
+# engine — having both installed is fine, having neither is a failure.
 echo "  Checking container runtime..."
 echo ""
 
-PODMAN_OK=false
-DOCKER_OK=false
+PODMAN_INSTALLED=false      # `podman` binary exists
+PODMAN_USABLE=false         # podman is fully usable (machine running on macOS, or non-macOS)
+PODMAN_MACHINE_DOWN=false   # podman installed but machine isn't running — only matters if docker is also down
+DOCKER_OK=false             # docker installed AND daemon responds
 COMPOSE_CMD=""
 
 # Check Podman
 if command -v podman &>/dev/null; then
   PODMAN_VER=$(podman --version 2>/dev/null | awk '{print $3}')
   echo "  $PASS  Podman $PODMAN_VER found"
-  PODMAN_OK=true
+  PODMAN_INSTALLED=true
 
-  # Check if Podman machine is running (macOS/Windows)
+  # Check if Podman machine is running (macOS/Windows). On Linux there's no
+  # machine — podman talks directly to the host kernel.
   if [[ "$OS" == "Darwin" ]] || [[ "$OS" == "MINGW"* ]]; then
     MACHINE_STATE=$(podman machine list --format "{{.Running}}" 2>/dev/null | head -1 || echo "")
     if [[ "$MACHINE_STATE" == "true" ]]; then
       echo "  $PASS  Podman machine is running"
+      PODMAN_USABLE=true
     else
-      echo "  $FAIL  Podman machine is NOT running"
-      echo ""
-      echo "         Fix: start a Podman machine:"
-      echo ""
-      echo "           podman machine init    # first time only"
-      echo "           podman machine start"
-      echo ""
-      ALL_GOOD=false
+      # Defer the verdict until after we know whether Docker is up. If Docker
+      # IS up, this is a harmless warning (we'll just use Docker). If Docker
+      # is NOT up either, this becomes a hard failure with a fix-it hint.
+      PODMAN_MACHINE_DOWN=true
     fi
+  else
+    PODMAN_USABLE=true
   fi
-else
-  echo "  $FAIL  Podman not found"
 fi
 
 # Check Docker
@@ -105,21 +107,53 @@ if command -v docker &>/dev/null; then
     echo "         Start Docker Desktop or run: sudo systemctl start docker"
   fi
 fi
+
+# Resolve the deferred Podman-machine verdict now that we know about Docker.
+if $PODMAN_MACHINE_DOWN; then
+  if $DOCKER_OK; then
+    echo "  $WARN  Podman machine is not running — using Docker instead (no action needed)"
+  else
+    echo "  $FAIL  Podman machine is NOT running, and Docker isn't available either"
+    echo ""
+    echo "         Fix one of these:"
+    echo ""
+    echo "           podman machine init    # first time only"
+    echo "           podman machine start"
+    echo ""
+    echo "         …or start Docker Desktop / the docker daemon."
+    echo ""
+    ALL_GOOD=false
+  fi
+fi
+
+# Neither engine is usable at all → hard fail with the install guide.
+if ! $PODMAN_USABLE && ! $DOCKER_OK; then
+  if ! $PODMAN_INSTALLED; then
+    echo "  $FAIL  Podman not found"
+  fi
+  ALL_GOOD=false
+fi
 echo ""
 
 # ── 4. Determine compose command ───────────────────────────────────────────
+# Prefer the engine that's actually RUNNING, not just installed. When both
+# are working, Docker wins because `docker compose` (the subcommand) is the
+# most universal and predictable path.
 echo "  Checking compose..."
-if $PODMAN_OK && command -v docker-compose &>/dev/null; then
-  echo "  $PASS  podman compose available (via docker-compose)"
-  COMPOSE_CMD="podman compose"
-elif $PODMAN_OK && podman compose version &>/dev/null 2>&1; then
-  echo "  $PASS  podman compose available"
-  COMPOSE_CMD="podman compose"
-elif $DOCKER_OK && docker compose version &>/dev/null 2>&1; then
+if $DOCKER_OK && docker compose version &>/dev/null 2>&1; then
   echo "  $PASS  docker compose available"
   COMPOSE_CMD="docker compose"
+elif $PODMAN_USABLE && podman compose version &>/dev/null 2>&1; then
+  echo "  $PASS  podman compose available"
+  COMPOSE_CMD="podman compose"
+elif $PODMAN_USABLE && command -v docker-compose &>/dev/null; then
+  echo "  $PASS  podman compose available (via docker-compose)"
+  COMPOSE_CMD="podman compose"
+elif $DOCKER_OK && command -v docker-compose &>/dev/null; then
+  echo "  $PASS  docker compose available (via docker-compose)"
+  COMPOSE_CMD="docker compose"
 else
-  echo "  $FAIL  No compose command found"
+  echo "  $FAIL  No working compose found (need 'docker compose' or 'podman compose')"
   ALL_GOOD=false
 fi
 echo ""
@@ -209,7 +243,8 @@ else
   echo ""
 
   # ── Install guidance ───────────────────────────────────────────────────
-  if ! $PODMAN_OK && ! $DOCKER_OK; then
+  # Show the runtime install guide only when NEITHER engine is usable.
+  if ! $PODMAN_USABLE && ! $DOCKER_OK; then
     echo "========================================"
     echo ""
     echo "  INSTALL GUIDE — Container Runtime"

@@ -45,6 +45,11 @@ class ChatResponse(BaseModel):
     token_usage: TokenUsage = TokenUsage()
     confidence: ConfidenceResult = ConfidenceResult()
     hallucination_mode: bool = False
+    # The provider + model that produced this reply. Surfaced so the chat-ui
+    # can render a per-message tag — useful when the user switches models
+    # mid-conversation and wants to know which message came from which.
+    provider: str = ""
+    model: str = ""
 
 
 class VerifyRequest(BaseModel):

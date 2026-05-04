@@ -165,3 +165,121 @@ async def test_scan_image_returns_valid_json(monkeypatch):
     parsed = json.loads(out)
     assert parsed["status"] in ("PASSED", "FAILED")
     assert parsed["image"] == "sample-app:v1.0.0"
+
+
+# ─── auth + default-repo fixes (the bug from the chat-ui transcript) ───
+
+def test_build_image_default_repo_url_matches_seeded_repo():
+    """init-gitea.sh seeds mcpadmin/sample-app, not mcpadmin/hello-app, so the
+    no-args build_image() call from the workshop must point at the real repo."""
+    tools = _fresh_runner_tools()
+    sig = inspect.signature(tools["build_image"])
+    default = sig.parameters["repo_url"].default
+    assert default.endswith("/mcpadmin/sample-app"), (
+        f"build_image default repo_url must match the seeded repo; got: {default!r}"
+    )
+
+
+def test_build_image_accepts_optional_username_password():
+    """build_image follows the same per-call auth pattern as the gitea_* tools."""
+    tools = _fresh_runner_tools()
+    sig = inspect.signature(tools["build_image"])
+    for param in ("username", "password"):
+        assert param in sig.parameters, (
+            f"build_image must accept optional {param}; signature is {sig}"
+        )
+        assert sig.parameters[param].default is None
+
+
+@pytest.mark.asyncio
+async def test_build_image_embeds_credentials_into_clone_url(monkeypatch):
+    """When username + password are passed, build_image must rewrite the clone
+    URL as http://USER:PASS@host/... so `git clone` authenticates without a TTY,
+    AND set GIT_TERMINAL_PROMPT=0 so a 401 produces a clean error instead of
+    'could not read Username for ...: No such device or address'."""
+
+    captured: dict = {}
+
+    class FakeProc:
+        def __init__(self, returncode, stderr=b""):
+            self.returncode = returncode
+            self._stderr = stderr
+
+        async def communicate(self):
+            return b"", self._stderr
+
+    async def fake_exec(*args, **kwargs):
+        # Only capture the first invocation — the git clone — and fail it so
+        # we don't fall through to the podman/skopeo steps.
+        if "clone_args" not in captured:
+            captured["clone_args"] = args
+            captured["clone_env"] = kwargs.get("env") or {}
+        return FakeProc(returncode=128, stderr=b"fatal: simulated")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+    tools = _fresh_runner_tools()
+    await tools["build_image"](
+        repo_url="http://gitea:3000/mcpadmin/sample-app",
+        image_name="x",
+        tag="y",
+        username="diana",
+        password="diana-lab-123",
+    )
+
+    assert "clone_args" in captured, "git clone subprocess was not invoked"
+    cred_url = next((a for a in captured["clone_args"] if "gitea:3000" in a), None)
+    assert cred_url is not None, (
+        f"could not find a gitea URL among clone args: {captured['clone_args']!r}"
+    )
+    assert "diana:diana-lab-123@gitea:3000" in cred_url, (
+        f"credentials not embedded into clone URL: {cred_url!r}"
+    )
+    assert captured["clone_env"].get("GIT_TERMINAL_PROMPT") == "0", (
+        "GIT_TERMINAL_PROMPT=0 must be set on the clone subprocess so git "
+        "fails fast on missing creds instead of prompting; "
+        f"env was: {captured['clone_env']!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_build_image_falls_back_to_gitea_token_when_no_creds(monkeypatch):
+    """Without per-call username/password, build_image embeds the lab's
+    GITEA_TOKEN as the basic-auth password (Gitea PATs work in that slot).
+    This keeps default no-args calls working in the workshop."""
+    from mcp_server import config
+
+    monkeypatch.setattr(config, "GITEA_TOKEN", "test-token-abc123")
+
+    captured: dict = {}
+
+    class FakeProc:
+        def __init__(self, returncode, stderr=b""):
+            self.returncode = returncode
+            self._stderr = stderr
+
+        async def communicate(self):
+            return b"", self._stderr
+
+    async def fake_exec(*args, **kwargs):
+        if "clone_args" not in captured:
+            captured["clone_args"] = args
+        return FakeProc(returncode=128, stderr=b"fatal: simulated")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+    # Re-import after patching config so the fresh module sees the token.
+    from mcp_server.tools import runner_tools
+    importlib.reload(runner_tools)
+    mcp = FastMCP("test-runner-token")
+    runner_tools.register(mcp)
+    tools = _registered_tools(mcp)
+
+    await tools["build_image"]()  # all defaults
+
+    cred_url = next((a for a in captured["clone_args"] if "gitea:3000" in a), None)
+    assert cred_url is not None, captured
+    assert "test-token-abc123" in cred_url, (
+        f"GITEA_TOKEN must be embedded as the basic-auth password "
+        f"in the clone URL when no user creds are passed; got: {cred_url!r}"
+    )

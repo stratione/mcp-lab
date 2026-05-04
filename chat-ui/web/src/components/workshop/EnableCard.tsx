@@ -4,7 +4,7 @@ import { useServers } from '@/features/servers/useServers'
 import { useQuery } from '@tanstack/react-query'
 import { getMcpStatusEnvelope } from '@/lib/api'
 
-export function EnableCard({ mcp, onNext }: { mcp: string; onNext: () => void }) {
+export function EnableCard({ mcp }: { mcp: string }) {
   const { data: servers } = useServers()
   // Engine label comes from the mcp-status envelope, not the server array.
   const { data: env } = useQuery({
@@ -47,14 +47,11 @@ export function EnableCard({ mcp, onNext }: { mcp: string; onNext: () => void })
           <span className="text-muted">Waiting for {mcp} to come online…</span>
         )}
       </div>
-      <div className="flex justify-between items-center">
-        <span className="text-[11px] text-faint">
-          {online ? 'Step complete.' : 'Skip ahead anytime — you can come back.'}
-        </span>
-        <Button size="sm" onClick={onNext} data-testid="workshop-enable-next">
-          Next →
-        </Button>
-      </div>
+      <p className="text-[11px] text-faint">
+        {online
+          ? 'Step complete — use forward → below to continue.'
+          : 'You can move on anytime with forward → below.'}
+      </p>
     </div>
   )
 }

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { useLab } from '@/lib/store'
 import { probeUrl } from '@/lib/api'
 import type { ProbeResult } from '@/lib/schemas'
@@ -9,10 +8,9 @@ type Props = {
   prompt: string
   probe: { url: string; auth?: 'basic' }
   teach: string
-  onNext: () => void
 }
 
-export function VerifyCard({ prompt, probe, teach, onNext }: Props) {
+export function VerifyCard({ prompt, probe, teach }: Props) {
   const setPending = useLab((s) => s.setPendingPrompt)
   const [result, setResult] = useState<ProbeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -46,14 +44,11 @@ export function VerifyCard({ prompt, probe, teach, onNext }: Props) {
           : 'probing…'}
       </pre>
       <p className="text-xs text-muted italic">{teach}</p>
-      <div className="flex justify-between items-center">
-        <span className="text-[11px] text-faint">
-          {done ? 'Probe complete.' : 'Skip ahead anytime — you can come back.'}
-        </span>
-        <Button size="sm" onClick={onNext} data-testid="workshop-verify-next">
-          Next →
-        </Button>
-      </div>
+      <p className="text-[11px] text-faint">
+        {done
+          ? 'Probe complete — use forward → below to continue.'
+          : 'You can move on anytime with forward → below.'}
+      </p>
     </div>
   )
 }

@@ -53,3 +53,17 @@ body { background: rgb(var(--bg)); color: rgb(var(--text)); font-family: theme('
   outline: 2px solid rgb(var(--text));
   outline-offset: 2px;
 }
+
+/* Visible text selection in both themes. The defaults wash out — particularly
+ * inside the assistant bubble (surface-2 + prose) where the browser's default
+ * highlight blends with the background. This uses the foreground color at
+ * 30% opacity so the highlight is clearly visible against any surface tone
+ * without overriding text color (which keeps syntax highlighting readable). */
+::selection {
+  background: rgb(var(--text) / 0.3);
+  color: inherit;
+}
+::-moz-selection {
+  background: rgb(var(--text) / 0.3);
+  color: inherit;
+}

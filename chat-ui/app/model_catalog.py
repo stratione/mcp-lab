@@ -27,16 +27,15 @@ _OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.containers.internal:1143
 
 # ─── Ollama ──────────────────────────────────────────────────────────────
 
-# Curated catalog. Tags marked supports_tools=True are confirmed via Ollama's
-# "tools" capability filter. Refresh from https://ollama.com/search?c=tools
-# if the lineup drifts.
+# Curated catalog. Every entry below is confirmed tools-capable via Ollama's
+# "tools" filter (https://ollama.com/search?c=tools). The lab is fundamentally
+# about MCP tool calling, so models that can't tool-call don't earn a slot —
+# they'd just produce raw-JSON-text "tool calls" that confuse first-time
+# attendees. Refresh from the link above if the lineup drifts.
 _OLLAMA_CATALOG: list[dict[str, Any]] = [
     {"id": "llama3.1:8b",   "label": "Llama 3.1 8B (default)",       "supports_tools": True},
     {"id": "llama3.1:70b",  "label": "Llama 3.1 70B (large)",        "supports_tools": True},
     {"id": "llama3.2:3b",   "label": "Llama 3.2 3B (small/fast)",    "supports_tools": True},
-    {"id": "gemma4:e4b",    "label": "Gemma 4 E4B (~9.6 GB)",        "supports_tools": True},
-    {"id": "gemma4:e2b",    "label": "Gemma 4 E2B (~7.2 GB)",        "supports_tools": True},
-    {"id": "gemma4:26b",    "label": "Gemma 4 26B (MoE)",            "supports_tools": True},
     {"id": "qwen2.5:7b",    "label": "Qwen 2.5 7B",                  "supports_tools": True},
     {"id": "mistral-nemo",  "label": "Mistral Nemo 12B",             "supports_tools": True},
     {"id": "command-r-plus","label": "Cohere Command R+",            "supports_tools": True},

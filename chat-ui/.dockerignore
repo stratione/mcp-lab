@@ -1,0 +1,26 @@
+# Node — installed fresh inside the image via `npm ci`
+**/node_modules
+**/dist
+**/.vite
+
+# VCS
+.git
+.gitignore
+
+# Cypress runs on the host, not in the container
+cypress
+cypress.config.js
+
+# Python test infra (not used by the runtime image)
+.pytest_cache
+pytest.ini
+requirements-dev.txt
+tests
+
+# Top-level package.json is for host-side cypress, not the chat-ui image
+package.json
+package-lock.json
+
+# OS / editor noise
+.DS_Store
+*.log
