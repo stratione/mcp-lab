@@ -103,7 +103,7 @@ const PHASE_1_IDENTITY: Phase = {
     {
       kind: 'exercise',
       heading: 'Write — onboard a teammate',
-      prompt: 'Onboard a new dev named dave at dave@example.com with the dev role.',
+      prompt: 'Onboard a new dev named dave at dave@devops.com with the dev role.',
       tool: 'create_user',
       teach: 'create_user requires role; the MCP\'s docstring tells the model to call list_roles first.',
     },
