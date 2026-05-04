@@ -317,7 +317,53 @@ async def ollama_delete(name: str):
         raise HTTPException(status_code=502, detail=f"Ollama unreachable: {e}")
 
 
-_CONTAINER_ENGINE = os.environ.get("CONTAINER_ENGINE", "docker")
+def _detect_engine() -> str:
+    """Auto-detect the container engine behind /var/run/docker.sock.
+
+    Both engines mount the same path, but Docker answers GET /_ping with
+    `Server: Docker/...` and Podman answers with `Server: Libpod/...`.
+    Probing the socket is more reliable than trusting CONTAINER_ENGINE
+    in .env, which can drift if the user switches engines without
+    rerunning setup.
+
+    Priority:
+      1. CONTAINER_ENGINE_FORCE  (explicit override; testing the other path)
+      2. Socket probe            (whoever's actually answering)
+      3. CONTAINER_ENGINE env    (setup-script value)
+      4. "docker"                (sane default)
+    """
+    forced = os.environ.get("CONTAINER_ENGINE_FORCE", "").strip().lower()
+    if forced in ("docker", "podman"):
+        return forced
+
+    sock_path = "/var/run/docker.sock"
+    try:
+        import socket as _socket
+        s = _socket.socket(_socket.AF_UNIX)
+        s.settimeout(2.0)
+        s.connect(sock_path)
+        s.send(b"GET /_ping HTTP/1.0\r\nHost: x\r\n\r\n")
+        chunks: list[bytes] = []
+        for _ in range(4):
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        s.close()
+        resp = b"".join(chunks).lower()
+        if b"server: docker" in resp:
+            return "docker"
+        if b"server: libpod" in resp:
+            return "podman"
+    except OSError:
+        pass
+
+    fallback = os.environ.get("CONTAINER_ENGINE", "docker").strip().lower()
+    return fallback or "docker"
+
+
+_CONTAINER_ENGINE = _detect_engine()
+logger.info("Detected container engine: %s", _CONTAINER_ENGINE)
 _HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", "")
 
 
