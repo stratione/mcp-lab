@@ -16,10 +16,12 @@ import httpx
 
 CHAT_UI_URL = "http://localhost:3001"
 
-# After M1 the workshop default has USER_DESTRUCTIVE_TOOLS_ENABLED unset,
-# which hides delete_all_users → mcp-user reports 8 tools, not 9.
+# Workshop default: USER_DESTRUCTIVE_TOOLS_ENABLED is unset, which hides
+# `delete_all_users` only. `delete_user` is always exposed, so mcp-user
+# ships 9 tools (list_roles, list_users, get_user, get_user_by_username,
+# create_user, update_user, deactivate_user, activate_user, delete_user).
 EXPECTED_PER_SERVER = {
-    "user": 8,
+    "user": 9,
     "gitea": 7,
     "registry": 5,
     "promotion": 3,

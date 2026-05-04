@@ -37,22 +37,31 @@ async def test_delete_chat_history_endpoint_clears_persisted_history(
     assert body2.get("turns") == [] or "turns" not in body2 or body2["turns"] == []
 
 
-def test_dashboard_query_param_handler_present_in_static():
-    """Pin: the built UI bundle must contain logic for the `dashboard=open`
+def test_dashboard_query_param_handler_present_in_source():
+    """Pin: the chat-ui source must contain logic for the `dashboard=open`
     URL param so the wizard can deep-link to the compare panel.
-    Minification rewrites `params.get('dashboard') === 'open'` to compact
-    forms, so we check for the individual tokens rather than the literal."""
+
+    Previously this test inspected the built Vite bundle, but the bundle
+    now lives only inside the chat-ui Docker image (the `chat-ui/app/static`
+    directory is gitignored and never exists on the host). Asserting against
+    the source — which Vite copies verbatim — is more reliable and catches
+    regressions even before a build.
+    """
     from pathlib import Path
     REPO_ROOT = Path("/Users/noelorona/Desktop/repos/mcp-lab")
-    assets_dir = REPO_ROOT / "chat-ui/app/static/assets"
-    bundles = list(assets_dir.glob("index-*.js"))
-    assert bundles, (
-        f"No Vite bundle found in {assets_dir}; run `npm run build` in chat-ui/web"
-    )
-    bundle_text = bundles[0].read_text(errors="replace")
-    assert "dashboard" in bundle_text, (
-        "Vite bundle must contain 'dashboard' URL-param handling"
-    )
-    assert '"open"' in bundle_text or "'open'" in bundle_text or "`open`" in bundle_text, (
-        "Vite bundle must check for param value 'open'"
+    src_dir = REPO_ROOT / "chat-ui/web/src"
+    sources = list(src_dir.rglob("*.tsx")) + list(src_dir.rglob("*.ts"))
+    assert sources, f"No TS sources found under {src_dir}"
+
+    matched_dashboard = False
+    matched_open = False
+    for path in sources:
+        text = path.read_text(errors="replace")
+        if "'dashboard'" in text or '"dashboard"' in text or "`dashboard`" in text:
+            matched_dashboard = True
+            if "'open'" in text or '"open"' in text or "`open`" in text:
+                matched_open = True
+    assert matched_dashboard, "no source file references the 'dashboard' URL param"
+    assert matched_open, (
+        "no source file references the 'open' value alongside the dashboard param"
     )

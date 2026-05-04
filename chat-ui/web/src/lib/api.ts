@@ -120,6 +120,7 @@ export type ModelEntry = {
   label: string
   supports_tools: boolean
   installed: boolean | null
+  recommended?: boolean
 }
 export type ModelCatalog = {
   provider: string
@@ -137,6 +138,9 @@ const ModelCatalogSchema = z.object({
       label: z.string(),
       supports_tools: z.boolean(),
       installed: z.boolean().nullable(),
+      // Optional so older bundles that haven't picked up the catalog change
+      // still validate against the response. Defaults to false.
+      recommended: z.boolean().optional().default(false),
     }),
   ),
 })

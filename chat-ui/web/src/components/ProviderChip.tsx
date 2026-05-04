@@ -148,21 +148,31 @@ export function ProviderChip() {
             <option value={AUTO_VALUE}>
               ✨ Auto (recommended) — {catalog?.auto_resolves_to ?? '…'}
             </option>
-            {catalog?.models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.installed === false ? '○ ' : m.installed === true ? '● ' : ''}
-                {m.label}
-                {m.installed === false ? '  (not pulled)' : ''}
-              </option>
-            ))}
+            {/* Recommended picks float to the top of the list so attendees
+                can grab a workshop-validated model without scanning. */}
+            {[...(catalog?.models ?? [])]
+              .sort((a, b) => Number(!!b.recommended) - Number(!!a.recommended))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.recommended ? '★ ' : ''}
+                  {m.installed === false ? '○ ' : m.installed === true ? '● ' : ''}
+                  {m.label}
+                  {m.installed === false ? '  (not pulled)' : ''}
+                </option>
+              ))}
           </select>
-          {s.provider === 'ollama' && (
+          {s.provider === 'ollama' ? (
             <div className="flex items-center justify-between mt-1">
               <p className="text-[10px] text-faint">
-                ● installed · ○ in catalog
+                ★ recommended · ● installed · ○ in catalog
               </p>
               <ModelManager />
             </div>
+          ) : (
+            <p className="text-[10px] text-faint mt-1">
+              ★ workshop-validated for tool calling — others may work but
+              haven’t been spot-checked.
+            </p>
           )}
         </div>
         <div>
