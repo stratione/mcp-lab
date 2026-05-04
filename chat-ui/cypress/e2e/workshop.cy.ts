@@ -64,11 +64,8 @@ describe('workshop wizard (?workshop=1)', () => {
 
     cy.get('[data-testid=workshop-forward]').click()
 
-    // mcp-user pre-enable hallucinate
-    cy.get('[data-testid=workshop-hallucinate]').should('exist')
-    cy.get('[data-testid=workshop-forward]').click()
-
-    // mcp-user enable card — engine label is podman.
+    // Phase 1 (Identity & access) opens with the mcp-user enable card —
+    // the "list_roles before list_users" exercise sequence requires it on.
     cy.get('[data-testid=workshop-enable]').contains('podman compose up -d mcp-user')
 
     // Flip mcp-user online and confirm the status flips to ✓.
@@ -96,6 +93,12 @@ describe('workshop wizard (?workshop=1)', () => {
       })
     })
     cy.get('[data-testid=workshop-enable-status]', { timeout: 6000 }).should('contain', '✓')
+    cy.get('[data-testid=workshop-forward]').click()
+
+    // First exercise card after enable is list_roles.
+    cy.get('[data-testid=workshop-hallucinate]').should('exist')
+    cy.get('[data-testid=chat-input]').should('have.value',
+      'What roles can a user have in this system?')
     cy.get('[data-testid=workshop-forward]').click()
 
     // Verify card runs probe; body renders.

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useLab } from '@/lib/store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { LESSONS, PHASE_COUNT } from './lessons'
+import { STEPS, PHASE_COUNT, phaseFor } from './lessons'
 import { IntroCard } from './IntroCard'
 import { HallucinateCard } from './HallucinateCard'
 import { EnableCard } from './EnableCard'
@@ -34,61 +34,12 @@ export function Workshop() {
     if (mode) localStorage.setItem(STEP_KEY, String(step))
   }, [mode, step])
 
-  let card: ReactNode
-  if (step === 0) {
-    card = <IntroCard />
-  } else if (step === 1) {
-    card = (
-      <HallucinateCard
-        pass="cold-open"
-        mcpLabel="No MCP servers running"
-        prompt="List all users in the system."
-      />
-    )
-  } else if (step >= 2 && step <= 1 + 3 * LESSONS.length) {
-    const offset = step - 2
-    const i = Math.floor(offset / 3)
-    const sub = offset % 3
-    const lesson = LESSONS[i]
-    if (sub === 0) {
-      card = (
-        <HallucinateCard
-          pass="pre-enable"
-          mcpLabel={lesson.mcp}
-          prompt={lesson.prompt}
-        />
-      )
-    } else if (sub === 1) {
-      card = <EnableCard mcp={lesson.mcp} />
-    } else {
-      card = (
-        <VerifyCard
-          mcp={lesson.mcp}
-          prompt={lesson.prompt}
-          probe={lesson.probe}
-          teach={lesson.teach}
-        />
-      )
-    }
-  } else if (step === PHASE_COUNT - 3) {
-    card = (
-      <HallucinateCard
-        pass="pre-enable"
-        mcpLabel="Capstone — chain everything"
-        prompt="Build the hello-app from sample-app, scan it, promote it to production, and deploy it."
-      />
-    )
-  } else if (step === PHASE_COUNT - 2) {
-    // New: capstone payoff — probe the deployed app on localhost:9080.
-    card = <CapstoneVerifyCard />
-  } else {
-    // step === PHASE_COUNT - 1 — wrap (real summary now, not the stale Intro).
-    card = <WrapCard />
-  }
+  const safeIndex = Math.min(Math.max(step, 0), STEPS.length - 1)
+  const cur = STEPS[safeIndex]
+  const phase = phaseFor(safeIndex)
 
-  // Platform-aware modifier label. The existing CmdK binding already accepts
-  // both metaKey and ctrlKey, so the *binding* works on every OS — only the
-  // label changes.
+  const card: ReactNode = renderCard(cur)
+
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const modKey = isMac ? '⌘K' : 'Ctrl+K'
 
@@ -101,8 +52,11 @@ export function Workshop() {
         className="max-w-md text-sm"
       >
         <DialogHeader>
-          <DialogTitle className="text-xs font-normal text-muted">
-            Workshop · step {step + 1} of {PHASE_COUNT}
+          <DialogTitle className="text-xs font-normal text-muted flex items-center justify-between gap-2">
+            <span>
+              {phase.title} · step {safeIndex + 1} of {PHASE_COUNT}
+            </span>
+            <span className="text-[10px] text-faint italic">{phase.blurb}</span>
           </DialogTitle>
         </DialogHeader>
         <ToolReliabilityHint />
@@ -111,8 +65,8 @@ export function Workshop() {
           <button
             type="button"
             className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={() => setStep(Math.max(step - 1, 0))}
-            disabled={step === 0}
+            onClick={() => setStep(Math.max(safeIndex - 1, 0))}
+            disabled={safeIndex === 0}
             aria-label="Previous step"
             data-testid="workshop-back"
           >
@@ -124,8 +78,8 @@ export function Workshop() {
           <button
             type="button"
             className="px-2.5 py-1 text-xs rounded border border-border bg-bg text-text hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={() => setStep(Math.min(step + 1, PHASE_COUNT - 1))}
-            disabled={step >= PHASE_COUNT - 1}
+            onClick={() => setStep(Math.min(safeIndex + 1, PHASE_COUNT - 1))}
+            disabled={safeIndex >= PHASE_COUNT - 1}
             aria-label="Next step"
             data-testid="workshop-forward"
           >
@@ -150,4 +104,45 @@ export function Workshop() {
       </DialogContent>
     </Dialog>
   )
+}
+
+function renderCard(s: (typeof STEPS)[number]): ReactNode {
+  switch (s.kind) {
+    case 'intro':
+      return <IntroCard />
+    case 'cold-open':
+      return (
+        <HallucinateCard
+          pass="cold-open"
+          mcpLabel="No MCP servers running"
+          prompt={s.prompt}
+        />
+      )
+    case 'enable':
+      return <EnableCard mcp={s.mcp} />
+    case 'exercise':
+      return (
+        <HallucinateCard
+          pass="exercise"
+          heading={s.heading}
+          mcpLabel=""
+          prompt={s.prompt}
+          tool={s.tool}
+          teach={s.teach}
+        />
+      )
+    case 'verify':
+      return (
+        <VerifyCard
+          mcp={s.mcp}
+          prompt={s.prompt}
+          probe={s.probe}
+          teach={s.teach}
+        />
+      )
+    case 'capstone-verify':
+      return <CapstoneVerifyCard />
+    case 'wrap':
+      return <WrapCard />
+  }
 }
