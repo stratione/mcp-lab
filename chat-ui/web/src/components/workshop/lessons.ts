@@ -305,17 +305,17 @@ const PHASE_7_ITERATE: Phase = {
     },
     {
       kind: 'exercise',
-      heading: 'Iterate — rebuild and tag v2',
-      prompt: 'Rebuild hello-app from the feature/v2 branch and tag the new build as v2.0.0 in registry-dev.',
+      heading: 'Iterate — rebuild as v2.0.0',
+      prompt: 'Rebuild hello-app from sample-app — pass tag="v2.0.0" to build_image so the new image lands in registry-dev as hello-app:v2.0.0 (default tag is "latest", which would clobber v1).',
       tool: 'build_image',
-      teach: 'build_image accepts a branch arg; the runner clones that ref instead of main.',
+      teach: 'build_image takes a tag argument. For releases, set it explicitly so the registry has a versioned tag, not just :latest.',
     },
     {
       kind: 'exercise',
       heading: 'Iterate — promote and redeploy',
-      prompt: 'Promote hello-app:v2.0.0 to prod as alice, then redeploy hello-app to dev so the running container picks up v2.',
+      prompt: 'Promote hello-app:v2.0.0 from dev to prod as alice (password alice-lab-123), then deploy hello-app:v2.0.0 to the dev environment so the running container picks up v2.',
       tool: 'promote_image + deploy_app',
-      teach: 'Two tool calls in one prompt. Re-probe localhost:9080 — the JSON now shows "version": "2.0.0".',
+      teach: 'Two tool calls in one prompt. Re-probe localhost:9080 — the JSON now shows "version": "2.0.0" instead of "1.0.0".',
     },
   ],
 }
