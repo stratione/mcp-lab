@@ -354,3 +354,21 @@ export function phaseFor(stepIndex: number): Phase {
   }
   return PHASES[PHASES.length - 1]
 }
+
+/** Every MCP that gets enabled somewhere in the walkthrough. */
+export const ENABLED_MCPS: McpName[] = STEPS.flatMap((s) =>
+  s.kind === 'enable' ? [s.mcp] : [],
+)
+
+/**
+ * MCPs that should be online by the time the attendee is at `stepIndex`
+ * (used by the CmdK "catch me up" action — flips on every MCP whose
+ * enable step is at or before the current step).
+ */
+export function mcpsExpectedOnlineAt(stepIndex: number): McpName[] {
+  const out: McpName[] = []
+  STEPS.forEach((s, i) => {
+    if (s.kind === 'enable' && i <= stepIndex) out.push(s.mcp)
+  })
+  return out
+}

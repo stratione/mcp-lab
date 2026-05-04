@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useLab } from '@/lib/store'
 import { applyTheme } from '@/lib/theme'
 import { setHallucinationMode, mcpControl } from '@/lib/api'
-import { LESSONS } from '@/components/workshop/lessons'
+import { ENABLED_MCPS, mcpsExpectedOnlineAt } from '@/components/workshop/lessons'
 
 export function CmdK() {
   const open = useLab((s) => s.cmdkOpen)
@@ -76,15 +76,10 @@ export function CmdK() {
                 <CommandGroup heading="Workshop">
                   <CommandItem
                     onSelect={go(async () => {
-                      // Catch-up: enable every MCP that should be on by current step.
-                      // Per the phase model: LESSONS[i] is enabled when sub === 1,
-                      // which is at step (3 + 3 * i). If workshopStep >= that, the MCP
-                      // should be on.
-                      for (let i = 0; i < LESSONS.length; i++) {
-                        const enableStep = 3 + 3 * i
-                        if (workshopStep >= enableStep) {
-                          await mcpControl(LESSONS[i].mcp, 'start').catch(() => {})
-                        }
+                      // Catch-up: enable every MCP whose `enable` step has
+                      // already passed in the new phased walkthrough.
+                      for (const mcp of mcpsExpectedOnlineAt(workshopStep)) {
+                        await mcpControl(mcp, 'start').catch(() => {})
                       }
                     })}
                   >
@@ -92,10 +87,9 @@ export function CmdK() {
                   </CommandItem>
                   <CommandItem
                     onSelect={go(async () => {
-                      for (const l of LESSONS) {
-                        await mcpControl(l.mcp, 'start').catch(() => {})
+                      for (const mcp of ENABLED_MCPS) {
+                        await mcpControl(mcp, 'start').catch(() => {})
                       }
-                      await mcpControl('mcp-runner', 'start').catch(() => {})
                     })}
                   >
                     Workshop: Enable all remaining MCPs (presenter cheat)
