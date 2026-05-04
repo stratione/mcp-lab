@@ -17,6 +17,16 @@ const PROVIDERS = [
   { v: 'pretend', label: 'Demo LLM' },
 ]
 
+// Maps provider id → the env var name the chat-ui's backend (chat-ui/app/main.py)
+// reads at boot to populate _API_KEYS. Keep this in sync with that file when
+// adding providers — it powers the "set X in .env.secrets" hint shown under
+// the API key field.
+const ENV_VAR_FOR_PROVIDER: Record<string, string> = {
+  openai: 'OPENAI_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
+  google: 'GOOGLE_API_KEY',
+}
+
 const AUTO_VALUE = 'auto'
 
 export function ProviderChip() {
@@ -164,6 +174,19 @@ export function ProviderChip() {
             placeholder={s.provider === 'ollama' ? 'not required' : 'sk-…'}
             disabled={s.provider === 'ollama' || s.provider === 'pretend'}
           />
+          {s.provider !== 'ollama' && s.provider !== 'pretend' && (
+            <p
+              className="mt-1 text-[10px] text-faint leading-snug"
+              data-testid="env-secrets-hint"
+            >
+              💡 Or set{' '}
+              <code className="font-mono text-muted">
+                {ENV_VAR_FOR_PROVIDER[s.provider] ?? 'PROVIDER_API_KEY'}
+              </code>{' '}
+              in <code className="font-mono text-muted">.env.secrets</code> at the project
+              root — the lab loads it on every restart so you don't have to paste it each session.
+            </p>
+          )}
           {s.provider !== 'pretend' && (
             <div className="flex items-center gap-2 mt-1.5">
               <button

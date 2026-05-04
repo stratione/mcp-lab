@@ -12,6 +12,17 @@ const DEFAULT_WIDTH = 360
 const MIN_WIDTH = 280
 const MAX_WIDTH_PCT = 0.7
 
+// Tab keys stay machine-friendly (lowercase, no spaces) so the store value,
+// CmdK shortcuts, and any future deep links keep working. Labels are what
+// gets rendered — readable English, multi-word allowed.
+const INSPECTOR_TABS: { key: InspectorTab; label: string }[] = [
+  { key: 'servers', label: 'MCP servers' },
+  { key: 'tools',   label: 'Tools' },
+  { key: 'trace',   label: 'Trace' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'try',     label: 'Try' },
+]
+
 function clampWidth(w: number) {
   const max = Math.floor(window.innerWidth * MAX_WIDTH_PCT)
   return Math.min(Math.max(MIN_WIDTH, w), max)
@@ -82,13 +93,15 @@ export function Inspector() {
       />
       <Tabs value={tab} onValueChange={(v) => setTab(v as InspectorTab)} className="flex flex-col flex-1 min-h-0">
         <TabsList className="bg-transparent justify-start gap-3 px-3 pt-3 pb-2 h-auto rounded-none border-b border-border">
-          {(['servers', 'tools', 'trace', 'compare', 'try'] as const).map((t) => (
+          {INSPECTOR_TABS.map(({ key, label }) => (
             <TabsTrigger
-              key={t}
-              value={t}
-              className="capitalize text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
+              key={key}
+              value={key}
+              // label is rendered explicitly (not via `capitalize`) so we can
+              // use multi-word names like "MCP servers".
+              className="text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
             >
-              {t}
+              {label}
             </TabsTrigger>
           ))}
         </TabsList>

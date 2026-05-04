@@ -3,11 +3,17 @@
 # Creates .env, starts services, grabs the Gitea token, and injects it into .env
 #
 # Tier selection:
-#   --tier=small    user-api + chat-ui + mcp-user                         (~700 MB)
-#   --tier=medium   + Gitea + mcp-gitea                                   (~900 MB)
+#   --tier=small    user-api + chat-ui + (backing services)               (~700 MB)
+#   --tier=medium   + Gitea                                                (~900 MB)
 #   --tier=large    + registries + promotion + runner — full lab          (~1.5 GB)
 #   (no flag)       interactive prompt if a TTY; otherwise defaults to large
 #                   (preserves prior single-command behavior for CI/automation)
+#
+# IMPORTANT: tier controls which BACKING services start at boot. ALL MCP
+# servers are off by default in every tier — the workshop's cold-open
+# requires this so the model genuinely has no tools when the user first
+# asks a question. Users enable MCPs from the chat-ui's MCP servers tab
+# or via `docker compose up -d mcp-<x>`.
 
 set -e
 
@@ -69,9 +75,10 @@ if [ -z "$TIER" ]; then
     echo ""
     echo "  Pick your tier  (you can level up later with 'make medium' / 'make large')"
     echo ""
-    echo "    1) small  (~700 MB)  user-api + chat-ui + mcp-user             \"What is MCP?\""
-    echo "    2) medium (~900 MB)  + Gitea + mcp-gitea                       \"MCP acts on your behalf\""
-    echo "    3) large  (~1.5 GB)  + registries + promotion + runner         \"MCP runs your CI/CD\"  (full lab)"
+    echo "    1) small  (~700 MB)  user-api + chat-ui                       \"What is MCP?\""
+    echo "    2) medium (~900 MB)  + Gitea                                  \"MCP acts on your behalf\""
+    echo "    3) large  (~1.5 GB)  + registries + promotion service + runner backing infra"
+    echo "                         (all MCP servers stay OFF — enable them from the UI)"
     echo ""
     read -r -p "  Choice [1/2/3] (default: $DEFAULT_NUM = $DEFAULT_PROMPT_TIER): " CHOICE
     CHOICE="${CHOICE:-$DEFAULT_NUM}"
@@ -91,32 +98,39 @@ if [ -z "$TIER" ]; then
   fi
 fi
 
-# Tier → service list and a description for messaging.
-# Note: TIER controls what STARTS at boot. The MCP images that BELONG to this
-# tier are pre-built synchronously below; the rest are pre-built in the
-# BACKGROUND so the chat-ui's "Start <service>" button still works for any
-# tool category, but first-time setup doesn't make the user wait through
-# 4 builds they may not need before the lab even opens.
+# Tier → service list + image-build groups.
+#
+# TIER_SERVICES: backing infra started at boot. NO mcp-* services here — the
+#   workshop's cold-open requires zero MCP tools so the model has nothing to
+#   call when the user first sends a prompt. Users enable mcp-* from the UI's
+#   MCP servers tab (or `docker compose up -d mcp-<x>` from a terminal).
+# TIER_FG_BUILDS: mcp-* images we build synchronously so the user can enable
+#   them instantly after setup completes.
+# TIER_BG_BUILDS: mcp-* images we build in the background after setup returns,
+#   so first-time users aren't blocked by builds for tools outside their tier.
 case "$TIER" in
   small)
-    TIER_SERVICES="user-api chat-ui mcp-user bootstrap"
+    TIER_SERVICES="user-api chat-ui bootstrap"
     TIER_FG_BUILDS="mcp-user"
     TIER_BG_BUILDS="mcp-gitea mcp-registry mcp-promotion mcp-runner"
-    TIER_DESC="small (~700 MB) — user-api + chat-ui + mcp-user"
+    TIER_DESC="small (~700 MB) — user-api + chat-ui (all MCPs off)"
     TIER_HAS_GITEA=0
     ;;
   medium)
-    TIER_SERVICES="user-api gitea chat-ui mcp-user mcp-gitea bootstrap"
+    TIER_SERVICES="user-api gitea chat-ui bootstrap"
     TIER_FG_BUILDS="mcp-user mcp-gitea"
     TIER_BG_BUILDS="mcp-registry mcp-promotion mcp-runner"
-    TIER_DESC="medium (~900 MB) — adds Gitea + mcp-gitea"
+    TIER_DESC="medium (~900 MB) — adds Gitea backing service (all MCPs still off)"
     TIER_HAS_GITEA=1
     ;;
   large)
-    TIER_SERVICES=""  # empty = bare `compose up -d` (everything)
+    # Bare `compose up -d` brings up every UNPROFILED service — gitea,
+    # registries, promotion-service, etc. mcp-* services have profiles, so
+    # they STAY OFF until the user enables them.
+    TIER_SERVICES=""
     TIER_FG_BUILDS="mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
-    TIER_BG_BUILDS=""  # large already builds them all upfront
-    TIER_DESC="large (~1.5 GB) — full lab"
+    TIER_BG_BUILDS=""
+    TIER_DESC="large (~1.5 GB) — full backing infra (all MCPs still off)"
     TIER_HAS_GITEA=1
     ;;
 esac
