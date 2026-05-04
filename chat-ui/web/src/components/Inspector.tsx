@@ -6,6 +6,7 @@ import { ToolsTab } from '@/features/tools/ToolsTab'
 import { TraceTab } from '@/features/trace/TraceTab'
 import { CompareTab } from '@/features/compare/CompareTab'
 import { TryTab } from '@/features/try/TryTab'
+import { WalkthroughTab } from '@/features/walkthrough/WalkthroughTab'
 
 const STORAGE_KEY = 'mcp-lab.inspector-width'
 const DEFAULT_WIDTH = 360
@@ -16,11 +17,12 @@ const MAX_WIDTH_PCT = 0.7
 // CmdK shortcuts, and any future deep links keep working. Labels are what
 // gets rendered — readable English, multi-word allowed.
 const INSPECTOR_TABS: { key: InspectorTab; label: string }[] = [
-  { key: 'servers', label: 'MCP servers' },
-  { key: 'tools',   label: 'Tools' },
-  { key: 'trace',   label: 'Trace' },
-  { key: 'compare', label: 'Compare' },
-  { key: 'try',     label: 'Try' },
+  { key: 'servers',     label: 'MCP servers' },
+  { key: 'tools',       label: 'Tools' },
+  { key: 'trace',       label: 'Trace' },
+  { key: 'compare',     label: 'Compare' },
+  { key: 'try',         label: 'Try' },
+  { key: 'walkthrough', label: 'Walkthrough' },
 ]
 
 function clampWidth(w: number) {
@@ -111,6 +113,7 @@ export function Inspector() {
           <TabsContent value="trace" className="m-0"><TraceTab /></TabsContent>
           <TabsContent value="compare" className="m-0"><CompareTab /></TabsContent>
           <TabsContent value="try" className="m-0"><TryTab /></TabsContent>
+          <TabsContent value="walkthrough" className="m-0"><WalkthroughTab /></TabsContent>
         </div>
       </Tabs>
     </aside>

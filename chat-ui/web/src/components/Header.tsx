@@ -9,12 +9,15 @@ import { useLab } from '@/lib/store'
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
   const [anatomyOpen, setAnatomyOpen] = useState(false)
-  // Workshop / Walkthrough button: toggles the modal open/closed. Replaces the
-  // ?workshop=1 URL flag as the primary entry point — the flag still works
-  // as a deep link (Workshop.tsx detects it on mount) but new users land on
-  // a clean localhost:3001 and click this button when they want the tour.
+  // Workshop / Walkthrough button: toggles workshopMode. The walkthrough
+  // renders as either a draggable floating panel or as a tab in the right
+  // inspector — controlled by walkthroughLayout. Replaces the ?workshop=1
+  // URL flag as the primary entry point (the flag still works as a deep
+  // link in Workshop.tsx).
   const workshopMode = useLab((s) => s.workshopMode)
   const setWorkshopMode = useLab((s) => s.setWorkshopMode)
+  const walkthroughLayout = useLab((s) => s.walkthroughLayout)
+  const setInspectorTab = useLab((s) => s.setInspectorTab)
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b border-border bg-surface">
       <div className="flex items-center gap-3">
@@ -71,7 +74,17 @@ export function Header() {
         </Dialog>
         <button
           type="button"
-          onClick={() => setWorkshopMode(!workshopMode)}
+          onClick={() => {
+            const next = !workshopMode
+            setWorkshopMode(next)
+            // When opening into inspector layout, also surface the right
+            // tab — otherwise the user clicks the button, the panel
+            // technically opens, but they're sitting on Servers/Tools/etc
+            // and see no change.
+            if (next && walkthroughLayout === 'inspector') {
+              setInspectorTab('walkthrough')
+            }
+          }}
           className={
             'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +
             (workshopMode

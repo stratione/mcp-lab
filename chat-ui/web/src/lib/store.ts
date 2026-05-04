@@ -26,7 +26,12 @@ export type TraceEntry = {
   messageId: string
 }
 
-export type InspectorTab = 'servers' | 'tools' | 'trace' | 'compare' | 'try'
+export type InspectorTab = 'servers' | 'tools' | 'trace' | 'compare' | 'try' | 'walkthrough'
+
+// Where the walkthrough renders. `floating` is a movable, non-modal panel
+// that doesn't trap focus (so the chat input below stays usable). `inspector`
+// embeds the walkthrough as a tab in the right-side Inspector.
+export type WalkthroughLayout = 'floating' | 'inspector'
 
 export type LabState = {
   messages: ChatMessageView[]
@@ -65,6 +70,9 @@ export type LabState = {
 
   workshopStep: number
   setWorkshopStep: (n: number) => void
+
+  walkthroughLayout: WalkthroughLayout
+  setWalkthroughLayout: (l: WalkthroughLayout) => void
 
   pendingPrompt: string | null
   setPendingPrompt: (s: string | null) => void
@@ -111,6 +119,12 @@ export const useLab = create<LabState>()(
       workshopStep: 0,
       setWorkshopStep: (workshopStep) => set({ workshopStep }),
 
+      // Layout preference is persisted (see partialize below) so refreshing
+      // doesn't yank the walkthrough out from under the user. Default is
+      // floating since that's the least disruptive — non-modal, draggable.
+      walkthroughLayout: 'floating',
+      setWalkthroughLayout: (walkthroughLayout) => set({ walkthroughLayout }),
+
       pendingPrompt: null,
       setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
     }),
@@ -126,6 +140,7 @@ export const useLab = create<LabState>()(
         messages: s.messages,
         traces: s.traces,
         sessionTokens: s.sessionTokens,
+        walkthroughLayout: s.walkthroughLayout,
       }),
       // If a 'pending' message was on screen when the user refreshed, it'll
       // never resolve — convert it to an error so the UI shows a Retry button
