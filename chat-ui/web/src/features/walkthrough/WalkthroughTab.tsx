@@ -19,7 +19,8 @@ export function WalkthroughTab() {
         <h3 className="font-semibold text-text">Walkthrough</h3>
         <p className="text-muted">
           The 35-step SDLC walkthrough isn't running. Start it to see the
-          tour appear here (or as a draggable floating panel).
+          tour appear here (or as a floating panel pinned to the
+          bottom-right corner).
         </p>
         <button
           type="button"
@@ -41,8 +42,8 @@ export function WalkthroughTab() {
       <div className="p-4 text-sm space-y-3">
         <h3 className="font-semibold text-text">Walkthrough is floating</h3>
         <p className="text-muted">
-          The walkthrough is currently a draggable panel. Drag it to reposition
-          or pop it in here.
+          The walkthrough is currently pinned to the bottom-right corner of
+          the page. Pop it in here to free up that space.
         </p>
         <button
           type="button"
@@ -63,7 +64,7 @@ export function WalkthroughTab() {
           type="button"
           className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-text"
           onClick={() => setLayout('floating')}
-          title="Pop the walkthrough back out as a draggable panel"
+          title="Pop the walkthrough back out as a floating panel"
           data-testid="walkthrough-tab-pop-out"
         >
           ↗ pop out
