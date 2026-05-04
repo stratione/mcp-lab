@@ -168,7 +168,53 @@ else
 fi
 echo ""
 
-# ── 6. git check ───────────────────────────────────────────────────────────
+# ── 6. Docker credential-helper sanity ─────────────────────────────────────
+# If Docker is the active engine and ~/.docker/config.json names a credsStore
+# whose binary isn't on PATH, every `docker pull` / `docker compose build` will
+# fail with:
+#   error getting credentials - err: exec: "docker-credential-<x>": executable
+#   file not found in $PATH
+# This commonly happens when a user removes Docker Desktop but their config
+# still says `"credsStore": "desktop"`. We catch it here so the lab doesn't
+# explode on the first compose pull.
+if $DOCKER_OK; then
+  echo "  Checking Docker credential helper..."
+  CFG="$HOME/.docker/config.json"
+  if [ -f "$CFG" ]; then
+    # Cheap regex extract — avoids requiring jq just for preflight.
+    STORE=$(grep -oE '"credsStore"[[:space:]]*:[[:space:]]*"[^"]*"' "$CFG" 2>/dev/null \
+              | head -1 \
+              | sed -E 's/.*"credsStore"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
+    if [ -n "$STORE" ]; then
+      HELPER="docker-credential-$STORE"
+      if command -v "$HELPER" &>/dev/null; then
+        echo "  $PASS  credsStore=$STORE (helper '$HELPER' is on PATH)"
+      else
+        echo "  $FAIL  $CFG points at credsStore '$STORE' but '$HELPER' is not on PATH"
+        echo ""
+        echo "         This causes 'docker pull' / compose builds to fail with:"
+        echo "           error getting credentials - err: exec: \"$HELPER\":"
+        echo "           executable file not found in \$PATH"
+        echo ""
+        echo "         Quick fix (lab uses public images only — no creds needed):"
+        echo ""
+        echo "           cp \"$CFG\" \"$CFG.bak\""
+        echo "           sed -i.tmp '/credsStore/d' \"$CFG\" && rm \"$CFG.tmp\""
+        echo ""
+        echo "         Then re-run this preflight."
+        echo ""
+        ALL_GOOD=false
+      fi
+    else
+      echo "  $PASS  no credsStore set (Docker stores creds inline — fine for public images)"
+    fi
+  else
+    echo "  $PASS  no ~/.docker/config.json yet (Docker will create one on demand)"
+  fi
+  echo ""
+fi
+
+# ── 7. git check ───────────────────────────────────────────────────────────
 echo "  Checking git..."
 if command -v git &>/dev/null; then
   GIT_VER=$(git --version | awk '{print $3}')
@@ -179,7 +225,7 @@ else
 fi
 echo ""
 
-# ── 7. Ollama check (optional) ─────────────────────────────────────────────
+# ── 8. Ollama check (optional) ─────────────────────────────────────────────
 echo "  Checking Ollama (optional — needed for free local LLM)..."
 if command -v ollama &>/dev/null; then
   if curl -sf http://localhost:11434/api/version &>/dev/null; then
@@ -221,7 +267,7 @@ else
 fi
 echo ""
 
-# ── 8. Result ──────────────────────────────────────────────────────────────
+# ── 9. Result ──────────────────────────────────────────────────────────────
 echo "========================================"
 
 if $ALL_GOOD; then
