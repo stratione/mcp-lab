@@ -21,7 +21,7 @@ export type BackingUrl = {
 
 const BACKING_URLS: Record<string, BackingUrl[]> = {
   'mcp-user': [
-    { label: 'List users', url: 'http://localhost:8001/users', hint: 'JSON of the 6 seeded users' },
+    { label: 'List users', url: 'http://localhost:8001/users', hint: 'JSON of the 7 seeded users' },
     { label: 'List roles', url: 'http://localhost:8001/users/roles', hint: 'JSON of valid role names' },
     { label: 'Swagger UI', url: 'http://localhost:8001/docs', hint: 'browse + try every endpoint' },
   ],

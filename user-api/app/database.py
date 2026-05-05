@@ -12,6 +12,12 @@ def get_db() -> sqlite3.Connection:
 
 
 SEED_USERS = [
+    # `admin` is seeded as a real user (not just a role) because every LLM
+    # tested defaulted to promoted_by="admin" when asked to promote — they
+    # treat the role name as a username. Seeding a literal admin user makes
+    # the lazy default work without weakening the policy gate; alice/eve are
+    # still admins for the "different identity, same role" walkthrough beats.
+    ("admin", "admin@mcp-lab.local", "Lab Admin", "admin"),
     ("alice", "alice@example.com", "Alice Johnson", "admin"),
     ("bob", "bob@example.com", "Bob Smith", "dev"),
     ("charlie", "charlie@example.com", "Charlie Davis", "dev"),

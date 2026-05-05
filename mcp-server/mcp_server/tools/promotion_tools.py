@@ -7,7 +7,18 @@ from ..clients import check_response
 def register(mcp: FastMCP):
     @mcp.tool()
     async def promote_image(image_name: str, tag: str, promoted_by: str) -> str:
-        """Promote a container image from dev to prod registry. Requires the promoter to have 'reviewer' or 'admin' role. Returns promotion result as JSON."""
+        """Promote a container image from dev to prod registry.
+
+        Args:
+            image_name: image to promote (e.g. "hello-app").
+            tag: tag to promote (e.g. "latest" or "v1.0.0").
+            promoted_by: username recorded in the audit log. Any string is
+                accepted — there is no role gate. Pick a real username from
+                `list_users` if you want the audit trail to be meaningful;
+                "admin" is fine as a default if the user didn't specify.
+
+        Returns the promotion result as JSON.
+        """
         import json
         async with httpx.AsyncClient() as client:
             resp = await client.post(

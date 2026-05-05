@@ -1,4 +1,6 @@
-// Workshop step config — the 35-step "full SDLC" walkthrough.
+// Workshop step config — the full SDLC walkthrough. Total step count is
+// exported as PHASE_COUNT (currently 42) and is the source of truth; do
+// not hardcode a number in copy here or in docs.
 //
 // Structure:
 //   PHASES groups steps into named acts (Cold open, Identity, Source control,
@@ -246,8 +248,8 @@ const PHASE_4_REGISTRY: Phase = {
 
 const PHASE_5_PROMOTION: Phase = {
   id: 'promotion',
-  title: 'Promotion (gated)',
-  blurb: 'Dev → prod is policy-gated. The promoter\'s identity matters.',
+  title: 'Promotion (audited)',
+  blurb: 'Dev → prod is a one-call copy. The promoter\'s identity is recorded in the audit log even though the role gate was removed.',
   steps: [
     { kind: 'enable', mcp: 'mcp-promotion' },
     {
@@ -260,17 +262,17 @@ const PHASE_5_PROMOTION: Phase = {
     },
     {
       kind: 'exercise',
-      heading: 'Promote — gated by user role',
+      heading: 'Promote — copy dev → prod',
       prompt: 'Promote hello-app:v1.0.0 from dev to prod, performed by alice.',
       tool: 'promote_image',
-      teach: 'Policy check: alice has the admin role, so the promotion goes through. Try with bob (dev) and it would be rejected.',
+      teach: 'The promotion service copies the manifest + blobs from registry-dev to registry-prod and writes an audit row tagged with whoever promoted. The role gate was removed so the demo flows; promoted_by is just an audit field now.',
     },
     {
       kind: 'exercise',
       heading: 'Verify — did the promotion stick?',
       prompt: 'What\'s the status of the most recent promotion?',
       tool: 'get_promotion_status',
-      teach: 'Confirms the policy check passed and the image actually copied to registry-prod.',
+      teach: 'Confirms the image actually copied to registry-prod and shows the audit row that was written.',
     },
   ],
 }

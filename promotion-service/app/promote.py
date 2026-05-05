@@ -142,28 +142,24 @@ async def copy_image(image_name: str, tag: str) -> tuple[bool, str, str]:
 
 
 async def promote_image(image_name: str, tag: str, promoted_by: str) -> dict:
-    """Full promotion flow: policy check then copy."""
-    db = get_db()
+    """Full promotion flow: copy dev → prod, write audit row.
 
-    # Policy check
-    policy_ok, policy_msg = await check_policy(promoted_by)
-    if not policy_ok:
-        cursor = db.execute(
-            "INSERT INTO promotions (image_name, tag, promoted_by, source_registry, target_registry, status, policy_check) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (image_name, tag, promoted_by, DEV_REGISTRY, PROD_REGISTRY, "rejected", policy_msg),
-        )
-        db.commit()
-        row = db.execute("SELECT * FROM promotions WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        result = dict(row)
-        db.close()
-        return result
+    The previous role-gated policy check (`check_policy`) was removed at
+    workshop request — every `promoted_by` is accepted so the demo flow
+    doesn't snag on the model picking a username the seed doesn't have.
+    The `policy_check` column is still recorded as audit metadata; it just
+    no longer rejects the promotion. `check_policy` remains in the file in
+    case the gate is ever reintroduced.
+    """
+    db = get_db()
 
     # Copy image
     success, digest, msg = await copy_image(image_name, tag)
     status = "success" if success else "failed"
     cursor = db.execute(
         "INSERT INTO promotions (image_name, tag, promoted_by, source_registry, target_registry, digest, status, policy_check) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (image_name, tag, promoted_by, DEV_REGISTRY, PROD_REGISTRY, digest, status, f"passed — {msg}" if success else msg),
+        (image_name, tag, promoted_by, DEV_REGISTRY, PROD_REGISTRY, digest, status,
+         f"skipped — {msg}" if success else msg),
     )
     db.commit()
     row = db.execute("SELECT * FROM promotions WHERE id = ?", (cursor.lastrowid,)).fetchone()
