@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MCP Workshop — DevOpsDays Austin 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --accent: #ffeb3b;
+      --muted: #888;
+      --frame: #2a2a2a;
+      --code-bg: #111;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .deck { position: fixed; inset: 0; display: grid; place-items: center; }
+    .stage {
+      width: 1600px; height: 900px;
+      background: var(--bg);
+      position: relative;
+      transform-origin: center center;
+    }
+
+    .slide {
+      position: absolute; inset: 0;
+      display: none;
+      padding: 50px 70px 60px;
+      flex-direction: column;
+    }
+    .slide.active { display: flex; }
+
+    .frame {
+      flex: 1;
+      border: 1px solid var(--frame);
+      padding: 50px 70px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .title {
+      font-size: 60px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.1;
+    }
+    .title .accent { color: var(--accent); }
+
+    .body {
+      flex: 1;
+      font-size: 36px;
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .body ul { list-style: none; padding-left: 0; }
+    .body li {
+      margin: 14px 0;
+      padding-left: 36px;
+      position: relative;
+    }
+    .body li::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .body strong { color: var(--accent); font-weight: 700; }
+    .body em { font-style: italic; color: #ddd; }
+    .body p { margin: 16px 0; }
+
+    /* Numbered (ordered) list for the lifecycle slide */
+    .body ol {
+      list-style: none;
+      padding-left: 0;
+      counter-reset: step;
+    }
+    .body ol li {
+      counter-increment: step;
+      padding-left: 70px;
+    }
+    .body ol li::before {
+      content: counter(step) ".";
+      color: var(--accent);
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9em;
+    }
+
+    code {
+      font-family: "JetBrains Mono", Menlo, monospace;
+      font-size: 0.78em;
+      background: var(--code-bg);
+      padding: 2px 10px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 18px 24px;
+      border-radius: 6px;
+      font-family: "JetBrains Mono", Menlo, monospace;
+      font-size: 26px;
+      color: var(--accent);
+      margin: 12px 0;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    .quote {
+      border-left: 3px solid var(--accent);
+      padding: 6px 24px;
+      margin: 20px 0 20px 36px;
+      font-style: italic;
+      color: #ddd;
+      font-size: 32px;
+    }
+    .center { text-align: center; }
+    .tagline {
+      text-align: center;
+      font-style: italic;
+      color: #ccc;
+      margin-bottom: 24px;
+      font-size: 30px;
+    }
+    .footnote {
+      font-size: 22px;
+      color: var(--muted);
+      margin-top: 24px;
+      font-style: italic;
+    }
+    .anchor {
+      font-size: 20px;
+      color: #b39800;
+      margin-top: 18px;
+      font-style: italic;
+    }
+    .anchor::before { content: "🎤 "; }
+    .demo::before { content: "🎬 "; }
+    .demo {
+      font-size: 20px;
+      color: #b39800;
+      margin-top: 18px;
+      font-style: italic;
+    }
+
+    .author {
+      position: absolute;
+      bottom: 22px;
+      right: 36px;
+      font-size: 28px;
+      color: var(--muted);
+    }
+    .pagenum {
+      position: absolute;
+      bottom: 22px;
+      left: 36px;
+      font-size: 18px;
+      color: var(--muted);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .cols2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 50px;
+      align-items: start;
+    }
+    .col h3 {
+      font-size: 34px;
+      color: var(--accent);
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    .totals {
+      font-size: 100px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+
+    /* Chart slide layout */
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 40px;
+      align-items: center;
+      flex: 1;
+    }
+    .chart-row img {
+      width: 100%;
+      height: auto;
+      max-height: 540px;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .chart-stats { font-size: 30px; line-height: 1.5; }
+    .chart-stats .stat {
+      display: block;
+      margin: 14px 0;
+    }
+    .chart-stats .stat strong {
+      color: var(--accent);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.05em;
+      margin-right: 12px;
+    }
+    .citation {
+      font-size: 20px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 16px;
+      font-style: italic;
+    }
+
+    .nav-hint {
+      position: fixed;
+      bottom: 8px; right: 12px;
+      color: #444;
+      font-size: 11px;
+      font-family: monospace;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <div class="stage" id="stage">
+
+      <!-- ─── 1 — WiFi ─── -->
+      <section class="slide active">
+        <div class="frame">
+          <h1 class="title">Get on WiFi</h1>
+          <div class="body center">
+            <p><strong>Network:</strong> TCEA Guest</p>
+            <p><strong>Captive portal password:</strong> <code>595311</code></p>
+          </div>
+          <div class="author">Dr. Noe Lorona</div>
+        </div>
+      </section>
+
+      <!-- ─── 2 — Setup ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Set up the lab</h1>
+          <div class="body">
+            <ul>
+              <li>Clone <code>github.com/stratione/mcp-lab</code></li>
+              <li><code>cd mcp-lab/scripts</code></li>
+              <li>Run <code>./1-preflight.sh</code></li>
+              <li>Run <code>./2-setup.sh</code> &nbsp;→&nbsp; pick <strong>large</strong> when prompted</li>
+              <li>Add API keys to <code>.env.secrets</code> <em>(optional)</em></li>
+              <li>When done: <code>./3-teardown.sh</code> — and <strong>prune!</strong></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 3 — Why we're here ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Why we&rsquo;re here</h1>
+          <div class="body">
+            <ul>
+              <li>MCP usually <em>&ldquo;just works&rdquo;</em> in Claude Code, Antigravity, &hellip;</li>
+              <li>Today we go <strong>under the hood</strong></li>
+              <li>How the wire protocol works</li>
+              <li>How to run your own server</li>
+              <li>How models and endpoints actually talk</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 4 — How LLMs talk MCP ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">How LLMs talk MCP</h1>
+          <div class="body">
+            <ul>
+              <li><strong>Like a phone call, not a text</strong> — the line stays open</li>
+              <li><strong>Old-school switchboard operator</strong> — the AI calls in, MCP plugs the cable into the right backend</li>
+              <li><strong>Backstage intercom, not a website</strong> — the crew runs the show; the audience never hears it</li>
+              <li><strong>Old way &rarr; new way</strong> — SSE used two channels; Streamable HTTP uses one</li>
+              <li><strong>Tools = apps on a phone</strong> — the AI picks one and calls it</li>
+            </ul>
+            <p class="footnote">This lab runs the older SSE flavor on purpose so you see both halves.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 5 — NEW: The three players ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">The three players</h1>
+          <div class="body">
+            <ul>
+              <li><strong>Host</strong> — the AI app <em>(Claude Code, Cursor, our Chat UI)</em></li>
+              <li><strong>Client</strong> — one connection inside the host, per server</li>
+              <li><strong>Server</strong> — the program that exposes the tools</li>
+            </ul>
+            <div class="quote">Hotel analogy: <strong style="color:var(--accent)">Host</strong> = the hotel, <strong style="color:var(--accent)">Client</strong> = the desk phone for one supplier, <strong style="color:var(--accent)">Server</strong> = the supplier on the other end.</div>
+            <p class="anchor">Lab anchor: open the Chat UI — &ldquo;the window you&rsquo;re looking at IS the host.&rdquo;</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 6 — What's in the lab ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">What&rsquo;s in the lab</h1>
+          <div class="body">
+            <ul>
+              <li>A real <strong>bootstrap container</strong></li>
+              <li>Visuals so you can <strong>see</strong> what&rsquo;s happening</li>
+              <li>Live <strong>log tracing</strong> — watch every call</li>
+              <li>Runs <strong>100% local</strong> — yours to take home</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 7 — The bootstrap container ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">The bootstrap container</h1>
+          <p class="tagline"><strong style="color: var(--accent)">Practice:</strong> ask first, then act &mdash; skip what isn&rsquo;t there.</p>
+          <div class="body">
+            <ul>
+              <li>Wakes up</li>
+              <li>Grabs <code>curl</code> and <code>jq</code> if missing</li>
+              <li>Asks: <strong>is Gitea there?</strong> &nbsp;→&nbsp; if yes, set it up</li>
+              <li>Asks: <strong>is the registry there?</strong> &nbsp;→&nbsp; if yes, seed sample images</li>
+              <li>Prints URLs + next steps</li>
+              <li>Quits</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 8 — Try without tools first ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Try it without tools first</h1>
+          <div class="body">
+            <ul>
+              <li>Run a few prompts — <strong>naked LLM</strong></li>
+              <li>Watch what it <em>can&rsquo;t</em> do</li>
+              <li>Then we plug in <strong>MCP tools</strong></li>
+              <li>Same prompts, very different answers</li>
+            </ul>
+            <p class="demo">Demo: send a &ldquo;list users&rdquo; prompt with no MCP enabled.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 9 — NEW: Two layers, one wire ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Two layers, one wire</h1>
+          <div class="body">
+            <ul>
+              <li><strong>Data layer</strong> — <em>what</em> they say: <strong>JSON-RPC 2.0</strong></li>
+              <li><strong>Transport layer</strong> — <em>how</em> they say it: <strong>stdio</strong> or <strong>Streamable HTTP</strong> <em>(or SSE, like this lab)</em></li>
+              <li>Same JSON either way — swap transports without rewriting tools</li>
+            </ul>
+            <p class="anchor">Lab anchor: about to enable mcp-user — point to the SSE port.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 10 — What makes an MCP server ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">What makes an MCP server</h1>
+          <p class="tagline">Four parts &mdash; <strong style="color: var(--accent)">do</strong>, <strong style="color: var(--accent)">read</strong>, <strong style="color: var(--accent)">borrow</strong>, <strong style="color: var(--accent)">connect</strong>.</p>
+          <div class="body">
+            <ul>
+              <li><strong>Tools</strong> — things the AI can <em>do</em></li>
+              <li><strong>Resources</strong> — things the AI can <em>read</em></li>
+              <li><strong>Prompts</strong> — ready-made <em>instructions</em></li>
+              <li><strong>Transport</strong> — <em>how</em> they talk</li>
+            </ul>
+            <p class="footnote">In this lab: all tools, talking over the network with SSE.</p>
+            <p class="demo">Demo: enable mcp-user, watch tools appear in the dropdown.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 11 — NEW: Conversation lifecycle ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">The conversation lifecycle</h1>
+          <p class="tagline">Every MCP session walks the same four steps.</p>
+          <div class="body">
+            <ol>
+              <li><code>initialize</code> &mdash; handshake, &ldquo;what can each of us do?&rdquo;</li>
+              <li><code>tools/list</code> &mdash; &ldquo;show me your tools&rdquo;</li>
+              <li><code>tools/call</code> &mdash; &ldquo;run this one with these args&rdquo;</li>
+              <li><code>notifications/*</code> &mdash; &ldquo;heads up, something changed&rdquo;</li>
+            </ol>
+            <p class="footnote">All of it is JSON-RPC over your chosen transport.</p>
+            <p class="demo">Demo: open the log tracer, run a prompt, narrate the four messages live.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 12 — NEW: Sycophancy ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">LLMs want to make you <span class="accent">happy</span></h1>
+          <div class="body" style="justify-content: flex-start;">
+            <div class="chart-row">
+              <img src="sycophancy-chart.png" alt="Sycophancy in AI chart from Cheng et al., Science 2025" />
+              <div class="chart-stats">
+                <p style="font-size:32px; margin-bottom:18px;"><strong style="color:var(--accent)">AI endorses user actions ~77&ndash;94%.</strong><br/><span style="color:#aaa; font-size:0.85em;">Humans: 39%.</span></p>
+                <p style="margin-top:24px; color:#ccc; font-size:26px;">When users discuss real personal conflicts:</p>
+                <span class="stat"><strong>+25%</strong> more likely to feel &ldquo;I was right&rdquo;</span>
+                <span class="stat"><strong>&minus;10%</strong> less likely to apologize</span>
+                <span class="stat"><strong>+13%</strong> more likely to use the model again</span>
+                <p style="margin-top:18px; color:#ddd; font-size:24px; font-style:italic;">The trap: users <em>prefer</em> sycophantic AI &mdash; even though it makes them worse decision-makers.</p>
+              </div>
+            </div>
+            <p class="citation">Cheng et al., <em>Science</em>, 2025 &nbsp;&middot;&nbsp; doi:10.1126/science.aec8352</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 13 — Guardrails ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Guardrails &mdash; making LLMs reliable</h1>
+          <div class="body">
+            <ul>
+              <li>Tools force the model to <strong>act, not guess</strong></li>
+              <li>One source of truth (your API), not the LLM&rsquo;s memory <em>or its desire to please you</em></li>
+              <li>Add this to your system prompt:</li>
+            </ul>
+            <div class="quote">&ldquo;Use MCP whenever you touch external systems.&rdquo;</div>
+            <ul>
+              <li>Result: fewer hallucinations, less sycophancy, auditable actions</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 14 — Secrets ladder ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Secrets management ladder</h1>
+          <p class="tagline">Worst &nbsp;→&nbsp; best</p>
+          <div class="body" style="font-size: 30px;">
+            <ul>
+              <li>Pasted in chat</li>
+              <li>In-memory variable</li>
+              <li>Environment variable</li>
+              <li>Local <code>.env</code> file</li>
+              <li>Kubernetes Secret</li>
+              <li>Sealed Secrets / SOPS</li>
+              <li>External vault (Vault, AWS, Supabase)</li>
+              <li><strong>Token broker</strong> — short-lived, nothing stored</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 15 — Tests ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Tests in the lab</h1>
+          <div class="body">
+            <div class="cols2">
+              <div class="col center">
+                <div class="totals">123</div>
+                <p style="font-size: 28px; color: #ccc; margin-bottom: 30px;">total</p>
+                <p>Python &mdash; <strong>71</strong></p>
+                <p>TypeScript &mdash; <strong>52</strong></p>
+              </div>
+              <div class="col">
+                <h3>What they cover</h3>
+                <ul style="font-size: 28px;">
+                  <li>API &amp; providers — <strong>33</strong></li>
+                  <li>MCP tools — <strong>30</strong></li>
+                  <li>State &amp; schemas — <strong>16</strong></li>
+                  <li>Workshop — <strong>15</strong></li>
+                  <li>Security — <strong>13</strong></li>
+                  <li>Smoke — <strong>9</strong></li>
+                  <li>UI — <strong>7</strong></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 16 — Check what's running ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Check what&rsquo;s running</h1>
+          <div class="body">
+            <pre>docker ps
+podman ps</pre>
+            <p style="margin-top: 30px;">Pretty version:</p>
+            <pre>docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 17 — Stay in touch ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Stay in <span class="accent">touch</span></h1>
+          <div class="body center">
+            <p style="font-size: 44px; margin: 30px 0;">Dr. Noe Lorona</p>
+            <p style="font-size: 30px; color: #ddd; margin: 18px 0;">
+              <a href="https://noelorona.com" style="color: var(--accent); text-decoration: none;">noelorona.com</a>
+            </p>
+            <p style="font-size: 26px; color: #aaa; margin: 12px 0;">
+              <a href="https://www.linkedin.com/in/dr-noe-lorona-7198181a7/" style="color: #aaa; text-decoration: underline;">linkedin.com/in/dr-noe-lorona-7198181a7</a>
+            </p>
+            <p class="footnote" style="margin-top: 60px;">Lab: <code>github.com/stratione/mcp-lab</code></p>
+          </div>
+          <div class="author">Thanks!</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="pagenum" id="pagenum">1 / 17</div>
+  <div class="nav-hint">← → space · F = fullscreen</div>
+
+  <script>
+    const slides = document.querySelectorAll(".slide");
+    const counter = document.getElementById("pagenum");
+    const stage = document.getElementById("stage");
+    let i = 0;
+
+    function show(n) {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === i));
+      counter.textContent = `${i + 1} / ${slides.length}`;
+      try { history.replaceState(null, "", "#" + (i + 1)); } catch {}
+    }
+
+    function fitStage() {
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+      const scale = Math.min(sw / 1600, sh / 900);
+      stage.style.transform = `scale(${scale})`;
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown" || e.key === "j") show(i + 1);
+      else if (e.key === "ArrowLeft" || e.key === "PageUp" || e.key === "k") show(i - 1);
+      else if (e.key === "Home") show(0);
+      else if (e.key === "End") show(slides.length - 1);
+      else if (e.key === "f" || e.key === "F") {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      const x = e.clientX, w = window.innerWidth;
+      if (x > w / 2) show(i + 1); else show(i - 1);
+    });
+
+    window.addEventListener("resize", fitStage);
+    window.addEventListener("hashchange", () => {
+      const n = parseInt(location.hash.slice(1), 10);
+      if (!isNaN(n)) show(n - 1);
+    });
+
+    fitStage();
+    const initial = parseInt(location.hash.slice(1), 10);
+    if (!isNaN(initial)) show(initial - 1);
+  </script>
+</body>
+</html>
