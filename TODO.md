@@ -10,6 +10,7 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 - [x] Copy button on assistant messages (copies prompt + response for debugging)
 - [x] Dynamic system prompt — injects live MCP server status into LLM context
 - [x] Synthetic `list_mcp_servers` tool — real callable tool handled by chat-ui backend, not hardcoded
+- [x] Synthetic `enable_mcp_tools` tool — soft-gate escape hatch out of Flying Blind / Hallucination Mode; the only tool the LLM sees while Flying Blind is on, and calling it flips the flag off
 - [x] MCP status panel — clickable strip bar showing online/offline servers and their tools
 - [x] Hallucination detection — automatic heuristic badge (verified/uncertain/unverified) per response
 - [x] LLM verification — on-demand "Verify with LLM" button for deeper fact-checking against tool results
@@ -120,7 +121,6 @@ Each phase builds on the previous one. The LLM orchestrates every step via MCP t
 - [x] **Workshop wizard: add the runner commands + bring the MCP server up** — IntroCard exposes a collapsible "Skip the per-step pacing — start every MCP now" shortcut (`docker/podman compose up -d mcp-user mcp-gitea mcp-registry mcp-promotion`) with a copy button. Engine label is engine-aware (docker/podman). The conductor script (`./scripts/workshop.sh`) was later removed in favor of a single follow-along path everyone runs identically. (2026-05-02)
 
 ### Data Issues
-- [ ] **Missing User Data**: User ID 1 ("Alice") is missing from `list_users` output. Only IDs 2, 3, 4, 5 are returned.
 - [ ] **Name Formatting**: User names are single words (e.g., "Bob") instead of full names (e.g., "Bob Jones").
 
 ### LLM/Backend Issues

@@ -156,14 +156,14 @@ To switch models inside the chat-ui, click the provider chip in the header and t
 
 The web-based Chat UI (http://localhost:3001) is a React SPA backed by FastAPI. It includes:
 
-- **Workshop wizard** — click the **◇ Walkthrough** button in the header to open the 35-step SDLC tour. It lives permanently as a tab next to **Try** in the right inspector so you can flip between context tabs without losing your place
-- **Hallucination Mode toggle** — header switch that strips the LLM of every MCP tool and forces a permissive system prompt, producing the "fabricated user list" cold-open moment on demand
+- **Workshop wizard** — click the **◇ Walkthrough** button in the header to open the full SDLC tour. It lives permanently as a tab next to **Try** in the right inspector so you can flip between context tabs without losing your place
+- **Hallucination Mode (Flying Blind)** — fresh page load opens with the model fabricating: tools are stripped to a single escape hatch (`enable_mcp_tools`) and a permissive system prompt is in force. The mode auto-clears the moment any MCP server comes online (or the LLM calls `enable_mcp_tools` because the user asked it to), so the demo arc is "watch it lie → enable a tool → see it ground itself" without anyone needing to find a toggle
 - **Compare tab (side-by-side)** — same prompt fired in parallel at two providers (e.g. Ollama vs Anthropic) so the audience watches a frontier model orchestrate the pipeline while a local model fumbles
-- **Architecture diagram modal** — click the header logo for an embedded, dark-mode-friendly diagram of the lab topology
+- **Architecture diagram modal** — click the header logo for an embedded, dark-mode-friendly diagram of the lab topology with localhost URL labels under every component
 - **In-GUI Ollama model manager** — pull, list, and delete local Ollama models without leaving the browser
 - **Per-tool Verify buttons** — every tool-call card renders a green Verify button that opens or fetches the source-of-truth URL (Gitea repo, deployed app, registry catalog) so the audience confirms the tool result against the actual system
-- **MCP status panel** — click the MCP strip bar to see which servers are online/offline; expand any row's `›` chevron for inline copy-paste start/stop commands. Auto-refreshes every 3s while any server is offline, 30s when all are up
-- **Tools tab** — accurate per-MCP-server tool listing with auto-refresh and a manual refresh button
+- **MCP servers panel** — every MCP server is a collapsible row showing online/offline status, port, tool count, and (when expanded) the start/stop compose commands plus the per-server tool list. Synthetic OTHER tools (`list_mcp_servers`, `enable_mcp_tools`) live in a static row at the bottom. Auto-refreshes every 3s while any server is offline, 30s when all are up
+- **Live registry catalog** — the bottom of the MCP servers panel shows the contents of `registry-dev` and `registry-prod` in real time. Newly-pushed image tags pulse green when they first appear, so the moment `build_image` finishes pushing or `promote_image` lands a copy in prod is visible to the audience. Each registry has a `clear` button that wipes its data volume and restarts it empty — useful for resetting the demo between cohorts
 - **Lab Dashboard** — grid view of all services with live status badges (UP/DOWN), a "Verify User API" section with runnable curl commands, and start/stop guidance for MCP servers
 - **Per-call Gitea auth** — when a prompt identifies the actor (e.g. _"as diana, password secret"_), the Gitea MCP tools authenticate per call so the commit is attributed to that user — "MCP acts on your behalf"
 - **Stop button** — the Send button turns into a red Stop button while a request is in-flight to cancel hung requests
@@ -191,10 +191,10 @@ The web-based Chat UI (http://localhost:3001) is a React SPA backed by FastAPI. 
 | **Gitea** | 3000 | Git repository hosting |
 | **Registry Dev** | 5001 | Container image registry (development) |
 | **Registry Prod** | 5002 | Container image registry (production) |
-| **Promotion Service** | 8002 | Image promotion with role-based policy checks |
+| **Promotion Service** | 8002 | Image promotion (manifest + blob copy dev → prod, audit log) |
 | **Bootstrap** | -- | One-shot init (Gitea admin, sample repos, seed data) |
 
-> **Tool count:** 9 + 7 + 5 + 3 + 3 = **27 active MCP tools**, plus a `list_mcp_servers` meta-tool exposed by the chat-ui itself. A 28th tool, `delete_all_users`, is intentionally hidden behind `USER_DESTRUCTIVE_TOOLS_ENABLED=true` — it stays in the source as a code-review talking point about footgun tools.
+> **Tool count:** 9 + 7 + 5 + 3 + 3 = **27 active MCP tools**, plus two synthetic meta-tools exposed by the chat-ui itself (`list_mcp_servers` and `enable_mcp_tools`). A 28th MCP tool, `delete_all_users`, is intentionally hidden behind `USER_DESTRUCTIVE_TOOLS_ENABLED=true` — it stays in the source as a code-review talking point about footgun tools.
 
 ---
 
@@ -206,9 +206,9 @@ The lab ships in three sizes so you can match it to the machine you've got. Each
 
 | Tier | Disk | Wire (first run) | RAM | Containers | MCP tools | Teaches |
 |---|---|---|---|---|---|---|
-| `small` (~700 MB) | 700 MB | ~600 MB | ~500 MB | 4 | 7 | "What is MCP?" — user-api + 1 MCP server + chat-ui |
-| `medium` (~900 MB) | 900 MB | ~800 MB | ~700 MB | 5 | 14 | + Gitea — "MCP acts on your behalf" (per-call auth) |
-| `large` (~1.5 GB) | 1.5 GB | ~1.0 GB | ~1.5 GB | 8+ | 20 | + registries + promotion + runner — "MCP runs your CI/CD" |
+| `small` (~700 MB) | 700 MB | ~600 MB | ~500 MB | 4 | 9 | "What is MCP?" — user-api + 1 MCP server + chat-ui |
+| `medium` (~900 MB) | 900 MB | ~800 MB | ~700 MB | 5 | 16 | + Gitea — "MCP acts on your behalf" (per-call auth) |
+| `large` (~1.5 GB) | 1.5 GB | ~1.0 GB | ~1.5 GB | 8+ | 27 | + registries + promotion + runner — "MCP runs your CI/CD" |
 
 ```bash
 # Step 1: Clone (~10 MB regardless of tier)
@@ -437,8 +437,8 @@ Try these first — before starting any MCP servers:
 ### Multi-system workflows
 
 - "Onboard a new developer named charlie with email charlie@example.com — create their user account and a Git repo called charlie-service"
-- "Set up a release process: create a user named releasebot with reviewer role, then promote sample-app:v1.0.0 to production"
-- "List all users and their roles. Who has permission to promote images?"
+- "Set up a release process: create a user named releasebot with the admin role, then promote sample-app:v1.0.0 to production"
+- "List all users and their roles. Show me which ones are admins."
 - "What images are in prod? How did they get there?"
 
 ---
@@ -511,30 +511,23 @@ curl http://localhost:5002/v2/_catalog
 
 #### Exercise 4: Image Promotion
 
-Try to promote an image and observe the policy enforcement:
+Promote an image and inspect the audit log:
 
 ```bash
-# This should FAIL — alice is a developer, not a reviewer
+# Promote sample-app:v1.0.0 from dev to prod, recording who did it
 curl -X POST http://localhost:8002/promote \
   -H "Content-Type: application/json" \
   -d '{"image_name":"sample-app","tag":"v1.0.0","promoted_by":"alice"}'
 
-# First, update alice to reviewer role
-curl -X PUT http://localhost:8001/users/1 \
-  -H "Content-Type: application/json" \
-  -d '{"role":"reviewer"}'
-
-# Now try again — this should succeed
-curl -X POST http://localhost:8002/promote \
-  -H "Content-Type: application/json" \
-  -d '{"image_name":"sample-app","tag":"v1.0.0","promoted_by":"alice"}'
-
-# Check the promotion audit log
+# Check the promotion audit log — every promote_image is recorded with
+# the manifest digest and whoever was named as promoted_by
 curl http://localhost:8002/promotions
 
 # Verify image is now in prod
 curl http://localhost:5002/v2/sample-app/tags/list
 ```
+
+> **Note on policy:** the lab originally rejected promotions when `promoted_by` wasn't an admin user. That role gate has been removed for demo ergonomics — every promote now succeeds, but the `promoted_by` value is still recorded in the audit log. `check_policy` is still in `promotion-service/app/promote.py` if you want to reintroduce a gate.
 
 #### Phase 1 Reflection
 
@@ -542,7 +535,6 @@ Notice the friction points:
 - **Multiple API formats** — each system has its own REST conventions
 - **Credential management** — Gitea requires auth, registries don't, user API doesn't
 - **No workflow** — you manually orchestrated the cross-system flow
-- **No policy abstraction** — you had to know the promotion rules
 - **Multiple tools** — curl, jq, base64 encoding for Gitea files
 
 ---
@@ -583,7 +575,7 @@ Each tool call appears as a collapsible card in the chat. No curl required.
 docker compose up -d mcp-gitea
 ```
 
-Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grows to 15. Try:
+Wait ~10 seconds, then refresh the Chat UI — the tool count in the header grows to 16. Try:
 
 - "List all Git repositories"
 - "Create a new repo called my-service"
@@ -649,18 +641,13 @@ Watch the agent:
 2. Call `create_gitea_repo` to create the repository
 3. Report back with a summary
 
-#### Exercise 2: Policy-Aware Promotion
+#### Exercise 2: Audited Promotion
 
 > "Promote the sample-app:v1.0.0 image from dev to prod. Have charlie do the promotion."
 
-Watch the agent hit a policy wall (charlie is a developer, not a reviewer), then try:
+Watch the agent call `promote_image` with `promoted_by="charlie"`. The promotion succeeds and the audit log records charlie as the promoter — even though charlie is a developer. The role gate was removed for demo ergonomics; the workshop conversation around this step is now "every promotion is recorded with who did it" rather than "the policy rejects unauthorised promoters."
 
-> "Update charlie's role to reviewer, then promote sample-app:v1.0.0 from dev to prod with charlie as the promoter."
-
-The agent will:
-1. Find charlie's user ID
-2. Update charlie to reviewer
-3. Retry the promotion — succeeds
+> Want to teach role-gating instead? `check_policy` is still in `promotion-service/app/promote.py`. Re-introduce the early-return block in `promote_image()` and the rejection beat works again.
 
 #### Exercise 3: Build, Promote, and Deploy Pipeline
 
@@ -669,7 +656,7 @@ The agent will:
 Watch the agent chain the full CI/CD pipeline:
 1. `build_image` — clones the Gitea repo, builds the Docker image, pushes to dev registry
 2. `scan_image` — runs a security scan on the image
-3. `promote_image` — copies the image from dev to prod registry (requires reviewer role)
+3. `promote_image` — copies the manifest + blobs from dev to prod registry, writes an audit row
 4. `deploy_app` — pulls from prod registry and runs a live container
 
 Verify the deployment yourself:
@@ -689,7 +676,7 @@ Deploy port mapping: dev → `localhost:9080`, staging → `localhost:9081`, pro
 
 #### Exercise 5: Complex Multi-System Workflow
 
-> "I need to set up a release process: create a user named releasebot with reviewer role, create a repo called release-automation, create a feature branch called v2-prep in sample-app, and then show me the current state of both registries."
+> "I need to set up a release process: create a user named releasebot with the admin role, create a repo called release-automation, create a feature branch called v2-prep in sample-app, and then show me the current state of both registries."
 
 Watch the agent chain multiple tool calls across all five systems.
 
@@ -697,9 +684,8 @@ Watch the agent chain multiple tool calls across all five systems.
 
 What MCP provides as a control plane:
 - **Translation** — natural language to specific API calls across systems
-- **Policy enforcement** — promotion rules checked automatically
 - **Credential injection** — no secrets in prompts
-- **Audit trail** — all actions logged and queryable
+- **Audit trail** — every promotion records who did it (no role gate, but the actor name is preserved)
 - **Composability** — multi-system workflows from single intents
 - **Progressive capability** — independent servers control the blast radius
 
@@ -715,7 +701,7 @@ What MCP provides as a control plane:
 | **Image Promotion** | `mcp-promotion` | 8006 | 3 | `promote_image`, `list_promotions`, `get_promotion_status` |
 | **CI/CD Runner** | `mcp-runner` | 8007 | 3 | `build_image`, `scan_image`, `deploy_app` |
 | **Hidden footgun** | `mcp-user` | 8003 | (1) | `delete_all_users` — only registered when `USER_DESTRUCTIVE_TOOLS_ENABLED=true`. Stays in source as a code-review talking point. |
-| **Chat-UI meta-tool** | `chat-ui` | 3001 | (1) | `list_mcp_servers` — handled in the chat-ui backend, not by any MCP server; lets the LLM introspect which servers are reachable |
+| **Chat-UI meta-tools** | `chat-ui` | 3001 | (2) | `list_mcp_servers` (lets the LLM introspect which servers are reachable) and `enable_mcp_tools` (the soft-gate escape hatch out of Flying Blind / Hallucination Mode — the only tool the LLM sees while Flying Blind is on). Both are handled in the chat-ui backend, not by any MCP server. |
 
 Each MCP server is an independent container. Start/stop them to enable/disable tool categories:
 
@@ -749,6 +735,8 @@ GET    http://localhost:3001/api/models?provider=…  # List installed models fo
 GET    http://localhost:3001/api/tools              # Aggregated tool list across reachable MCP servers
 GET    http://localhost:3001/api/mcp-status         # Per-server status + copy-paste start commands
 POST   http://localhost:3001/api/mcp-control        # Start/stop an MCP server (compose up/stop)
+GET    http://localhost:3001/api/registries/catalog # Live image inventory of registry-dev + registry-prod (drives the panel's catalog card)
+POST   http://localhost:3001/api/registries/{name}/clear # Wipe registry-dev or registry-prod: stop, drop the volume, restart empty
 GET    http://localhost:3001/api/hallucination-mode # Read current toggle state
 POST   http://localhost:3001/api/hallucination-mode # Flip the toggle (strips tools + permissive prompt)
 GET    http://localhost:3001/api/ollama/installed   # List local Ollama models
@@ -1008,16 +996,14 @@ See `config/mcp/claude-code-config.json` for the full configuration with all 5 s
 
 ## Hallucination Mode (the cold-open moment)
 
-The Chat UI ships with a **Hallucination Mode** toggle in the header. When ON it:
+A fresh page load of the Chat UI **starts in Hallucination Mode** (also called "Flying Blind" in the UI). When ON, the chat-ui:
 
-1. Strips every MCP tool from the LLM's tool list (including the `list_mcp_servers` meta-tool).
-2. Replaces the system prompt with a permissive one that encourages the model to answer from "memory."
+1. Exposes only one tool to the LLM — `enable_mcp_tools`, the soft-gate escape hatch — and hides every real MCP tool, including `list_mcp_servers`.
+2. Replaces the system prompt with a permissive one that tells the model to answer confidently from "memory" and to call `enable_mcp_tools` only if the user explicitly asks for tools / data access.
 
-The result: ask Ollama "list all users" and it will fabricate a plausible roster — invented usernames, invented emails, invented roles — with zero tool calls. Flip the toggle OFF and the same prompt grounds itself in the real SQLite database.
+The result: ask Ollama "list all users" and it fabricates a plausible roster — invented usernames, invented emails, invented roles — with zero tool calls. The mode auto-clears the moment any MCP server comes online (the App-level effect notices the status flip and turns Flying Blind off), so the demo arc is "watch it lie → enable an MCP → see it ground itself" without anyone needing to find a toggle. The user can also say "turn the tools on" to make the model invoke `enable_mcp_tools`, which clears the mode mid-conversation.
 
-This is the recommended cold-open for the talk: hallucination ON for one minute, then OFF, then enable MCP servers one at a time to watch the same model become reliable.
-
-State does **not** persist across `chat-ui` restarts — leaving it on by accident between sessions could confuse a future audience, so a deliberate flip every demo is the safer default.
+The toggle still exists in the corner menu (`⋯`) for replays. State does **not** persist across `chat-ui` restarts — every fresh load opens in Flying Blind regardless of how the previous session ended.
 
 ---
 
@@ -1035,23 +1021,25 @@ Presentation (20 minutes)
 
 ### Abstract
 
-LLMs confidently hallucinate API calls, leak credentials, and ignore policy — yet we keep asking them to run our infrastructure. This talk demonstrates what actually fixes that. Using a live, fully containerized DevOps environment (12 services, zero cloud accounts), I show an LLM hallucinating its way through user management, git operations, and container deployments — then flip on MCP servers one by one and watch the same model transform into a reliable multi-system orchestrator. The finale: a single English sentence triggers a verified build-scan-promote-deploy pipeline across five backend systems, producing a live running container — with credential injection, role-based policy enforcement, and a full audit trail, all invisible to the user. No slides. No mocks. Everything runs on localhost.
+LLMs confidently hallucinate API calls, leak credentials, and answer with no grounding — yet we keep asking them to run our infrastructure. This talk demonstrates what actually fixes that. Using a live, fully containerized DevOps environment (12 services, zero cloud accounts), I show an LLM hallucinating its way through user management, git operations, and container deployments — then flip on MCP servers one by one and watch the same model transform into a reliable multi-system orchestrator. The finale: a single English sentence triggers a verified build-scan-promote-deploy pipeline across five backend systems, producing a live running container — with credential injection, a full audit trail, and a live-updating registry view that shows the new image landing in real time. No slides. No mocks. Everything runs on localhost.
 
 ### Description
 
 Every DevOps team experimenting with LLM-assisted operations hits the same wall: the model sounds confident but fabricates API responses, forgets credentials between calls, and has no concept of organizational policy. The Model Context Protocol (MCP) is Anthropic's open standard for giving LLMs structured access to external tools — but most introductions stop at "here's how to write a tool definition." This talk shows what MCP actually changes in practice, using a live demo environment purpose-built to make the difference visceral.
 
-**The environment:** A Docker Compose stack running 12 services on a single network — a User API (FastAPI + SQLite), a Gitea git server, dev and prod container registries, a promotion service with role-based access control, and a CI/CD runner with Docker-in-Docker build and deploy capabilities. Five independent MCP servers expose 27 tools across these systems. A web-based Chat UI connects to all of them via streamable-http JSON-RPC. Everything runs on localhost; the audience can clone the repo and follow along.
+**The environment:** A Docker Compose stack running 12 services on a single network — a User API (FastAPI + SQLite), a Gitea git server, dev and prod container registries, a promotion service that copies images dev → prod and writes an audit row, and a CI/CD runner with Docker-in-Docker build and deploy capabilities. Five independent MCP servers expose 27 tools across these systems, plus two synthetic chat-ui meta-tools (`list_mcp_servers`, `enable_mcp_tools`). A web-based Chat UI connects to all of them via streamable-http JSON-RPC and shows the registry contents updating live as images are pushed. Everything runs on localhost; the audience can clone the repo and follow along.
+
+(See the "Note on policy" in Phase 1 Exercise 4 above — the original role-gated policy was removed for demo ergonomics. The promotion still records who promoted what; it just doesn't reject anyone. `check_policy` is still in `promotion-service/app/promote.py` if you want to re-introduce the gate as a teaching beat.)
 
 **The demo arc:**
 
-*Phase 1 — The Struggle (3 min):* I flip on **Hallucination Mode** and ask a local LLM (Ollama llama3.1:8b) to "list all users" with zero MCP servers running. It invents a plausible roster — fake usernames, fake emails, fake roles — with zero tool calls. I ask it to "promote sample-app to production." It fabricates a success response. I then show the same tasks done correctly via raw curl against five different APIs — different auth schemes, different payload formats, manual credential threading. The audience feels the friction.
+*Phase 1 — The Struggle (3 min):* The Chat UI loads in **Flying Blind / Hallucination Mode** by default. I ask a local LLM (Ollama llama3.1:8b) to "list all users" with zero MCP servers running. It invents a plausible roster — fake usernames, fake emails, fake roles — with zero tool calls. I ask it to "promote sample-app to production." It fabricates a success response. I then show the same tasks done correctly via raw curl against five different APIs — different auth schemes, different payload formats, manual credential threading. The audience feels the friction.
 
-*Phase 2 — Progressive Enablement (7 min):* I flip Hallucination Mode off and start MCP servers one at a time. `docker compose up -d mcp-user` — the Chat UI's tool count jumps from 0 to 9. I repeat "list all users" and the LLM now calls the real API, returns real data, and handles validation errors gracefully. I add mcp-gitea (+7 tools), mcp-registry (+5 tools), mcp-promotion (+3 tools), mcp-runner (+3 tools). Each addition is a single command with no config changes. The audience watches capabilities accumulate.
+*Phase 2 — Progressive Enablement (7 min):* I bring up an MCP server: `docker compose up -d mcp-user` — Flying Blind clears automatically the moment the server comes online, and the Chat UI's tool count jumps from 1 (the escape hatch) to 10. I repeat "list all users" and the LLM now calls the real API, returns real data, and handles validation errors gracefully. I add mcp-gitea (+7 tools), mcp-registry (+5 tools), mcp-promotion (+3 tools), mcp-runner (+3 tools). Each addition is a single command with no config changes. The audience watches capabilities accumulate.
 
-*Phase 3 — The Payoff (7 min):* With all 27 tools active, I type: "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it." The LLM chains four tool calls: `build_image` clones from Gitea and pushes to the dev registry; `scan_image` runs a security check; `promote_image` copies the image to prod (and gets rejected because the user is a developer, not a reviewer — real policy enforcement); after a role update, the promotion succeeds; `deploy_app` pulls from prod and runs the container. I curl `localhost:9082` and get `{"message":"Hello from MCP Lab!","version":"1.0.0"}` from a container that didn't exist 30 seconds ago. Optional encore: open the **Compare tab** to run the same prompt at Ollama and Anthropic in parallel — same panes, same prompt, the frontier model finishes the chain in ~28s while the local model fumbles in ~43s.
+*Phase 3 — The Payoff (7 min):* With all 27 tools active, I type: "Build the hello-app from the sample-app repo, scan it for vulnerabilities, promote it to production, and deploy it." The LLM chains four tool calls: `build_image` clones from Gitea and pushes to the dev registry — the audience watches `hello-app:latest` flash green in the live registry catalog; `scan_image` runs a security check; `promote_image` copies the manifest + blobs from dev to prod and writes an audit row — the audience watches the same image appear in the prod column; `deploy_app` pulls from prod and runs the container. I curl `localhost:9082` and get `{"message":"Hello from MCP Lab!","version":"1.0.0"}` from a container that didn't exist 30 seconds ago. Optional encore: open the **Compare tab** to run the same prompt at Ollama and Anthropic in parallel — same panes, same prompt, the frontier model finishes the chain in ~28s while the local model fumbles in ~43s.
 
-*Wrap-up (3 min):* Key takeaways — MCP as a control plane (not just a tool protocol), progressive disclosure as a deployment strategy, why real policy enforcement matters more than mock demos, and how the same architecture works across Ollama, OpenAI, Anthropic, and Google Gemini.
+*Wrap-up (3 min):* Key takeaways — MCP as a control plane (not just a tool protocol), progressive disclosure as a deployment strategy, the value of a real audit trail, and how the same architecture works across Ollama, OpenAI, Anthropic, and Google Gemini.
 
 **What the audience takes home:** The entire lab is open source. Clone, run one script, and you have the same environment on your laptop — a reference architecture for building MCP-powered DevOps tooling with real services, real policy, and real deployments.
 
@@ -1061,7 +1049,7 @@ Every DevOps team experimenting with LLM-assisted operations hits the same wall:
 2. **Real deployments, not mocks** — `deploy_app` runs actual containers (`docker pull` + `docker run`) serving HTTP on localhost. The audience sees a real curl response from a container that was built, scanned, promoted, and deployed live.
 3. **Ollama as default** — free, local, no API keys. The llama3.1:8b model intentionally struggles with tool calling, making the MCP improvement dramatic.
 4. **Split env files** — `.env` (screen-safe) and `.env.secrets` (API keys). Presenter can share screen without exposing credentials.
-5. **Real policy enforcement** — the promotion service checks user roles via the User API. The audience sees a real rejection and a real fix.
+5. **Real audit trail** — every `promote_image` call writes a row to a sqlite-backed promotion log including the actor name, source/target registries, and manifest digest. Visible in the chat-ui's live catalog the moment the copy completes.
 6. **Dual transport** — streamable-http (containers) and stdio (Claude Code) demonstrate MCP's transport flexibility.
 
 ### Workshop Format (90 minutes, if accepted as hands-on lab)
@@ -1074,7 +1062,7 @@ The same content scales to a 90-minute hands-on workshop where every attendee ru
 | Setup | 10 min | Clone, `./scripts/2-setup.sh`, verify Chat UI at localhost:3001 |
 | Phase 1: The Struggle | 20 min | Hallucination demo, manual curl against 5 APIs, friction |
 | Phase 2: Progressive Enablement | 25 min | Start MCP servers one by one, watch tool count grow from 0 → 27 |
-| Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, policy enforcement, multi-system orchestration |
+| Phase 3: Full Pipeline | 25 min | Build/scan/promote/deploy via natural language, live registry visibility, multi-system orchestration |
 | Wrap-Up | 10 min | Discussion: MCP vs. API gateways, production considerations, what to build next |
 
 ### What Makes This Talk Different
