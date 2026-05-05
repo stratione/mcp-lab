@@ -21,8 +21,6 @@ Try) so attendees can flip between context tabs without losing their place.
     restart.sh        Rebuild + restart in place. Default: refresh whatever's
                       running. --core for chat-ui/user-api/promotion only.
                       --all for everything (including stopped).
-    tunnel.sh         Expose an MCP server publicly via ngrok or cloudflared.
-                      See TUNNEL.md.
 
 ## _internal/ (do not run directly — invoked by compose / sourced by other scripts)
 
