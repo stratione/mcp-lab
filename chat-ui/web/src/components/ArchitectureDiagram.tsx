@@ -77,17 +77,23 @@ export function ArchitectureDiagram() {
 
       {/* chat-ui */}
       <rect x="290" y="115" width="160" height="60" rx="12" fill="#a5d8ff" stroke="#60a5fa" strokeWidth="2" />
-      <text x="370" y="152" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="20" fill="#1e1e1e" fontWeight="600">
+      <text x="370" y="148" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="18" fill="#1e1e1e" fontWeight="600">
         chat-ui
+      </text>
+      <text x="370" y="166" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="10" fill="#1e3a8a">
+        localhost:3001
       </text>
 
       {/* LLM */}
       <rect x="600" y="115" width="170" height="60" rx="12" fill="#fff3bf" stroke="#fbbf24" strokeWidth="2" />
-      <text x="685" y="142" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">
+      <text x="685" y="140" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">
         LLM
       </text>
-      <text x="685" y="161" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#666">
+      <text x="685" y="156" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="10" fill="#666">
         Ollama / OpenAI / ...
+      </text>
+      <text x="685" y="170" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="9" fill="#92400e">
+        localhost:11434 · cloud APIs
       </text>
 
       {/* User → chat-ui */}
@@ -102,19 +108,21 @@ export function ArchitectureDiagram() {
         reply or tool_call
       </text>
 
-      {/* MCP servers (5 boxes) */}
+      {/* MCP servers (5 boxes) — port label sits below each box, inside the
+          MCP zone, so attendees can map "the box on the diagram" to "the
+          row in the MCP servers panel" by port number. */}
       {[
-        { x: 40, label: 'mcp-user' },
-        { x: 190, label: 'mcp-gitea' },
-        { x: 340, label: 'mcp-registry' },
-        { x: 490, label: 'mcp-promotion' },
-        { x: 640, label: 'mcp-runner' },
+        { x: 40, label: 'mcp-user', port: '8003' },
+        { x: 190, label: 'mcp-gitea', port: '8004' },
+        { x: 340, label: 'mcp-registry', port: '8005' },
+        { x: 490, label: 'mcp-promotion', port: '8006' },
+        { x: 640, label: 'mcp-runner', port: '8007' },
       ].map((m) => (
         <g key={m.label}>
           <rect x={m.x} y="260" width="130" height="50" rx="10" fill="#d0bfff" stroke="#a78bfa" strokeWidth="2" />
           <text
             x={m.x + 65}
-            y="291"
+            y="288"
             textAnchor="middle"
             fontFamily="Virgil, Comic Sans MS, system-ui"
             fontSize={m.label === 'mcp-promotion' ? 13 : 14}
@@ -122,6 +130,16 @@ export function ArchitectureDiagram() {
             fontWeight="600"
           >
             {m.label}
+          </text>
+          <text
+            x={m.x + 65}
+            y="304"
+            textAnchor="middle"
+            fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+            fontSize="10"
+            fill="#5b21b6"
+          >
+            localhost:{m.port}
           </text>
         </g>
       ))}
@@ -144,31 +162,38 @@ export function ArchitectureDiagram() {
         JSON-RPC tool/call
       </text>
 
-      {/* Backing services row */}
+      {/* Backing services row — port labels live just below each box,
+          monospace so they read as URLs and align under their owners. */}
       {/* user-api */}
       <rect x="40" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
-      <text x="105" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">user-api</text>
+      <text x="105" y="434" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">user-api</text>
+      <text x="105" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="10" fill="#15803d">localhost:8001</text>
 
       {/* gitea */}
       <rect x="190" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
-      <text x="255" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">gitea</text>
+      <text x="255" y="434" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="14" fill="#1e1e1e" fontWeight="600">gitea</text>
+      <text x="255" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="10" fill="#15803d">localhost:3000</text>
 
       {/* registry — TWO boxes side-by-side under mcp-registry to show it's a two-part system */}
       <rect x="340" y="405" width="62" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
       <text x="371" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">registry</text>
       <text x="371" y="445" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">-dev</text>
+      <text x="371" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="9" fill="#15803d">:5001</text>
       <rect x="408" y="405" width="62" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
       <text x="439" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">registry</text>
       <text x="439" y="445" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">-prod</text>
+      <text x="439" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="9" fill="#15803d">:5002</text>
 
       {/* promotion-service */}
       <rect x="490" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" />
-      <text x="555" y="436" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="12" fill="#1e1e1e" fontWeight="600">promotion-service</text>
+      <text x="555" y="434" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="12" fill="#1e1e1e" fontWeight="600">promotion-service</text>
+      <text x="555" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="10" fill="#15803d">localhost:8002</text>
 
       {/* hello-app — runner's ARTIFACT (built + deployed by mcp-runner), not a peer service */}
       <rect x="640" y="405" width="130" height="50" rx="10" fill="#b2f2bb" stroke="#4ade80" strokeWidth="2" strokeDasharray="4 3" />
       <text x="705" y="430" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="11" fill="#1e1e1e" fontWeight="600">hello world app</text>
       <text x="705" y="446" textAnchor="middle" fontFamily="Virgil, Comic Sans MS, system-ui" fontSize="9" fill="#15803d" fontStyle="italic">artifact (built + deployed)</text>
+      <text x="705" y="470" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize="10" fill="#15803d">localhost:9080</text>
 
       {/* MCP → backing service arrows */}
       {/* mcp-user → user-api */}

@@ -18,8 +18,15 @@ describe('useLab store', () => {
   })
 
   it('toggles inspector tab', () => {
-    useLab.getState().setInspectorTab('tools')
-    expect(useLab.getState().inspectorTab).toBe('tools')
+    useLab.getState().setInspectorTab('trace')
+    expect(useLab.getState().inspectorTab).toBe('trace')
+  })
+
+  it('coerces the retired "tools" tab back to "servers"', () => {
+    // Older sessions / persisted state may still carry 'tools'; the setter
+    // remaps it so the tab bar stays valid after the tab was retired.
+    useLab.getState().setInspectorTab('tools' as unknown as 'servers')
+    expect(useLab.getState().inspectorTab).toBe('servers')
   })
 
   it('tracks streaming abort controller', () => {

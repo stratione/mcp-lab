@@ -64,8 +64,7 @@ export function CmdK() {
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading="Navigation">
-              <CommandItem onSelect={go(() => setTab('servers'))}>Focus inspector → Servers</CommandItem>
-              <CommandItem onSelect={go(() => setTab('tools'))}>Focus inspector → Tools</CommandItem>
+              <CommandItem onSelect={go(() => setTab('servers'))}>Focus inspector → MCP servers</CommandItem>
               <CommandItem onSelect={go(() => setTab('trace'))}>Focus inspector → Trace</CommandItem>
               <CommandItem onSelect={go(() => setTab('compare'))}>Focus inspector → Compare</CommandItem>
               <CommandItem onSelect={go(() => setTab('try'))}>Focus inspector → Try</CommandItem>

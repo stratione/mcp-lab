@@ -14,9 +14,10 @@ describe('chat-ui redesign — smoke', () => {
     cy.get('html').should('have.attr', 'data-density', 'large')
   })
 
-  it('shows inspector tabs (servers/tools/trace/compare)', () => {
-    cy.get('[role="tab"]').contains(/^servers$/i).should('be.visible')
-    cy.get('[role="tab"]').contains(/^tools$/i).should('be.visible')
+  it('shows inspector tabs (mcp servers/trace/compare)', () => {
+    // The "Tools" tab was retired — its content now lives inside the MCP
+    // servers tab as per-server collapsible tool lists plus an OTHER row.
+    cy.get('[role="tab"]').contains(/MCP servers/i).should('be.visible')
     cy.get('[role="tab"]').contains(/^trace$/i).should('be.visible')
     cy.get('[role="tab"]').contains(/^compare$/i).should('be.visible')
   })

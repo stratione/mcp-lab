@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useLab, type InspectorTab } from '@/lib/store'
 import { ServersTab } from '@/features/servers/ServersTab'
-import { ToolsTab } from '@/features/tools/ToolsTab'
 import { TraceTab } from '@/features/trace/TraceTab'
 import { CompareTab } from '@/features/compare/CompareTab'
 import { TryTab } from '@/features/try/TryTab'
@@ -18,7 +17,6 @@ const MAX_WIDTH_PCT = 0.7
 // gets rendered — readable English, multi-word allowed.
 const INSPECTOR_TABS: { key: InspectorTab; label: string }[] = [
   { key: 'servers',     label: 'MCP servers' },
-  { key: 'tools',       label: 'Tools' },
   { key: 'trace',       label: 'Trace' },
   { key: 'compare',     label: 'Compare' },
   { key: 'try',         label: 'Try' },
@@ -109,7 +107,6 @@ export function Inspector() {
         </TabsList>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <TabsContent value="servers" className="m-0"><ServersTab /></TabsContent>
-          <TabsContent value="tools" className="m-0"><ToolsTab /></TabsContent>
           <TabsContent value="trace" className="m-0"><TraceTab /></TabsContent>
           <TabsContent value="compare" className="m-0"><CompareTab /></TabsContent>
           <TabsContent value="try" className="m-0"><TryTab /></TabsContent>

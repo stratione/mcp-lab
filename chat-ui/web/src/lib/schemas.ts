@@ -95,6 +95,26 @@ export const ToolsResponseSchema = z.object({
 })
 export type ToolDef = z.infer<typeof ToolSchema>
 
+// Registry catalog (one entry per backing registry — dev, prod).
+// `images` is what /v2/_catalog returns expanded with per-image tags.
+export const RegistryImageSchema = z.object({
+  name: z.string(),
+  tags: z.array(z.string()).default([]),
+})
+export const RegistrySummarySchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  host_url: z.string().optional(),
+  status: z.enum(['online', 'offline']),
+  images: z.array(RegistryImageSchema).default([]),
+  error: z.string().optional(),
+})
+export const RegistryCatalogResponseSchema = z.object({
+  registries: z.array(RegistrySummarySchema),
+})
+export type RegistryImage = z.infer<typeof RegistryImageSchema>
+export type RegistrySummary = z.infer<typeof RegistrySummarySchema>
+
 export const HallucinationStateSchema = z.object({
   enabled: z.boolean(),
 })

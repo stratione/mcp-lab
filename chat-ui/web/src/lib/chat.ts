@@ -44,6 +44,14 @@ export async function send(input: string) {
         messageId: pendingId,
       })
     }
+    // Soft-gate sync: when the model called the `enable_mcp_tools` meta-tool
+    // the server-side _hallucination_mode flag is already off, but the
+    // browser's flyingBlind store still says ON until something tells it
+    // otherwise. Mirror that flip locally so the banner drops and the
+    // ServersTab rows collapse on the same turn the model unlocked tools.
+    if (res.tool_calls.some((tc) => tc.name === 'enable_mcp_tools')) {
+      state.setFlyingBlind(false)
+    }
     state.addTokens(res.token_usage.total_tokens)
     appendChatHistory({ role: 'user', content: text }).catch(() => {})
     appendChatHistory({ role: 'assistant', content: res.reply }).catch(() => {})

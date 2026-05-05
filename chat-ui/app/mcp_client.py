@@ -28,7 +28,38 @@ _LOCAL_TOOLS: list[dict] = [
         "description": "List all configured MCP servers and their status (online/offline), including which tools each server provides.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "enable_mcp_tools",
+        "description": (
+            "Unlock the MCP toolbox so grounded tool calls become available. "
+            "Call ONLY when the user explicitly asks you to enable tools, "
+            "MCPs, data access, or escape Flying Blind / Hallucination Mode. "
+            "Do not call on your own initiative."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
+
+
+def get_local_tool(name: str) -> dict | None:
+    """Return a synthetic tool definition by name (used by the chat handler
+    to expose individual meta-tools without needing to probe MCP servers)."""
+    for t in _LOCAL_TOOLS:
+        if t["name"] == name:
+            return t
+    return None
+
+
+# Optional callback registered by main.py. When the LLM invokes the
+# `enable_mcp_tools` meta-tool, we fire this so main.py can flip the
+# `_hallucination_mode` flag off. Kept as a callback (not a direct import) to
+# avoid a circular import between main.py and mcp_client.py.
+_on_enable_tools_callback = None
+
+
+def register_enable_tools_callback(fn) -> None:
+    global _on_enable_tools_callback
+    _on_enable_tools_callback = fn
 
 
 def _parse_response(resp: httpx.Response) -> dict:
@@ -176,6 +207,25 @@ async def _handle_local_tool(name: str, arguments: dict) -> str | None:
     if name == "list_mcp_servers":
         servers = await check_servers()
         return json.dumps(servers, indent=2)
+    if name == "enable_mcp_tools":
+        if _on_enable_tools_callback:
+            try:
+                _on_enable_tools_callback()
+            except Exception as e:
+                logger.warning("enable_mcp_tools callback raised: %s", e)
+        # Probe MCP servers so the response tells the model which tools it
+        # can now use. If nothing is online, the model still gets an honest
+        # "tools unlocked, but no MCPs are running" reply rather than a lie.
+        servers = await check_servers()
+        online = [s for s in servers if s.get("status") == "online"]
+        return json.dumps({
+            "status": "ok",
+            "message": (
+                "MCP tools unlocked. Ask the user to retry their question — "
+                "you now have access to the available tools."
+            ),
+            "online_servers": online,
+        }, indent=2)
     return None
 
 

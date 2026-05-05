@@ -26,7 +26,10 @@ export type TraceEntry = {
   messageId: string
 }
 
-export type InspectorTab = 'servers' | 'tools' | 'trace' | 'compare' | 'try' | 'walkthrough'
+// 'tools' was retired when the per-server tool list moved into the MCP
+// servers tab. The store's setter coerces stale persisted 'tools' values
+// back to 'servers' so old localStorage doesn't break the tab bar.
+export type InspectorTab = 'servers' | 'trace' | 'compare' | 'try' | 'walkthrough'
 
 export type LabState = {
   messages: ChatMessageView[]
@@ -84,7 +87,10 @@ export const useLab = create<LabState>()(
       clearTraces: () => set({ traces: [] }),
 
       inspectorTab: 'servers',
-      setInspectorTab: (t) => set({ inspectorTab: t }),
+      setInspectorTab: (t) =>
+        // Coerce the retired 'tools' value (still in older callers / persisted
+        // state) back to 'servers' since the tools list now lives there.
+        set({ inspectorTab: (t as string) === 'tools' ? 'servers' : t }),
 
       cmdkOpen: false,
       setCmdkOpen: (cmdkOpen) => set({ cmdkOpen }),
@@ -99,7 +105,11 @@ export const useLab = create<LabState>()(
       addTokens: (n) => set((s) => ({ sessionTokens: s.sessionTokens + n })),
       resetTokens: () => set({ sessionTokens: 0 }),
 
-      flyingBlind: false,
+      // Default ON: a fresh load opens with the model fabricating; the App
+      // effect clears this the first time any MCP comes online so the
+      // workshop arc "lies → enable a tool → grounded" works without the
+      // attendee having to find the corner-menu toggle.
+      flyingBlind: true,
       setFlyingBlind: (flyingBlind) => set({ flyingBlind }),
 
       walkthroughKick: 0,

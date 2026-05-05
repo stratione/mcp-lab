@@ -1,10 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useServers } from './useServers'
-import { mcpControl, getMcpStatusEnvelope } from '@/lib/api'
+import {
+  mcpControl,
+  getMcpStatusEnvelope,
+  getTools,
+  getRegistriesCatalog,
+  clearRegistry,
+} from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { backingUrlsFor } from '@/lib/mcp-backing'
-import type { McpServer } from '@/lib/schemas'
+import { useLab } from '@/lib/store'
+import type {
+  McpServer,
+  ToolDef,
+  RegistrySummary,
+  RegistryImage,
+} from '@/lib/schemas'
+import { ToolDrawer } from '@/features/tools/ToolDrawer'
 
 export function ServersTab() {
   const { data, isLoading, error } = useServers()
@@ -23,6 +36,26 @@ export function ServersTab() {
   // Start buttons accordingly until the image lands on disk.
   const prebuildStatus = env.data?.prebuild_status ?? {}
 
+  // Tools used to live in their own tab. They're now folded into each
+  // ServerRow and the trailing OTHER row, so this query backs both.
+  // Refetch fast (3s) when anything is offline; calm down once everything's
+  // up.
+  const anyOffline = (data ?? []).some((s) => s.status !== 'online')
+  const toolsQuery = useQuery({
+    queryKey: ['tools'],
+    queryFn: ({ signal }) => getTools(signal),
+    refetchInterval: anyOffline ? 3_000 : 30_000,
+  })
+  const allTools = toolsQuery.data?.tools ?? []
+  const otherTools = useMemo(
+    () => allTools.filter((t) => (t.category || 'other') === 'other'),
+    [allTools],
+  )
+
+  // ToolDrawer state lives at the panel level so any row's tool click can
+  // open the same dialog.
+  const [activeTool, setActiveTool] = useState<ToolDef | null>(null)
+
   if (isLoading) return <div className="p-3 text-sm text-muted">Loading…</div>
   if (error) return <div className="p-3 text-sm text-err">Failed to load servers.</div>
   return (
@@ -34,8 +67,18 @@ export function ServersTab() {
           engine={engine}
           hostDir={hostDir}
           prebuildStatus={prebuildStatus}
+          allTools={allTools}
+          onToolClick={setActiveTool}
         />
       ))}
+      {otherTools.length > 0 && (
+        <OtherToolsRow tools={otherTools} onToolClick={setActiveTool} />
+      )}
+      {/* Always-on view of dev/prod registry contents. Renders independent of
+          mcp-registry's status because the registries themselves are
+          standalone docker services and are usually up before the MCP. */}
+      <RegistryCatalogCard />
+      <ToolDrawer tool={activeTool} onClose={() => setActiveTool(null)} />
     </div>
   )
 }
@@ -45,15 +88,31 @@ function ServerRow({
   engine,
   hostDir,
   prebuildStatus,
+  allTools,
+  onToolClick,
 }: {
   server: McpServer
   engine: string
   hostDir: string
   prebuildStatus: Record<string, 'ready' | 'preparing'>
+  allTools: ToolDef[]
+  onToolClick: (t: ToolDef) => void
 }) {
-  const [open, setOpen] = useState(false)
+  // Three-state expand: user override > auto rule > closed.
+  // Auto rule: when Flying Blind is on AND this server is offline, expand by
+  // default so the Start button + compose command are immediately visible —
+  // that's the "how do I escape lying mode" moment. User clicks lock in
+  // their preference and override the auto rule for the rest of the session.
+  const flyingBlind = useLab((s) => s.flyingBlind)
+  const [override, setOverride] = useState<boolean | null>(null)
   const isOnline = server.status === 'online'
   const isDegraded = server.status === 'degraded'
+  const autoOpen = flyingBlind && !isOnline
+  const open = override ?? autoOpen
+  const setOpen = (next: boolean) => setOverride(next)
+  // Tools attributed to this server come from the /api/tools category field.
+  // Filter once per render — cheap, list is small.
+  const myTools = allTools.filter((t) => (t.category || 'other') === server.name)
   const statusColor = isOnline ? 'text-ok' : isDegraded ? 'text-warn' : 'text-err'
   const statusGlyph = isOnline ? '▲' : isDegraded ? '◆' : '▼'
   // Public host URL anyone can hit from a host-side browser/curl.
@@ -67,7 +126,7 @@ function ServerRow({
         <span className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => setOpen(!open)}
             aria-expanded={open}
             aria-label={open ? `Hide instructions for ${server.name}` : `Show how to start/stop ${server.name}`}
             title="How to start / stop this server"
@@ -85,6 +144,11 @@ function ServerRow({
           {server.name}
         </span>
         <span className="flex items-center gap-2 text-xs text-faint">
+          {myTools.length > 0 && (
+            <span title={`${myTools.length} tool${myTools.length === 1 ? '' : 's'} from this server`}>
+              {myTools.length} tool{myTools.length === 1 ? '' : 's'}
+            </span>
+          )}
           {server.port != null && (
             <span title={hostUrl ? `${hostUrl} (SSE — see expand for curl)` : undefined}>
               :{server.port}
@@ -94,14 +158,23 @@ function ServerRow({
         </span>
       </div>
       {open && (
-        <ServerInstructions
-          name={server.name}
-          engine={engine}
-          hostDir={hostDir}
-          hostUrl={hostUrl}
-          isOnline={isOnline}
-          prebuildStatus={prebuildStatus}
-        />
+        <>
+          <ServerInstructions
+            name={server.name}
+            engine={engine}
+            hostDir={hostDir}
+            hostUrl={hostUrl}
+            isOnline={isOnline}
+            prebuildStatus={prebuildStatus}
+          />
+          {myTools.length > 0 && (
+            <ToolList
+              category={server.name.toUpperCase()}
+              tools={myTools}
+              onToolClick={onToolClick}
+            />
+          )}
+        </>
       )}
       {open && (
         <p className="bg-bg border-t border-border text-[10px] text-faint px-2 py-1">
@@ -329,5 +402,325 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? 'copied' : 'copy'}
     </button>
+  )
+}
+
+function ToolList({
+  category,
+  tools,
+  onToolClick,
+}: {
+  category: string
+  tools: ToolDef[]
+  onToolClick: (t: ToolDef) => void
+}) {
+  return (
+    <div className="bg-bg border-t border-border p-2">
+      <div className="text-[10px] uppercase tracking-wider text-faint mb-1">
+        Tools · {tools.length}
+      </div>
+      <ul className="space-y-0.5">
+        {tools.map((t) => (
+          <li key={t.name}>
+            <button
+              type="button"
+              onClick={() => onToolClick(t)}
+              className="w-full flex justify-between items-center text-[12px] font-mono py-1 px-1 hover:bg-surface-2 hover:text-text rounded text-left"
+              title={t.description || ''}
+              data-testid={`tool-row-${t.name}`}
+            >
+              <span className="truncate">{t.name}</span>
+              <span className="text-[9px] uppercase tracking-wider text-faint border border-border bg-surface rounded px-1 py-0.5 font-sans shrink-0 ml-2">
+                {category}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// Pull the FastAPI `detail` field out of an ApiError so the user sees the
+// real backend message (e.g. "start failed (exit 1): no such service") and
+// not just "HTTP 500".
+function extractClearError(err: unknown): string {
+  if (err && typeof err === 'object' && 'detail' in err) {
+    const d = (err as { detail?: unknown }).detail
+    if (d && typeof d === 'object' && 'detail' in d) {
+      const inner = (d as { detail?: unknown }).detail
+      if (typeof inner === 'string') return inner
+    }
+    if (typeof d === 'string') return d
+  }
+  return err instanceof Error ? err.message : String(err)
+}
+
+// Returns "image:tag" strings for every (image, tag) pair so we can detect
+// new arrivals across polls — used to flash freshly-built images.
+function flattenTags(images: RegistryImage[]): Set<string> {
+  const out = new Set<string>()
+  for (const img of images) for (const t of img.tags) out.add(`${img.name}:${t}`)
+  return out
+}
+
+function RegistryCatalogCard() {
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['registries-catalog'],
+    queryFn: ({ signal }) => getRegistriesCatalog(signal),
+    // Faster while the audience is actively building (3s catches a push
+    // within ~one teaching breath); slows once both registries are quiet.
+    refetchInterval: 3_000,
+  })
+  // Track which image:tag pairs are "freshly seen" so the row can flash for
+  // a few seconds when an image appears. Keyed per registry so promotion
+  // (same tag landing in prod) also flashes.
+  const seenRef = useRef<Record<string, Set<string>>>({})
+  const [flashing, setFlashing] = useState<Record<string, Set<string>>>({})
+
+  useEffect(() => {
+    if (!data) return
+    const nextFlashing: Record<string, Set<string>> = {}
+    for (const reg of data.registries) {
+      const seen = seenRef.current[reg.name] ?? new Set<string>()
+      const current = flattenTags(reg.images)
+      const fresh = new Set<string>()
+      for (const key of current) if (!seen.has(key)) fresh.add(key)
+      seenRef.current[reg.name] = current
+      if (fresh.size > 0) nextFlashing[reg.name] = fresh
+    }
+    if (Object.keys(nextFlashing).length === 0) return
+    setFlashing((prev) => {
+      const merged = { ...prev }
+      for (const [reg, set] of Object.entries(nextFlashing)) {
+        merged[reg] = new Set([...(merged[reg] ?? []), ...set])
+      }
+      return merged
+    })
+    const t = setTimeout(() => {
+      setFlashing((prev) => {
+        const next = { ...prev }
+        for (const reg of Object.keys(nextFlashing)) delete next[reg]
+        return next
+      })
+    }, 4_000)
+    return () => clearTimeout(t)
+  }, [data])
+
+  return (
+    <div className="bg-surface-2 border border-border rounded-md text-sm">
+      <div className="flex items-center justify-between px-2.5 py-2">
+        <span className="flex items-center gap-2">
+          <span className="w-4 text-center text-faint select-none leading-none">·</span>
+          <span className="inline-flex items-center justify-center w-4 text-[10px] font-bold text-muted">
+            ⛁
+          </span>
+          <span className="text-muted">registries</span>
+        </span>
+        <span className="text-xs text-faint">
+          {isLoading ? 'loading…' : 'live · 3s'}
+        </span>
+      </div>
+      <div className="bg-bg border-t border-border p-2 space-y-2">
+        {error && <p className="text-[11px] text-err">Failed to load registry catalog.</p>}
+        {data?.registries.map((reg) => (
+          <RegistryColumn
+            key={reg.name}
+            reg={reg}
+            flashing={flashing[reg.name] ?? new Set()}
+          />
+        ))}
+        <p className="text-[10px] text-faint pt-1 border-t border-border">
+          New images flash green when they first appear — that's <code className="font-mono">build_image</code> or{' '}
+          <code className="font-mono">promote_image</code> landing.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function RegistryColumn({
+  reg,
+  flashing,
+}: {
+  reg: RegistrySummary
+  flashing: Set<string>
+}) {
+  const qc = useQueryClient()
+  const isOnline = reg.status === 'online'
+  const totalTags = reg.images.reduce((n, i) => n + i.tags.length, 0)
+  const hasContent = isOnline && reg.images.length > 0
+  const clearMut = useMutation({
+    mutationFn: () => clearRegistry(reg.name as 'dev' | 'prod'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['registries-catalog'] })
+    },
+  })
+  const [confirming, setConfirming] = useState(false)
+
+  function startClear() {
+    if (!hasContent) return
+    setConfirming(true)
+  }
+  function cancelClear() {
+    setConfirming(false)
+  }
+  async function confirmClear() {
+    setConfirming(false)
+    clearMut.mutate()
+  }
+
+  return (
+    <div className="bg-surface border border-border rounded p-1.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="flex items-center gap-1.5">
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${
+              isOnline ? 'bg-ok' : 'bg-err'
+            }`}
+          />
+          <span className="text-[11px] font-semibold uppercase tracking-wider">
+            registry-{reg.name}
+          </span>
+          {reg.host_url && (
+            <a
+              href={`${reg.host_url}/v2/_catalog`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-mono text-muted hover:text-text hover:underline"
+            >
+              {reg.host_url.replace(/^https?:\/\//, '')} ↗
+            </a>
+          )}
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[10px] text-faint">
+            {isOnline
+              ? `${reg.images.length} image${reg.images.length === 1 ? '' : 's'} · ${totalTags} tag${totalTags === 1 ? '' : 's'}`
+              : 'offline'}
+          </span>
+          {(reg.name === 'dev' || reg.name === 'prod') && (
+            <button
+              type="button"
+              onClick={startClear}
+              disabled={!hasContent || clearMut.isPending || confirming}
+              className="text-[10px] text-muted hover:text-err border border-border rounded px-1.5 py-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                hasContent
+                  ? `Stop registry-${reg.name}, drop its data volume, and restart it empty`
+                  : 'Already empty'
+              }
+              data-testid={`registry-clear-${reg.name}`}
+            >
+              {clearMut.isPending ? 'clearing…' : 'clear'}
+            </button>
+          )}
+        </span>
+      </div>
+      {confirming && (
+        <div className="mb-1.5 rounded border border-warn/50 bg-warn/10 p-1.5 space-y-1">
+          <p className="text-[10px] text-warn">
+            Wipe registry-{reg.name}? This stops the container, removes its data
+            volume, and restarts it empty. {totalTags} tag{totalTags === 1 ? '' : 's'} will be lost.
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={confirmClear}
+              className="text-[10px] bg-err/15 text-err border border-err/50 rounded px-2 py-0.5 hover:bg-err/25"
+              data-testid={`registry-clear-confirm-${reg.name}`}
+            >
+              Yes, wipe it
+            </button>
+            <button
+              type="button"
+              onClick={cancelClear}
+              className="text-[10px] text-muted border border-border rounded px-2 py-0.5 hover:text-text"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {clearMut.isError && (
+        <p className="text-[10px] text-err mb-1 whitespace-pre-wrap">
+          Clear failed: {extractClearError(clearMut.error)}
+        </p>
+      )}
+      {!isOnline && (
+        <p className="text-[10px] text-faint italic">
+          Registry is not reachable right now. It comes up with the lab via{' '}
+          <code className="font-mono">make small</code> or{' '}
+          <code className="font-mono">docker compose up -d registry-{reg.name}</code>.
+        </p>
+      )}
+      {isOnline && reg.images.length === 0 && (
+        <p className="text-[10px] text-faint italic">
+          Empty. The first <code className="font-mono">build_image</code> push lands here.
+        </p>
+      )}
+      {isOnline && reg.images.length > 0 && (
+        <ul className="space-y-0.5">
+          {reg.images.map((img) => (
+            <li key={img.name} className="text-[11px] font-mono">
+              <span className="text-text">{img.name}</span>
+              {img.tags.length > 0 && (
+                <span className="text-faint">: </span>
+              )}
+              <span className="inline-flex flex-wrap gap-1">
+                {img.tags.map((tag) => {
+                  const key = `${img.name}:${tag}`
+                  const isFresh = flashing.has(key)
+                  return (
+                    <span
+                      key={tag}
+                      className={`inline-block px-1 py-0.5 text-[10px] rounded border transition-colors ${
+                        isFresh
+                          ? 'bg-ok/20 border-ok text-ok animate-pulse'
+                          : 'bg-bg border-border text-muted'
+                      }`}
+                      title={isFresh ? 'just appeared' : `${img.name}:${tag}`}
+                      data-testid={`registry-tag-${reg.name}-${img.name}-${tag}`}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// Synthetic OTHER tools (list_mcp_servers, enable_mcp_tools) don't belong to
+// any MCP server — they're handled inside chat-ui itself. Render them as a
+// statically-expanded card at the bottom of the panel so they're always
+// visible without a toggle.
+function OtherToolsRow({
+  tools,
+  onToolClick,
+}: {
+  tools: ToolDef[]
+  onToolClick: (t: ToolDef) => void
+}) {
+  return (
+    <div className="bg-surface-2 border border-border rounded-md text-sm">
+      <div className="flex items-center justify-between px-2.5 py-2">
+        <span className="flex items-center gap-2">
+          <span className="w-4 text-center text-faint select-none leading-none">·</span>
+          <span className="inline-flex items-center justify-center w-4 text-[10px] font-bold text-muted">
+            ⚙
+          </span>
+          <span className="text-muted">other</span>
+        </span>
+        <span className="text-xs text-faint">
+          {tools.length} synthetic tool{tools.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <ToolList category="OTHER" tools={tools} onToolClick={onToolClick} />
+    </div>
   )
 }

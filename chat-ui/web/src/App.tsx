@@ -8,10 +8,15 @@ import { useShortcuts } from '@/lib/shortcuts'
 import { Shortcuts } from '@/components/Shortcuts'
 import { Walkthrough } from '@/components/Walkthrough'
 import { useLab } from '@/lib/store'
+import { useServers } from '@/features/servers/useServers'
+import { setHallucinationMode } from '@/lib/api'
 
 export default function App() {
   useShortcuts()
   const setInspectorTab = useLab((s) => s.setInspectorTab)
+  const flyingBlind = useLab((s) => s.flyingBlind)
+  const setFlyingBlind = useLab((s) => s.setFlyingBlind)
+  const { data: servers } = useServers()
 
   // workshop launcher: opening /?dashboard=open switches inspector to compare tab
   useEffect(() => {
@@ -20,6 +25,20 @@ export default function App() {
       setInspectorTab('compare')
     }
   }, [setInspectorTab])
+
+  // Flying Blind starts ON so the first impression is the model fabricating.
+  // The intended arc is "watch it lie → enable an MCP → see the difference",
+  // so as soon as any MCP comes online we clear the flag (and tell the
+  // server) automatically. Manual re-enable via the corner menu still works
+  // for replays.
+  useEffect(() => {
+    if (!flyingBlind || !servers) return
+    const anyOnline = servers.some((s) => s.status === 'online')
+    if (anyOnline) {
+      setFlyingBlind(false)
+      void setHallucinationMode(false)
+    }
+  }, [flyingBlind, servers, setFlyingBlind])
 
   return (
     <div className="h-screen flex flex-col bg-bg text-text">

@@ -16,17 +16,25 @@ from app import main
 
 @pytest.fixture(autouse=True)
 def reset_hallucination_mode():
-    """Each test starts with mode OFF and tear-down restores OFF."""
+    """Each test starts with mode OFF and tear-down restores OFF.
+
+    Note: the module-level default is True (workshop UX — fresh page load
+    opens with the model fabricating). Tests still want a clean OFF baseline,
+    so this fixture forces it.
+    """
     main._hallucination_mode = False
     yield
     main._hallucination_mode = False
 
 
-@pytest.mark.asyncio
-async def test_default_is_off(client):
-    r = await client.get("/api/hallucination-mode")
-    assert r.status_code == 200
-    assert r.json() == {"enabled": False}
+def test_module_default_is_on_in_source():
+    """Boot-time default is True so a fresh chat-ui starts in Flying Blind.
+    Asserted by reading the source rather than reloading the module — module
+    reload would tear down the FastAPI app the other tests share.
+    """
+    import inspect
+    src = inspect.getsource(main)
+    assert "_hallucination_mode: bool = True" in src
 
 
 @pytest.mark.asyncio
@@ -91,11 +99,16 @@ async def test_chat_response_omits_hallucination_flag_default(
 
 
 @pytest.mark.asyncio
-async def test_chat_passes_empty_tools_when_on(client, capturing_provider):
+async def test_chat_exposes_only_escape_tool_when_on(client, capturing_provider):
+    """Soft-gate: Flying Blind exposes exactly one tool, `enable_mcp_tools`,
+    so the model has a single explicit escape hatch when the user asks for
+    it. No real MCP tools — those would defeat the gaslighting beat."""
     await client.post("/api/hallucination-mode", json={"enabled": True})
     await client.post("/api/chat", json={"message": "hi", "history": []})
-    assert capturing_provider.captured_tools == [], (
-        f"hallucination mode must pass tools=[], got {capturing_provider.captured_tools!r}"
+    captured = capturing_provider.captured_tools or []
+    names = [t.get("name") for t in captured]
+    assert names == ["enable_mcp_tools"], (
+        f"hallucination mode must expose only enable_mcp_tools, got {names!r}"
     )
 
 

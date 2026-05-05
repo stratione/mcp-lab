@@ -6,6 +6,7 @@ import {
   ProvidersResponseSchema,
   ToolsResponseSchema,
   HallucinationStateSchema,
+  RegistryCatalogResponseSchema,
   type ChatResponse,
   type ChatMessage,
   type ToolDef,
@@ -81,6 +82,18 @@ export const getMcpStatusEnvelope = (signal?: AbortSignal) =>
 
 export const getTools = (signal?: AbortSignal) =>
   call('/api/tools', ToolsResponseSchema, undefined, signal)
+
+export const getRegistriesCatalog = (signal?: AbortSignal) =>
+  call('/api/registries/catalog', RegistryCatalogResponseSchema, undefined, signal)
+
+// Wipe a registry's data volume + restart its container. Destructive —
+// every image/tag in the named registry is removed. Backed by /api/registries/{name}/clear.
+export const clearRegistry = (name: 'dev' | 'prod') =>
+  call(
+    `/api/registries/${name}/clear`,
+    z.object({ ok: z.boolean(), registry: z.string(), volume: z.string() }),
+    { method: 'POST' },
+  )
 
 export const getProviders = (signal?: AbortSignal) =>
   call('/api/providers', ProvidersResponseSchema, undefined, signal)
