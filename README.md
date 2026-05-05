@@ -1,6 +1,26 @@
 # MCP DevOps Workshop Lab
 
+> **DevOpsDays Austin 2026** — hands-on workshop. Run it on your own laptop and follow along live.
+
 A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transforms DevOps tooling by acting as a unified control, translation, and policy plane. Learners experience the friction of raw API interaction, then progressively enable MCP tools to see how structured tool calling eliminates complexity.
+
+---
+
+## Before the workshop — read this first
+
+**You need Docker OR Podman installed and running.** Either one works; the lab auto-detects whichever you have. That is the one hard prerequisite — without a container runtime the lab will not start. Install instructions are in [Required Software](#required-software) below.
+
+**Pull everything at home, not at the venue.** Conference WiFi is shared with hundreds of people and will be slow. Do the steps below the night before — at home or at your hotel — so the workshop starts at "play" instead of "wait for download." You'll be pulling roughly **6 GB total** (lab images + the Ollama model); doing that on conference WiFi is not viable.
+
+```bash
+git clone https://github.com/stratione/mcp-lab.git
+cd mcp-lab
+./scripts/1-preflight.sh         # verifies your machine — read-only, safe to run anytime
+./scripts/2-setup.sh --tier=large # pulls + builds all images (~1.5 GB)
+ollama pull llama3.1:8b          # ~4.9 GB — pull this AT HOME, not on conference WiFi
+```
+
+If `1-preflight.sh` flags anything missing, fix it before you arrive. The pre-workshop checklist with full detail is at [docs/PRE-WORKSHOP.md](docs/PRE-WORKSHOP.md).
 
 ---
 
@@ -44,23 +64,31 @@ The preflight script checks everything below and prints install instructions if 
 
 ### Minimum Hardware
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| RAM | 8 GB | 16 GB |
-| CPU | 4 cores | 8+ cores |
-| Disk (without Ollama) | 2 GB free | 4 GB free |
-| Disk (with Ollama) | 8 GB free | 10 GB free |
-| OS | macOS 12+, Linux, Windows (WSL2) | macOS 14+ or Ubuntu 22+ |
+`1-preflight.sh` enforces the **bold** items. The rest are recommendations — the lab will run with less, just slower.
+
+| Requirement | Minimum | Recommended | Enforced? |
+|-------------|---------|-------------|-----------|
+| RAM | **8 GB** | 16 GB | ✅ checked by preflight |
+| CPU | 4 cores | 8+ cores (Apple Silicon or modern x86) | not checked |
+| Disk (large tier, no Ollama) | 2 GB free | 4 GB free | not checked |
+| Disk (large tier + Ollama llama3.1:8b) | 8 GB free | 12 GB free | not checked |
+| OS | macOS 12+, Linux, Windows (WSL2) | macOS 14+ / Ubuntu 22+ | OS family detected |
+| Container runtime | **Docker OR Podman** | (either works) | ✅ checked by preflight |
 
 ### Disk Breakdown
 
+The lab has three tiers — pick at setup time, level up later without teardown:
+
 | Component | Size |
 |-----------|------|
-| Container images (all services) | ~650 MB |
-| Container runtime + volumes | ~150 MB |
+| `small` tier  (4 containers, 9 tools)  | ~700 MB |
+| `medium` tier (5 containers, 16 tools) | ~900 MB |
+| `large` tier  (8+ containers, 27 tools — full workshop arc) | ~1.5 GB |
+| Container runtime overhead (volumes, caches) | ~150 MB |
 | Ollama `llama3.1:8b` model | ~4.9 GB |
-| **Total without Ollama** | **~1 GB** |
-| **Total with Ollama** | **~6 GB** |
+| Ollama `gemma4:e4b` (optional bonus) | ~9.6 GB |
+| **`large` tier without Ollama** | **~1.7 GB** |
+| **`large` tier + llama3.1:8b** | **~6.5 GB** |
 
 ### Required Software
 
