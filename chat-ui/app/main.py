@@ -130,7 +130,6 @@ async def get_providers():
             {"id": "openai",   "name": "OpenAI",               "requires_key": True,  "default_model": "gpt-4o",                 "has_key": bool(_API_KEYS.get("openai"))},
             {"id": "anthropic","name": "Anthropic",            "requires_key": True,  "default_model": "claude-sonnet-4-5-20250929", "has_key": bool(_API_KEYS.get("anthropic"))},
             {"id": "google",   "name": "Google Gemini",        "requires_key": True,  "default_model": "gemini-2.0-flash",       "has_key": bool(_API_KEYS.get("google"))},
-            {"id": "pretend",  "name": "Demo LLM (no key needed)", "requires_key": False, "default_model": "demo", "has_key": True},
         ],
         "active": _safe_provider_view(_provider_config),
     }
@@ -143,7 +142,7 @@ async def test_provider_key(request: Request):
     Calls each provider's models-list endpoint — these are auth-checked but
     don't consume tokens, so testing is free regardless of plan tier.
 
-    Body: {"provider": "openai"|"anthropic"|"google"|"ollama"|"pretend",
+    Body: {"provider": "openai"|"anthropic"|"google"|"ollama",
            "api_key": "sk-..." (optional — falls back to env-loaded key),
            "base_url": "..." (optional, ollama only)}
 
@@ -157,9 +156,6 @@ async def test_provider_key(request: Request):
     provider = (body.get("provider") or "").lower()
     explicit_key = body.get("api_key") or ""
     base_url = body.get("base_url") or ""
-
-    if provider == "pretend":
-        return {"ok": True, "status": 200, "message": "demo provider — no key needed", "latency_ms": 0}
 
     # Validate the provider name BEFORE checking for a key, so unknown names
     # don't masquerade as "no key configured" (which would suggest a fix that

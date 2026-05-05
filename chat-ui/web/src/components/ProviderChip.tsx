@@ -14,7 +14,6 @@ const PROVIDERS = [
   { v: 'openai', label: 'OpenAI' },
   { v: 'anthropic', label: 'Anthropic' },
   { v: 'google', label: 'Google Gemini' },
-  { v: 'pretend', label: 'Demo LLM' },
 ]
 
 // Maps provider id → the env var name the chat-ui's backend (chat-ui/app/main.py)
@@ -182,9 +181,9 @@ export function ProviderChip() {
             value={s.apiKey}
             onChange={(e) => setS({ ...s, apiKey: e.target.value })}
             placeholder={s.provider === 'ollama' ? 'not required' : 'sk-…'}
-            disabled={s.provider === 'ollama' || s.provider === 'pretend'}
+            disabled={s.provider === 'ollama'}
           />
-          {s.provider !== 'ollama' && s.provider !== 'pretend' && (
+          {s.provider !== 'ollama' && (
             <p
               className="mt-1 text-[10px] text-faint leading-snug"
               data-testid="env-secrets-hint"
@@ -197,36 +196,34 @@ export function ProviderChip() {
               root — the lab loads it on every restart so you don't have to paste it each session.
             </p>
           )}
-          {s.provider !== 'pretend' && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <button
-                type="button"
-                onClick={runKeyTest}
-                disabled={testing}
-                className="text-[10px] px-2 py-0.5 rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-50"
-                data-testid="test-key-btn"
-                title={
-                  s.provider === 'ollama'
-                    ? 'Pings Ollama at the configured URL — no token cost'
-                    : 'Calls /v1/models on the provider — auth check, no token cost'
-                }
+          <div className="flex items-center gap-2 mt-1.5">
+            <button
+              type="button"
+              onClick={runKeyTest}
+              disabled={testing}
+              className="text-[10px] px-2 py-0.5 rounded border border-border bg-bg text-muted hover:text-text disabled:opacity-50"
+              data-testid="test-key-btn"
+              title={
+                s.provider === 'ollama'
+                  ? 'Pings Ollama at the configured URL — no token cost'
+                  : 'Calls /v1/models on the provider — auth check, no token cost'
+              }
+            >
+              {testing ? 'Testing…' : 'Test connection'}
+            </button>
+            {keyTest && (
+              <span
+                className={`text-[10px] font-mono ${keyTest.ok ? 'text-ok' : 'text-err'}`}
+                data-testid="test-key-result"
+                title={keyTest.message}
               >
-                {testing ? 'Testing…' : 'Test connection'}
-              </button>
-              {keyTest && (
-                <span
-                  className={`text-[10px] font-mono ${keyTest.ok ? 'text-ok' : 'text-err'}`}
-                  data-testid="test-key-result"
-                  title={keyTest.message}
-                >
-                  {keyTest.ok ? '✅' : '❌'} {keyTest.message}
-                  {keyTest.latency_ms > 0 && (
-                    <span className="text-faint"> ({keyTest.latency_ms}ms)</span>
-                  )}
-                </span>
-              )}
-            </div>
-          )}
+                {keyTest.ok ? '✅' : '❌'} {keyTest.message}
+                {keyTest.latency_ms > 0 && (
+                  <span className="text-faint"> ({keyTest.latency_ms}ms)</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex justify-between items-center text-xs text-muted">
           <span>

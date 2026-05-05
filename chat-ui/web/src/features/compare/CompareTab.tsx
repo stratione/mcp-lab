@@ -6,7 +6,7 @@ type Pane = { provider: string; model: string; halu: boolean; reply: string; bus
 const AUTO_VALUE = 'auto'
 const init = (provider: string, model: string): Pane => ({ provider, model, halu: false, reply: '', busy: false })
 
-const PROVIDERS = ['ollama', 'openai', 'anthropic', 'google', 'pretend'] as const
+const PROVIDERS = ['ollama', 'openai', 'anthropic', 'google'] as const
 
 export function CompareTab() {
   const [prompt, setPrompt] = useState('')

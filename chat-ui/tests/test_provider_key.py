@@ -23,16 +23,7 @@ def reset_keys():
     main._API_KEYS.update(saved)
 
 
-# ─── pretend / no-network paths ───
-
-@pytest.mark.asyncio
-async def test_pretend_provider_always_ok(client):
-    r = await client.post("/api/test-provider-key", json={"provider": "pretend"})
-    body = r.json()
-    assert r.status_code == 200
-    assert body["ok"] is True
-    assert body["status"] == 200
-
+# ─── no-network paths ───
 
 @pytest.mark.asyncio
 async def test_unknown_provider_returns_ok_false(client):

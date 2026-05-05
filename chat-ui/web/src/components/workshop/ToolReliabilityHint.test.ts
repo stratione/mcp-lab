@@ -42,7 +42,6 @@ describe('shouldShow', () => {
     expect(shouldShow('openai', 'gpt-4o')).toBe(false)
     expect(shouldShow('anthropic', 'claude-sonnet-4-5-20250929')).toBe(false)
     expect(shouldShow('google', 'gemini-2.0-flash')).toBe(false)
-    expect(shouldShow('pretend', 'demo')).toBe(false)
   })
 
   it('hides even with no model when provider is non-ollama', () => {

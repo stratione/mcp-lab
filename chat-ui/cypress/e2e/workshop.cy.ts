@@ -31,7 +31,7 @@ describe('workshop walkthrough (header button → inspector tab)', () => {
     cy.intercept('GET', '/api/tools', { statusCode: 200, body: { tools: [] } })
     cy.intercept('GET', '/api/providers', {
       statusCode: 200,
-      body: { providers: [], active: { provider: 'pretend' } },
+      body: { providers: [], active: { provider: 'ollama' } },
     })
     cy.intercept('GET', '/api/hallucination-mode', {
       statusCode: 200,

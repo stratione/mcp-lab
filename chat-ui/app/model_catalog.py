@@ -248,18 +248,6 @@ def google_auto() -> str:
     return _GOOGLE_AUTO
 
 
-# ─── Pretend (demo) ──────────────────────────────────────────────────────
-
-def pretend_models() -> list[dict[str, Any]]:
-    return [
-        {"id": "demo", "label": "Demo (no key needed)", "supports_tools": False, "installed": True, "recommended": False}
-    ]
-
-
-def pretend_auto() -> str:
-    return "demo"
-
-
 # ─── Public dispatch ─────────────────────────────────────────────────────
 
 async def list_models(provider: str, api_key: str = "") -> dict[str, Any]:
@@ -275,9 +263,6 @@ async def list_models(provider: str, api_key: str = "") -> dict[str, Any]:
     elif provider == "google":
         models = await google_models(api_key)
         auto = google_auto()
-    elif provider == "pretend":
-        models = pretend_models()
-        auto = pretend_auto()
     else:
         models = []
         auto = ""
@@ -296,5 +281,4 @@ def resolve_auto(provider: str) -> str:
         "openai":    openai_auto(),
         "anthropic": anthropic_auto(),
         "google":    google_auto(),
-        "pretend":   pretend_auto(),
     }.get(provider, "")
