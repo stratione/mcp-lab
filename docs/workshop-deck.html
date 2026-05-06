@@ -268,11 +268,11 @@
           <h1 class="title">Set up the lab</h1>
           <div class="body">
             <ul>
-              <li>Clone <code>github.com/stratione/mcp-lab</code></li>
+              <li>Clone <code>github.com/stratione/mcp-lab</code> &nbsp;<em style="color:#aaa; font-size:0.78em;">(already cloned? run <code>git pull</code>)</em></li>
               <li><code>cd mcp-lab/scripts</code></li>
               <li>Run <code>./1-preflight.sh</code></li>
               <li>Run <code>./2-setup.sh</code> &nbsp;→&nbsp; pick <strong>large</strong> when prompted</li>
-              <li>Add API keys to <code>.env.secrets</code> <em>(optional)</em></li>
+              <li>Add API keys to <code>.env.secrets</code> <em>(optional &mdash; gitignored)</em><br/><em style="color:#aaa; font-size:0.78em;">already running? <code>./scripts/restart.sh</code> picks up the new keys</em></li>
               <li>When done: <code>./3-teardown.sh</code> — and <strong>prune!</strong></li>
             </ul>
           </div>
@@ -296,7 +296,22 @@
         </div>
       </section>
 
-      <!-- ─── 4 — How LLMs talk MCP ─── -->
+      <!-- ─── 4 — Where the MCP source lives ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Where the source lives</h1>
+          <div class="body" style="font-size: 28px;">
+            <p style="margin-bottom:12px;"><strong>Servers</strong> &mdash; <code>mcp-server/mcp_server/</code></p>
+            <p style="color:#ccc; margin-left:36px; margin-bottom:24px;"><code>server_user.py</code> &middot; <code>server_gitea.py</code> &middot; <code>server_registry.py</code> &middot; <code>server_promotion.py</code> &middot; <code>server_runner.py</code></p>
+            <p style="margin-bottom:12px;"><strong>Tools</strong> &mdash; <code>mcp-server/mcp_server/tools/</code></p>
+            <p style="color:#ccc; margin-left:36px; margin-bottom:24px;"><code>user_tools.py</code> &middot; <code>gitea_tools.py</code> &middot; <code>registry_tools.py</code> &middot; <code>promotion_tools.py</code> &middot; <code>runner_tools.py</code> &middot; <code>deploy_tools.py</code></p>
+            <p style="color:#ddd; margin-top:18px;">Each tool is just an <code>@mcp.tool()</code> async function &mdash; the function name becomes the tool name the LLM sees (<code>list_users</code>, <code>list_roles</code>, &hellip;).</p>
+            <p class="footnote" style="margin-top:18px;">List every tool: <code>grep -rn '@mcp.tool' mcp-server/mcp_server/tools/</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 5 — How LLMs talk MCP ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">How LLMs talk MCP</h1>
@@ -313,7 +328,7 @@
         </div>
       </section>
 
-      <!-- ─── 5 — NEW: The three players ─── -->
+      <!-- ─── 6 — The three players ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">The three players</h1>
@@ -329,71 +344,7 @@
         </div>
       </section>
 
-      <!-- ─── 6 — What's in the lab ─── -->
-      <section class="slide">
-        <div class="frame">
-          <h1 class="title">What&rsquo;s in the lab</h1>
-          <div class="body">
-            <ul>
-              <li>A real <strong>bootstrap container</strong></li>
-              <li>Visuals so you can <strong>see</strong> what&rsquo;s happening</li>
-              <li>Live <strong>log tracing</strong> — watch every call</li>
-              <li>Runs <strong>100% local</strong> — yours to take home</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- ─── 7 — The bootstrap container ─── -->
-      <section class="slide">
-        <div class="frame">
-          <h1 class="title">The bootstrap container</h1>
-          <p class="tagline"><strong style="color: var(--accent)">Practice:</strong> ask first, then act &mdash; skip what isn&rsquo;t there.</p>
-          <div class="body">
-            <ul>
-              <li>Wakes up</li>
-              <li>Grabs <code>curl</code> and <code>jq</code> if missing</li>
-              <li>Asks: <strong>is Gitea there?</strong> &nbsp;→&nbsp; if yes, set it up</li>
-              <li>Asks: <strong>is the registry there?</strong> &nbsp;→&nbsp; if yes, seed sample images</li>
-              <li>Prints URLs + next steps</li>
-              <li>Quits</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- ─── 8 — Try without tools first ─── -->
-      <section class="slide">
-        <div class="frame">
-          <h1 class="title">Try it without tools first</h1>
-          <div class="body">
-            <ul>
-              <li>Run a few prompts — <strong>naked LLM</strong></li>
-              <li>Watch what it <em>can&rsquo;t</em> do</li>
-              <li>Then we plug in <strong>MCP tools</strong></li>
-              <li>Same prompts, very different answers</li>
-            </ul>
-            <p class="demo">Demo: send a &ldquo;list users&rdquo; prompt with no MCP enabled.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ─── 9 — NEW: Two layers, one wire ─── -->
-      <section class="slide">
-        <div class="frame">
-          <h1 class="title">Two layers, one wire</h1>
-          <div class="body">
-            <ul>
-              <li><strong>Data layer</strong> — <em>what</em> they say: <strong>JSON-RPC 2.0</strong></li>
-              <li><strong>Transport layer</strong> — <em>how</em> they say it: <strong>stdio</strong> or <strong>Streamable HTTP</strong> <em>(or SSE, like this lab)</em></li>
-              <li>Same JSON either way — swap transports without rewriting tools</li>
-            </ul>
-            <p class="anchor">Lab anchor: about to enable mcp-user — point to the SSE port.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ─── 10 — What makes an MCP server ─── -->
+      <!-- ─── 7 — What makes an MCP server ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">What makes an MCP server</h1>
@@ -411,25 +362,40 @@
         </div>
       </section>
 
-      <!-- ─── 11 — NEW: Conversation lifecycle ─── -->
+      <!-- ─── 8 — What's in the lab ─── -->
       <section class="slide">
         <div class="frame">
-          <h1 class="title">The conversation lifecycle</h1>
-          <p class="tagline">Every MCP session walks the same four steps.</p>
+          <h1 class="title">What&rsquo;s in the lab</h1>
           <div class="body">
-            <ol>
-              <li><code>initialize</code> &mdash; handshake, &ldquo;what can each of us do?&rdquo;</li>
-              <li><code>tools/list</code> &mdash; &ldquo;show me your tools&rdquo;</li>
-              <li><code>tools/call</code> &mdash; &ldquo;run this one with these args&rdquo;</li>
-              <li><code>notifications/*</code> &mdash; &ldquo;heads up, something changed&rdquo;</li>
-            </ol>
-            <p class="footnote">All of it is JSON-RPC over your chosen transport.</p>
-            <p class="demo">Demo: open the log tracer, run a prompt, narrate the four messages live.</p>
+            <ul>
+              <li>A real <strong>bootstrap container</strong></li>
+              <li>Visuals so you can <strong>see</strong> what&rsquo;s happening</li>
+              <li>Live <strong>log tracing</strong> — watch every call</li>
+              <li>Runs <strong>100% local</strong> — yours to take home</li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <!-- ─── 12 — NEW: Sycophancy ─── -->
+      <!-- ─── 9 — The bootstrap container ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">The bootstrap container</h1>
+          <p class="tagline"><strong style="color: var(--accent)">Practice:</strong> ask first, then act &mdash; skip what isn&rsquo;t there.</p>
+          <div class="body">
+            <ul>
+              <li>Wakes up</li>
+              <li>Grabs <code>curl</code> and <code>jq</code> if missing</li>
+              <li>Asks: <strong>is Gitea there?</strong> &nbsp;→&nbsp; if yes, set it up</li>
+              <li>Asks: <strong>is the registry there?</strong> &nbsp;→&nbsp; if yes, seed sample images</li>
+              <li>Prints URLs + next steps</li>
+              <li>Quits</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 10 — Sycophancy ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">LLMs want to make you <span class="accent">happy</span></h1>
@@ -450,25 +416,21 @@
         </div>
       </section>
 
-      <!-- ─── 13 — Guardrails ─── -->
+      <!-- ─── 11 — Architecture tab cue ─── -->
       <section class="slide">
         <div class="frame">
-          <h1 class="title">Guardrails &mdash; making LLMs reliable</h1>
-          <div class="body">
-            <ul>
-              <li>Tools force the model to <strong>act, not guess</strong></li>
-              <li>One source of truth (your API), not the LLM&rsquo;s memory <em>or its desire to please you</em></li>
-              <li>Add this to your system prompt:</li>
-            </ul>
-            <div class="quote">&ldquo;Use MCP whenever you touch external systems.&rdquo;</div>
-            <ul>
-              <li>Result: fewer hallucinations, less sycophancy, auditable actions</li>
-            </ul>
+          <div class="body center" style="justify-content: center;">
+            <p style="font-size: 72px; font-weight: 600; line-height: 1.2;">
+              Click the <span style="color: var(--accent);">Architecture</span> tab in your lab
+            </p>
+            <p style="font-size: 36px; color: #aaa; font-style: italic; margin-top: 40px;">
+              &hellip;begin the walkthrough
+            </p>
           </div>
         </div>
       </section>
 
-      <!-- ─── 14 — Secrets ladder ─── -->
+      <!-- ─── 12 — Secrets ladder ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">Secrets management ladder</h1>
@@ -488,7 +450,58 @@
         </div>
       </section>
 
-      <!-- ─── 15 — Tests ─── -->
+      <!-- ─── 13 — Two layers, one wire ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Two layers, one wire</h1>
+          <div class="body">
+            <ul>
+              <li><strong>Data layer</strong> — <em>what</em> they say: <strong>JSON-RPC 2.0</strong></li>
+              <li><strong>Transport layer</strong> — <em>how</em> they say it: <strong>stdio</strong> or <strong>Streamable HTTP</strong> <em>(or SSE, like this lab)</em></li>
+              <li>Same JSON either way — swap transports without rewriting tools</li>
+            </ul>
+            <p class="anchor">Lab anchor: about to enable mcp-user — point to the SSE port.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 14 — Conversation lifecycle ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">The conversation lifecycle</h1>
+          <p class="tagline">Every MCP session walks the same four steps.</p>
+          <div class="body">
+            <ol>
+              <li><code>initialize</code> &mdash; handshake, &ldquo;what can each of us do?&rdquo;</li>
+              <li><code>tools/list</code> &mdash; &ldquo;show me your tools&rdquo;</li>
+              <li><code>tools/call</code> &mdash; &ldquo;run this one with these args&rdquo;</li>
+              <li><code>notifications/*</code> &mdash; &ldquo;heads up, something changed&rdquo;</li>
+            </ol>
+            <p class="footnote">All of it is JSON-RPC over your chosen transport.</p>
+            <p class="demo">Demo: open the log tracer, run a prompt, narrate the four messages live.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 15 — Guardrails ─── -->
+      <section class="slide">
+        <div class="frame">
+          <h1 class="title">Guardrails &mdash; making LLMs reliable</h1>
+          <div class="body">
+            <ul>
+              <li>Tools force the model to <strong>act, not guess</strong></li>
+              <li>One source of truth (your API), not the LLM&rsquo;s memory <em>or its desire to please you</em></li>
+              <li>Add this to your system prompt:</li>
+            </ul>
+            <div class="quote">&ldquo;Use MCP whenever you touch external systems.&rdquo;</div>
+            <ul>
+              <li>Result: fewer hallucinations, less sycophancy, auditable actions</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 16 — Tests ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">Tests in the lab</h1>
@@ -517,7 +530,7 @@
         </div>
       </section>
 
-      <!-- ─── 16 — Check what's running ─── -->
+      <!-- ─── 17 — Check what's running ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">Check what&rsquo;s running</h1>
@@ -530,7 +543,7 @@ podman ps</pre>
         </div>
       </section>
 
-      <!-- ─── 17 — Stay in touch ─── -->
+      <!-- ─── 18 — Stay in touch ─── -->
       <section class="slide">
         <div class="frame">
           <h1 class="title">Stay in <span class="accent">touch</span></h1>
@@ -555,7 +568,7 @@ podman ps</pre>
     </div>
   </div>
 
-  <div class="pagenum" id="pagenum">1 / 17</div>
+  <div class="pagenum" id="pagenum">1 / 18</div>
   <div class="nav-hint">← → space · F = fullscreen</div>
 
   <script>
