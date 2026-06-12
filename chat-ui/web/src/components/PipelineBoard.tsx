@@ -8,7 +8,7 @@
 //
 // No new npm dependencies: custom flex/SVG-free layout on the existing
 // shadcn dialog + tailwind theme tokens.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Dialog,
@@ -17,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { HelpTip } from '@/components/HelpTip'
+import { STAGE_HELP, SOURCE_HELP, STATUS_LEGEND } from '@/lib/help'
 import { cn } from '@/lib/utils'
 import {
   getEvents,
@@ -150,20 +152,25 @@ function StageFlow({
         return (
           <div key={stage.id} className="flex items-center flex-1 min-w-0">
             {i > 0 && <Connector />}
-            <button
-              type="button"
-              onClick={() => onSelect(stage.id)}
-              data-testid={`pipeline-node-${stage.id}`}
-              title={`${stage.label}: ${STATUS_WORD[statuses[stage.id]]} — click for details`}
-              className={cn(
-                'flex flex-col items-center gap-1.5 rounded-lg border bg-surface px-3 py-2 min-w-[88px] hover:bg-surface-2 transition-colors',
-                style.box,
-                selected === stage.id && 'ring-1 ring-text/40 bg-surface-2',
-              )}
+            <HelpTip
+              side="bottom"
+              title={`${stage.label} — ${STATUS_WORD[statuses[stage.id]]}`}
+              body={STAGE_HELP[stage.id]}
             >
-              <span className={cn('h-2.5 w-2.5 rounded-full', style.dot)} />
-              <span className="text-xs whitespace-nowrap">{stage.label}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onSelect(stage.id)}
+                data-testid={`pipeline-node-${stage.id}`}
+                className={cn(
+                  'flex flex-col items-center gap-1.5 rounded-lg border bg-surface px-3 py-2 min-w-[88px] hover:bg-surface-2 transition-colors duration-500',
+                  style.box,
+                  selected === stage.id && 'ring-1 ring-text/40 bg-surface-2',
+                )}
+              >
+                <span className={cn('h-2.5 w-2.5 rounded-full transition-colors duration-500', style.dot)} />
+                <span className="text-xs whitespace-nowrap">{stage.label}</span>
+              </button>
+            </HelpTip>
           </div>
         )
       })}
@@ -545,7 +552,15 @@ function EventFeed({ events, error }: { events: PipelineEvent[] | undefined; err
                 <span className="text-faint font-mono w-16 shrink-0 text-right">
                   {timeAgo(ev.received_at)}
                 </span>
-                <Chip className={SOURCE_BADGE[ev.source] ?? SOURCE_BADGE.manual}>{ev.source}</Chip>
+                <HelpTip
+                  side="top"
+                  title={`${ev.source} event`}
+                  body={SOURCE_HELP[ev.source] ?? SOURCE_HELP.manual}
+                >
+                  <span className="inline-flex cursor-help">
+                    <Chip className={SOURCE_BADGE[ev.source] ?? SOURCE_BADGE.manual}>{ev.source}</Chip>
+                  </span>
+                </HelpTip>
                 <span className="text-text truncate" title={ev.summary}>
                   {ev.summary || ev.type}
                 </span>
@@ -554,6 +569,51 @@ function EventFeed({ events, error }: { events: PipelineEvent[] | undefined; err
           </ul>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Legend + live indicator ─────────────────────────────────────────────────
+
+// Re-render on a timer so relative timestamps ("updated 3s ago") tick live
+// even between the 4s data refetches.
+function useNow(intervalMs: number) {
+  const [, force] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+}
+
+function Legend() {
+  return (
+    <div className="flex items-center gap-3 text-[11px] text-muted">
+      <span className="text-[10px] uppercase tracking-wider text-faint">status</span>
+      {STATUS_LEGEND.map((l) => (
+        <HelpTip key={l.status} side="bottom" title={l.label} body={l.body}>
+          <span
+            tabIndex={0}
+            className="inline-flex items-center gap-1.5 cursor-help rounded outline-none focus-visible:ring-1 focus-visible:ring-text/40"
+          >
+            <span className={cn('h-2 w-2 rounded-full', l.dot)} />
+            {l.label}
+          </span>
+        </HelpTip>
+      ))}
+    </div>
+  )
+}
+
+function LiveIndicator({ generatedAt, fetching }: { generatedAt?: string; fetching: boolean }) {
+  useNow(1000)
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-faint" aria-live="off">
+      <span
+        aria-hidden
+        className={cn('h-1.5 w-1.5 rounded-full bg-emerald-400', fetching && 'animate-pulse')}
+      />
+      <span className="font-mono">{generatedAt ? `updated ${timeAgo(generatedAt)}` : 'connecting…'}</span>
+      <span className="opacity-70">· every 4s</span>
     </div>
   )
 }
@@ -594,6 +654,10 @@ function BoardBody() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-5 py-2 border-b border-border shrink-0">
+        <Legend />
+        <LiveIndicator generatedAt={state?.generated_at} fetching={stateQ.isFetching} />
+      </div>
       <StageFlow
         statuses={statuses}
         selected={selected}
@@ -618,11 +682,6 @@ function BoardBody() {
                 {offlineHints.map((h) => (
                   <Hint key={h}>{h}</Hint>
                 ))}
-                {state?.generated_at && (
-                  <p className="text-[11px] text-faint">
-                    snapshot {timeAgo(state.generated_at)} · refreshes every 4 s while open
-                  </p>
-                )}
               </>
             )}
           </div>

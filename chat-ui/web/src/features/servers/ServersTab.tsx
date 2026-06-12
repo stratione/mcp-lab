@@ -9,6 +9,8 @@ import {
   clearRegistry,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { HelpTip } from '@/components/HelpTip'
+import { SERVER_HELP, SERVER_STATUS_HELP } from '@/lib/help'
 import { backingUrlsFor } from '@/lib/mcp-backing'
 import { useLab } from '@/lib/store'
 import type {
@@ -135,13 +137,31 @@ function ServerRow({
           >
             <span className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
           </button>
-          <span
-            className={`inline-flex items-center justify-center w-4 text-[10px] font-bold ${statusColor}`}
-            aria-label={`status: ${server.status}`}
+          <HelpTip
+            side="right"
+            title={server.status}
+            body={SERVER_STATUS_HELP[server.status] ?? ''}
           >
-            {statusGlyph}
-          </span>
-          {server.name}
+            <span
+              tabIndex={0}
+              className={`inline-flex items-center justify-center w-4 text-[10px] font-bold cursor-help rounded outline-none focus-visible:ring-1 focus-visible:ring-text/40 ${statusColor}`}
+              aria-label={`status: ${server.status}`}
+            >
+              {statusGlyph}
+            </span>
+          </HelpTip>
+          <HelpTip
+            side="right"
+            title={server.name}
+            body={SERVER_HELP[server.name] ?? SERVER_HELP[`mcp-${server.name}`] ?? ''}
+          >
+            <span
+              tabIndex={0}
+              className="cursor-help rounded outline-none focus-visible:ring-1 focus-visible:ring-text/40"
+            >
+              {server.name}
+            </span>
+          </HelpTip>
         </span>
         <span className="flex items-center gap-2 text-xs text-faint">
           {myTools.length > 0 && (

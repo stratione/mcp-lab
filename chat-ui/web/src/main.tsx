@@ -5,6 +5,7 @@ import App from './App'
 import { queryClient } from './lib/query'
 import { bootstrapTheme } from './lib/theme'
 import { Toaster } from '@/components/ui/toaster'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './styles/globals.css'
 
 if (import.meta.env.DEV) {
@@ -18,8 +19,10 @@ bootstrapTheme()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
-      <Toaster />
+      <TooltipProvider delayDuration={150} skipDelayDuration={300}>
+        <App />
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 )

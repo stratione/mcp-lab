@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { HelpTip } from '@/components/HelpTip'
+import { TAB_HELP } from '@/lib/help'
 import { useLab, type InspectorTab } from '@/lib/store'
 import { ServersTab } from '@/features/servers/ServersTab'
 import { TraceTab } from '@/features/trace/TraceTab'
@@ -94,14 +96,15 @@ export function Inspector() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as InspectorTab)} className="flex flex-col flex-1 min-h-0">
         <TabsList className="bg-transparent justify-start gap-3 px-3 pt-3 pb-2 h-auto rounded-none border-b border-border">
           {INSPECTOR_TABS.map(({ key, label }) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-              data-testid={`inspector-tab-${key}`}
-              className="text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
-            >
-              {label}
-            </TabsTrigger>
+            <HelpTip key={key} side="bottom" title={label} body={TAB_HELP[key]}>
+              <TabsTrigger
+                value={key}
+                data-testid={`inspector-tab-${key}`}
+                className="text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
+              >
+                {label}
+              </TabsTrigger>
+            </HelpTip>
           ))}
         </TabsList>
         <div className="flex-1 min-h-0 overflow-y-auto">
