@@ -307,7 +307,7 @@ jobs:
     `localhost:<port>` mapping of that registry, run per Deploy convention §1),
     `labctl deployments`, `labctl applogs <env>`, `labctl undeploy <env>`.
   - `labctl break <scenario>` / `labctl fix <scenario>` / `labctl scenarios`:
-    - `dockerfile-typo` — commit `FROM pythn:3.12-slim` Dockerfile to sample-app
+    - `dockerfile-typo` — commit `FROM pythn:3.12-alpine` Dockerfile to sample-app
       (CI build fails); fix restores canonical Dockerfile.
     - `failing-test` — commit `test_app.py` with a failing assertion (CI test
       step fails); fix replaces it with a passing test file.

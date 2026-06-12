@@ -109,7 +109,9 @@ EXISTS=$(curl -sf "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/Docke
   -u "$ADMIN_USER:$ADMIN_PASS" 2>/dev/null | jq -r '.name // empty')
 
 if [ -z "$EXISTS" ]; then
-  DOCKERFILE_CONTENT=$(printf 'FROM python:3.12-slim\nLABEL maintainer="mcp-lab"\nWORKDIR /app\nCOPY app.py .\nEXPOSE 8080\nCMD ["python", "app.py"]' | base64 | tr -d '\n')
+  # Alpine base scans clean (0 critical/0 high) so the seeded image passes the
+  # promotion gate out of the box; the `vulnerable-base` drill introduces CVEs.
+  DOCKERFILE_CONTENT=$(printf 'FROM python:3.12-alpine\nLABEL maintainer="mcp-lab"\nWORKDIR /app\nCOPY app.py .\nEXPOSE 8080\nCMD ["python", "app.py"]' | base64 | tr -d '\n')
   curl -sf -X POST "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/Dockerfile" \
     -u "$ADMIN_USER:$ADMIN_PASS" \
     -H "Content-Type: application/json" \

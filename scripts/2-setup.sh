@@ -408,6 +408,20 @@ if [ $ATTEMPTS -ge $MAX_ATTEMPTS ] && [ "$STATUS" != "exited" ]; then
   echo ""
 fi
 
+# Fallback: if log-parsing didn't yield a token (e.g. the bootstrap wait timed
+# out under heavy first-run image builds), mint one directly via the Gitea API
+# with the known admin credentials. Deterministic — no dependency on bootstrap
+# timing. Deletes any same-named token first so re-runs stay idempotent.
+if [ "$TIER_HAS_GITEA" = 1 ] && [ -z "$TOKEN" ]; then
+  echo "    Token not found in bootstrap logs — minting one via the Gitea API..."
+  curl -sf -X DELETE "http://localhost:3000/api/v1/users/mcpadmin/tokens/mcp-lab-token" \
+    -u "mcpadmin:mcpadmin123" > /dev/null 2>&1 || true
+  TOKEN="$(curl -sf -X POST "http://localhost:3000/api/v1/users/mcpadmin/tokens" \
+    -u "mcpadmin:mcpadmin123" -H "Content-Type: application/json" \
+    -d '{"name":"mcp-lab-token","scopes":["all"]}' 2>/dev/null \
+    | sed -n 's/.*"sha1":"\([^"]*\)".*/\1/p')"
+fi
+
 if [ "$TIER_HAS_GITEA" = 0 ]; then
   echo "[4/4] Skipping Gitea token extraction (tier '$TIER' has no Gitea)."
 elif [ -z "$TOKEN" ]; then
@@ -431,6 +445,17 @@ else
   if [ "$MCP_GITEA_STATE" = "running" ]; then
     echo "    Restarting mcp-gitea to pick up token..."
     $COMPOSE restart mcp-gitea > /dev/null 2>&1 || true
+  fi
+
+  # chat-ui reads GITEA_TOKEN at container-create time (env_file: .env), but it
+  # was started before the token existed. Recreate it so the Pipeline Board's
+  # commit + CI columns (which call the Gitea API) authenticate. gui edition only.
+  if [ "$EDITION" = "gui" ]; then
+    CHAT_UI_STATE=$($COMPOSE ps chat-ui --format json 2>/dev/null | grep -o '"State":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+    if [ "$CHAT_UI_STATE" = "running" ]; then
+      echo "    Recreating chat-ui to pick up token..."
+      $COMPOSE up -d --force-recreate --no-deps chat-ui > /dev/null 2>&1 || true
+    fi
   fi
 fi
 

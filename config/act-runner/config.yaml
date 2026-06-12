@@ -23,9 +23,13 @@ container:
   # registry-dev:5000, chat-ui:3001, trivy:8080, etc. by service name.
   network: mcp-lab-net
   privileged: false
-  # Hand each job the host engine socket so `docker build` inside a step
-  # talks to the same daemon the lab runs on (sibling containers, no DinD).
-  options: "-v /var/run/docker.sock:/var/run/docker.sock"
+  # act_runner already bind-mounts the host engine socket into every job
+  # container (sibling containers, no DinD), so `docker build` in a step talks
+  # to the same daemon the lab runs on. Do NOT add it again via `options` — a
+  # second `-v /var/run/docker.sock:...` makes the daemon reject the job with
+  # "Duplicate mount point". valid_volumes still whitelists the socket so a
+  # workflow may mount it explicitly if it ever needs to.
+  options: ""
   # Lab images (mcp-lab-ci-base) only exist locally — a pull would fail.
   force_pull: false
   valid_volumes:

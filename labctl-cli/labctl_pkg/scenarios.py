@@ -10,7 +10,10 @@ Canonical app.py / Dockerfile content mirrors scripts/_internal/init-gitea.sh.
 from . import env, gitea
 
 # ── canonical sample-app content (source of truth: init-gitea.sh) ───────────
-CANONICAL_DOCKERFILE = """FROM python:3.12-slim
+# Alpine base: stdlib http.server needs nothing else, and it currently scans
+# clean (0 critical / 0 high) so the canonical image PASSES the promotion gate.
+# The `vulnerable-base` drill is what introduces criticals (see below).
+CANONICAL_DOCKERFILE = """FROM python:3.12-alpine
 LABEL maintainer="mcp-lab"
 WORKDIR /app
 COPY app.py .
@@ -19,10 +22,10 @@ CMD ["python", "app.py"]
 """
 
 TYPO_DOCKERFILE = CANONICAL_DOCKERFILE.replace(
-    "FROM python:3.12-slim", "FROM pythn:3.12-slim", 1)
+    "FROM python:3.12-alpine", "FROM pythn:3.12-alpine", 1)
 
 VULNERABLE_DOCKERFILE = CANONICAL_DOCKERFILE.replace(
-    "FROM python:3.12-slim", "FROM python:3.8-slim", 1)
+    "FROM python:3.12-alpine", "FROM python:3.8-slim", 1)
 
 PASSING_TEST = '''"""Sample test for hello-app (passing). Run by CI: python3 -m pytest -q."""
 
@@ -75,7 +78,7 @@ jobs:
 
 SCENARIOS = {
     "dockerfile-typo": {
-        "description": "Dockerfile FROM has a typo (pythn:3.12-slim) — the CI build step fails.",
+        "description": "Dockerfile FROM has a typo (pythn:3.12-alpine) — the CI build step fails.",
         "break": {"Dockerfile": TYPO_DOCKERFILE},
         "fix": {"Dockerfile": CANONICAL_DOCKERFILE},
     },

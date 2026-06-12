@@ -12,13 +12,13 @@ def test_break_creates_file_then_fix_updates_with_sha(lab_env, capsys):
     rc = cli.main(["break", "dockerfile-typo"])
     assert rc == 0
     files = lab_env.gitea.state["files"]
-    assert "FROM pythn:3.12-slim" in files["Dockerfile"]["content"]
+    assert "FROM pythn:3.12-alpine" in files["Dockerfile"]["content"]
     assert len(_contents_requests(lab_env, "POST", "Dockerfile")) == 1
     sha_after_create = files["Dockerfile"]["sha"]
 
     rc = cli.main(["fix", "dockerfile-typo"])
     assert rc == 0
-    assert files["Dockerfile"]["content"].startswith("FROM python:3.12-slim")
+    assert files["Dockerfile"]["content"].startswith("FROM python:3.12-alpine")
     puts = _contents_requests(lab_env, "PUT", "Dockerfile")
     assert len(puts) == 1
     assert json.loads(puts[0]["body"])["sha"] == sha_after_create  # sha-aware update

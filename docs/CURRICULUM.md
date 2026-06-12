@@ -304,7 +304,7 @@ catch:
 ./labctl break dockerfile-typo
 ```
 
-This commits a Dockerfile whose first line is `FROM pythn:3.12-slim` — the classic
+This commits a Dockerfile whose first line is `FROM pythn:3.12-alpine` — the classic
 fat-fingered base image. The push triggers CI; this time:
 
 ```bash
@@ -475,8 +475,8 @@ How to read a CVE entry in the report: `VulnerabilityID` (e.g. `CVE-2024-…`),
 `PkgName` + `InstalledVersion` (what you have), `FixedVersion` (what to upgrade to
 — empty means no fix released yet), `Severity`, and a description. The lab's policy
 is **pass iff `critical <= 0`** (`PROMOTION_MAX_CRITICAL=0`) — the server computes
-pass/fail itself; clients can't sweet-talk it. A fresh `python:3.12-slim` base
-should pass. HIGHs without fixes on a slim base are normal life; criticals are not.
+pass/fail itself; clients can't sweet-talk it. A fresh `python:3.12-alpine` base
+should pass. HIGHs without fixes on an alpine base are normal life; criticals are not.
 
 ### By agent
 
