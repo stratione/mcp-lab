@@ -188,9 +188,11 @@ def register(mcp: FastMCP):
         import json
         data = await gitea_client.list_action_tasks(owner, repo, username, password)
         runs = _parse_action_tasks(data)
+        # Match on `id` only. `run_number` is a separate, per-workflow namespace
+        # (it restarts at 1 for each workflow) and routinely collides with other
+        # runs' ids, so accepting either would return the wrong run.
         match = next(
-            (r for r in runs
-             if str(r.get("id")) == str(run_id) or str(r.get("run_number")) == str(run_id)),
+            (r for r in runs if str(r.get("id")) == str(run_id)),
             None,
         )
         if match is None:

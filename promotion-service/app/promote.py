@@ -1,6 +1,8 @@
+import hashlib
 import httpx
 import os
 import sqlite3
+from typing import Optional
 
 USER_API_URL = os.environ.get("USER_API_URL", "http://user-api:8001")
 DB_PATH = os.environ.get("DB_PATH", "/app/data/promotions.db")
@@ -109,9 +111,14 @@ def init_db():
             total INTEGER NOT NULL DEFAULT 0,
             passed INTEGER NOT NULL DEFAULT 0,
             report TEXT,
+            digest TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    # `digest` binds a scan to the exact manifest it covered (added after v2);
+    # guarded so re-running on a scans table that predates it is a no-op.
+    if "digest" not in _columns(conn, "scans"):
+        conn.execute("ALTER TABLE scans ADD COLUMN digest TEXT")
     conn.commit()
     conn.close()
 
@@ -143,26 +150,61 @@ def row_to_scan(row: sqlite3.Row) -> dict:
     return d
 
 
-def latest_scan(db: sqlite3.Connection, image_name: str, tag: str, registry: str):
+async def resolve_digest(image_name: str, ref: str, registry_name: str) -> tuple[Optional[str], str]:
+    """Resolve a tag (or digest) to the manifest content digest in `registry_name`.
+
+    Returns (digest, message); digest is None when the image can't be resolved
+    (absent, or the registry is unreachable). The scan gate binds a recorded
+    scan to this digest so that re-pointing a tag to different bytes *after* a
+    passing scan can't sneak an unscanned image through (a TOCTOU bypass).
+    """
+    registry = get_registries()[registry_name]
+    url = f"{registry}/v2/{image_name}/manifests/{ref}"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, headers={"Accept": MANIFEST_ACCEPT}, timeout=30.0)
+            if resp.status_code == 404:
+                return None, f"{image_name}:{ref} not found in {registry_name} registry"
+            resp.raise_for_status()
+        except httpx.HTTPError as e:
+            return None, f"{registry_name} registry error resolving {image_name}:{ref}: {e}"
+        # Registries echo the digest in this header; fall back to hashing the
+        # manifest bytes if a particular registry omits it.
+        digest = resp.headers.get("docker-content-digest") or (
+            "sha256:" + hashlib.sha256(resp.content).hexdigest()
+        )
+        return digest, "resolved"
+
+
+def latest_scan(db: sqlite3.Connection, image_name: str, tag: str, registry: str, digest: str):
+    """Most recent scan for (image, tag, registry) covering *this* digest.
+
+    Binding on digest is what closes the tag-swap bypass: a scan recorded for a
+    previous digest does not satisfy the gate once the tag points elsewhere.
+    """
     return db.execute(
-        "SELECT * FROM scans WHERE image_name = ? AND tag = ? AND registry = ? ORDER BY id DESC LIMIT 1",
-        (image_name, tag, registry),
+        "SELECT * FROM scans WHERE image_name = ? AND tag = ? AND registry = ? AND digest = ? "
+        "ORDER BY id DESC LIMIT 1",
+        (image_name, tag, registry, digest),
     ).fetchone()
 
 
-def record_scan(image_name: str, tag: str, registry: str, scanned_by: str,
-                critical: int, high: int, medium: int, low: int, total: int,
-                report: str) -> dict:
-    """Store a scan verdict. `passed` is always computed server-side."""
+async def record_scan(image_name: str, tag: str, registry: str, scanned_by: str,
+                      critical: int, high: int, medium: int, low: int, total: int,
+                      report: str) -> dict:
+    """Store a scan verdict. `passed` is always computed server-side, and the
+    scan is bound to the manifest digest the tag points at right now so the
+    promotion gate can later require a scan of the *exact* bytes it ships."""
     passed = critical <= get_policy()["max_critical"]
     if report and len(report) > REPORT_CAP:
         report = report[:REPORT_CAP]
+    digest, _ = await resolve_digest(image_name, tag, registry)
     db = get_db()
     cursor = db.execute(
-        "INSERT INTO scans (image_name, tag, registry, scanned_by, critical, high, medium, low, total, passed, report) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO scans (image_name, tag, registry, scanned_by, critical, high, medium, low, total, passed, report, digest) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (image_name, tag, registry, scanned_by, critical, high, medium, low, total,
-         1 if passed else 0, report),
+         1 if passed else 0, report, digest),
     )
     db.commit()
     row = db.execute("SELECT * FROM scans WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -190,14 +232,23 @@ async def check_policy(username: str) -> tuple[bool, str]:
             return False, "User API unreachable"
 
 
-async def copy_image(image_name: str, tag: str, from_registry: str, to_registry: str) -> tuple[bool, str, str]:
-    """Copy image manifest and blobs between registries using the Registry v2 API."""
+async def copy_image(image_name: str, tag: str, from_registry: str, to_registry: str,
+                     source_ref: Optional[str] = None) -> tuple[bool, str, str]:
+    """Copy image manifest and blobs between registries using the Registry v2 API.
+
+    When `source_ref` is given (a digest the caller already gated on), the
+    manifest is fetched by that immutable reference instead of the tag, so the
+    promoted bytes are exactly the bytes that passed the scan gate — even if the
+    tag is re-pointed between the gate check and the copy. The target always
+    receives the image under `tag`.
+    """
     registries = get_registries()
     source = registries[from_registry]
     target = registries[to_registry]
+    src_ref = source_ref or tag
     async with httpx.AsyncClient() as client:
-        # Get manifest from source
-        manifest_url = f"{source}/v2/{image_name}/manifests/{tag}"
+        # Get manifest from source (by pinned digest when one was gated on)
+        manifest_url = f"{source}/v2/{image_name}/manifests/{src_ref}"
         headers = {"Accept": MANIFEST_ACCEPT}
         try:
             resp = await client.get(manifest_url, headers=headers, timeout=30.0)
@@ -340,22 +391,33 @@ async def promote_image(image_name: str, tag: str, promoted_by: str,
 
     db = get_db()
     try:
+        pin = None
         if policy["require_scan"]:
-            scan = latest_scan(db, image_name, tag, from_registry)
+            src_digest, dmsg = await resolve_digest(image_name, tag, from_registry)
+            if src_digest is None:
+                raise PromotionBlocked(
+                    f"blocked by policy: cannot verify a scan for {image_name}:{tag} in "
+                    f"{from_registry} — {dmsg}"
+                )
+            scan = latest_scan(db, image_name, tag, from_registry, src_digest)
             if scan is None:
                 raise PromotionBlocked(
                     f"blocked by policy: no passing scan for {image_name}:{tag} in {from_registry} "
-                    "(no scan recorded — scan the image first)"
+                    f"at the current digest {src_digest[:19]}… "
+                    "(scan the image first — a scan of a different digest does not count)"
                 )
             if not scan["passed"]:
                 raise PromotionBlocked(
                     f"blocked by policy: no passing scan for {image_name}:{tag} in {from_registry} "
-                    f"(latest scan #{scan['id']} failed: critical={scan['critical']}, "
+                    f"(latest scan #{scan['id']} for this digest failed: critical={scan['critical']}, "
                     f"max allowed {policy['max_critical']})"
                 )
+            pin = src_digest  # promote the exact bytes that passed the gate
 
         registries = get_registries()
-        success, digest, msg = await copy_image(image_name, tag, from_registry, to_registry)
+        success, digest, msg = await copy_image(
+            image_name, tag, from_registry, to_registry, source_ref=pin
+        )
         status = "success" if success else "failed"
         cursor = db.execute(
             "INSERT INTO promotions (image_name, tag, promoted_by, source_registry, target_registry, "
@@ -373,30 +435,37 @@ async def promote_image(image_name: str, tag: str, promoted_by: str,
 
 
 async def rollback_image(image_name: str, tag: str, environment: str, rolled_back_by: str):
-    """Roll `environment`'s tag back to the previous successful promotion.
+    """Roll `environment`'s tag back to the previous deployed digest.
 
-    "Previous" = the second-most-recent successful promote-action row for
-    (image_name, tag, environment): the most recent one is what the tag
-    currently points at, so there must be at least two to have something to
-    roll back to. Returns None when there isn't (→ 404). The re-point happens
-    entirely inside the target registry (see `repoint_tag`); a failed re-point
-    is still recorded as an audit row with status="failed", mirroring
-    `promote_image`'s failure behavior.
+    "Current" is the digest the tag actually points at in the registry right
+    now (not an inference from the audit log), and the rollback target is the
+    most recent successful audit digest that *differs* from it. Counting prior
+    rollbacks — not just promotes — is what stops a second consecutive rollback
+    from being a no-op that still reports success: each rollback steps to a
+    genuinely different digest, or returns None (→ 404) when there is no other
+    recorded digest to move to. The re-point happens entirely inside the target
+    registry (see `repoint_tag`); a failed re-point is still recorded as an
+    audit row with status="failed", mirroring `promote_image`'s behavior.
     """
     registry_url = get_registries()[environment]
     db = get_db()
     try:
+        current_digest, _ = await resolve_digest(image_name, tag, environment)
         rows = db.execute(
             "SELECT * FROM promotions WHERE image_name = ? AND tag = ? AND status = 'success' "
-            "AND action = 'promote' "
+            "AND action IN ('promote', 'rollback') "
             "AND (to_registry = ? OR (to_registry IS NULL AND target_registry = ?)) "
             "AND digest IS NOT NULL AND digest != '' "
-            "ORDER BY id DESC LIMIT 2",
+            "ORDER BY id DESC",
             (image_name, tag, environment, registry_url),
         ).fetchall()
-        if len(rows) < 2:
+        # If the registry didn't answer, assume the newest recorded digest is
+        # what's deployed so we still roll back to something different.
+        if current_digest is None and rows:
+            current_digest = rows[0]["digest"]
+        previous = next((r for r in rows if r["digest"] != current_digest), None)
+        if previous is None:
             return None
-        previous = rows[1]
 
         success, msg = await repoint_tag(image_name, tag, environment, previous["digest"])
         status = "success" if success else "failed"

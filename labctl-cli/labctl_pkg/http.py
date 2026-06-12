@@ -74,7 +74,9 @@ def _curl_line(method, url, headers, data, auth):
         parts += ["-X", method]
     if auth:
         if auth[0] == "basic":
-            parts += ["-u", "{}:{}".format(auth[1], auth[2])]
+            # NEVER echo the real password — scrub it the same way the token
+            # path scrubs the token (D-007).
+            parts += ["-u", "{}:$GITEA_PASS".format(auth[1])]
         elif auth[0] == "token":
             # NEVER echo the real token.
             parts += ["-H", "Authorization: token $GITEA_TOKEN"]

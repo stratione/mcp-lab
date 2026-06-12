@@ -1,8 +1,8 @@
 # The DevOps Curriculum — Seven Modules, By Hand First
 
-> **DevOpsDays Austin 2026** — the deep track. The walkthrough teaches you what MCP is;
-> this curriculum teaches you the **CI/CD craft underneath it** — on the same lab,
-> on your own laptop, with real Git, real pipelines, real registries, real scanners.
+> The MCP walkthrough teaches you what MCP is; this curriculum teaches you the
+> **CI/CD craft underneath it** — on the same lab, on your own laptop, with real
+> Git, real pipelines, real registries, real scanners.
 
 ---
 
@@ -575,17 +575,48 @@ whether scans are required, the critical-CVE budget, and the legal hops:
 
 409: in a three-stage flow, dev→prod is not a legal promotion. (Try
 `--verbose` to see the underlying `curl -X POST http://localhost:8002/promote …`.)
-Now do it properly, with your name on it — that's the audit trail:
+Now do it properly, with your name on it — that's the audit trail. Take the first
+hop; the passing scan from module 4 clears it (the gate names what's missing if
+you skipped it):
 
 ```bash
 ./labctl promote hello-app:latest --to staging --by <your-name>
+```
+
+Try the second hop straight away — and watch it get refused:
+
+```bash
 ./labctl promote hello-app:latest --to prod --by <your-name>
 ```
 
-The first hop requires the passing scan from module 4 (the gate names what's
-missing if you skipped it). Each promotion copies the manifest and blobs between
-registries and records an audit row with the **digest** that moved. Inspect the
-trail and the warehouses:
+**409 again — and this is the important part.** The scan gate re-attests *per
+environment*. Your module-4 scan was recorded against `hello-app:latest` **in
+dev**, and that's what cleared dev→staging. The staging→prod hop asks a different
+question — "has *this* image been scanned **in staging**?" — and nothing has yet.
+So scan it where it now lives, then promote:
+
+```bash
+./labctl scan hello-app:latest -r staging      # re-attest in the staging registry
+./labctl promote hello-app:latest --to prod --by <your-name>
+```
+
+Why make each environment re-scan the same bytes? Because the gate binds every
+scan to the exact **manifest digest** it covered — not just the tag. Two
+consequences worth pausing on:
+
+- A scan can't be forged by re-pointing a tag after it passes. If someone scans
+  `:latest`, then pushes different (vulnerable) bytes under `:latest`, the gate
+  resolves the tag's *current* digest, finds no passing scan for it, and refuses.
+  ("It was clean an hour ago" buys nothing.)
+- "Clean in dev last week" never silently stands in for "clean in the environment
+  we're shipping *to* now." In a real org, dev and prod scanners, CVE feeds, and
+  policies differ, and a newly disclosed CVE can turn yesterday's green image red.
+
+Promotion preserves the digest (build once, promote many), so the staging scan
+covers the *very same bytes* as the dev scan — it's a cheap re-attestation, not a
+rebuild, and each boundary earns its own auditable proof. Each promotion copies
+the manifest and blobs between registries and records an audit row with the
+**digest** that moved. Inspect the trail and the warehouses:
 
 ```bash
 ./labctl promotions
@@ -606,11 +637,13 @@ docker compose up -d mcp-promotion mcp-registry
 ```
 
 > Promote hello-app:latest from dev to staging and then from staging to prod.
-> Before each hop, check the promotion policy and the latest scan. Afterwards,
-> show me the audit trail of all promotions.
+> The scan gate re-attests per environment, so before each hop scan the image in
+> that hop's *source* registry (dev for the first hop, staging for the second),
+> then promote. Afterwards, show me the audit trail of all promotions.
 
-Watch for the agent doing the right dance: policy → scan check → promote → verify.
-If you ran this module by hand first, you'll recognize every step.
+Watch for the agent doing the right dance: policy → scan the source registry →
+promote → verify, twice. If you ran this module by hand first, you'll recognize
+every step — including the staging re-scan the prod hop depends on.
 
 ### Verify
 
@@ -832,7 +865,7 @@ timeline, and the event feed tells the whole incident story top to bottom.
 ```
 
 All seven green? You've run a complete, gated, audited software delivery lifecycle
-on your own laptop — by hand *and* by agent. See you at DevOpsDays Austin.
+on your own laptop — by hand *and* by agent.
 
 ---
 

@@ -79,10 +79,16 @@ New env (with code defaults preserving today's behavior for existing tests):
   - two-stage: promote dev→prod allowed (legacy).
   - three-stage: only dev→staging and staging→prod are legal; anything else → 409.
 - `PROMOTION_REQUIRE_SCAN` = `false` (code default; compose sets **`true`**)
-  - When true: promoting `image:tag` requires the most recent scan record for
-    (image_name, tag, from_registry) to exist AND `passed == true`; else 409
-    with a message that names the failing gate (e.g. "blocked by policy:
-    no passing scan for hello-app:latest in dev").
+  - When true: the gate resolves the source tag's **current manifest digest** and
+    requires the most recent scan record for (image_name, tag, from_registry)
+    **covering that digest** to exist AND `passed == true`; else 409 with a
+    message that names the failing gate (e.g. "blocked by policy: no passing scan
+    for hello-app:latest in dev at the current digest sha256:…"). Binding on the
+    digest (not just the tag) means re-pointing a tag to different bytes after a
+    passing scan does not satisfy the gate (closes a TOCTOU bypass); the image is
+    then promoted by that pinned digest. The gate re-attests **per environment** —
+    a scan recorded in `dev` clears dev→staging, but staging→prod needs a passing
+    scan recorded against the image **in staging**.
 - `PROMOTION_MAX_CRITICAL` = `0` — scan passes iff `critical <= PROMOTION_MAX_CRITICAL`.
 
 ### Endpoints
@@ -93,7 +99,9 @@ New env (with code defaults preserving today's behavior for existing tests):
   → 201 `{id, image_name, tag, from_registry, to_registry, promoted_by, status,
   digest, detail, created_at, action: "promote"}`. Flow + scan gates enforced
   per env above. Copies manifest+blobs between registries (existing mechanism,
-  parameterized).
+  parameterized). A failed copy still records the audit row but returns **502**
+  (not 201) so a caller checking only the status code can't read a no-op as a
+  successful promotion; a gate refusal is 409 with no audit row.
 - `GET /promotions`, `GET /promotions/{id}` — unchanged shape + new fields.
 - `POST /rollback` (NEW): `{image_name, tag="latest", environment, rolled_back_by}`
   (environment ∈ staging|prod) → re-copies the previous successful promotion's
@@ -101,9 +109,13 @@ New env (with code defaults preserving today's behavior for existing tests):
   records an audit row with `action: "rollback"`. 404 if no prior promotion to
   roll back to.
 - `POST /scans` (NEW): `{image_name, tag, registry, scanned_by, critical, high,
-  medium, low, total, passed, report}` (`report` = JSON string, may be truncated
-  to 200 KB) → 201 `{id, ...same fields..., created_at}`. `passed` is computed
-  server-side from `critical <= PROMOTION_MAX_CRITICAL` (client value ignored).
+  medium, low, total, passed, report}` (severity counts must be `>= 0`; `report`
+  = JSON string, may be truncated to 200 KB) → 201 `{id, ...same fields...,
+  digest, created_at}`. `passed` is computed server-side from
+  `critical <= PROMOTION_MAX_CRITICAL` (client value ignored). The record is
+  bound to the manifest **digest** the tag points at when the scan is recorded
+  (resolved from the registry), so the promotion gate can require a scan of the
+  exact bytes it ships.
 - `GET /scans?image_name=&tag=&registry=&limit=20` (newest first, `report` omitted),
   `GET /scans/{id}` (includes `report`).
 - `GET /policy` (NEW): `{flow, require_scan, max_critical, legal_promotions:

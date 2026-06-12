@@ -60,7 +60,7 @@ async def test_rollback_404_with_single_promotion(client, fake_copy, fake_repoin
 async def test_rollback_ignores_failed_promotions(client, fake_copy, monkeypatch, lab_db, fake_repoint):
     await promote_twice_to_prod(client, fake_copy)
 
-    async def _fail(image_name, tag, from_registry, to_registry):
+    async def _fail(image_name, tag, from_registry, to_registry, source_ref=None):
         return False, "", "boom"
 
     monkeypatch.setattr(lab_db, "copy_image", _fail)

@@ -78,3 +78,26 @@ async def test_gate_off_by_default(client, fake_copy):
     # Code default PROMOTION_REQUIRE_SCAN=false → no scan needed (legacy behavior).
     resp = await post_promote(client)
     assert resp.status_code == 201
+
+
+async def test_repointing_tag_after_scan_is_blocked(client, fake_copy, scan_gate, registry_state):
+    # The headline TOCTOU: a passing scan is recorded against dev's current
+    # digest, then the tag is re-pointed to different (unscanned) bytes. The
+    # gate must refuse, because the scan covered a digest the tag no longer is.
+    registry_state[("hello-app", "latest", "dev")] = "sha256:" + "a" * 64
+    await post_scan(client, critical=0)            # passing scan, bound to digest a…a
+    registry_state[("hello-app", "latest", "dev")] = "sha256:" + "b" * 64  # swap!
+    resp = await post_promote(client)
+    assert resp.status_code == 409
+    assert "no passing scan" in resp.json()["detail"]
+    assert len(fake_copy.calls) == 0
+
+
+async def test_rescanning_the_new_digest_unblocks(client, fake_copy, scan_gate, registry_state):
+    # After a swap, re-scanning the *new* digest restores promotion.
+    registry_state[("hello-app", "latest", "dev")] = "sha256:" + "a" * 64
+    await post_scan(client, critical=0)
+    registry_state[("hello-app", "latest", "dev")] = "sha256:" + "b" * 64
+    assert (await post_promote(client)).status_code == 409
+    await post_scan(client, critical=0)            # scan the bytes now in dev
+    assert (await post_promote(client)).status_code == 201

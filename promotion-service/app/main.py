@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from .models import (
     PromoteRequest,
     PromotionResponse,
@@ -39,13 +39,19 @@ def policy():
 
 
 @app.post("/promote", response_model=PromotionResponse, status_code=201)
-async def promote(req: PromoteRequest):
+async def promote(req: PromoteRequest, response: Response):
     try:
-        return await promote_image(
+        result = await promote_image(
             req.image_name, req.tag, req.promoted_by, req.from_registry, req.to_registry
         )
     except PromotionBlocked as e:
         raise HTTPException(status_code=409, detail=str(e))
+    # The audit row is recorded either way, but a failed registry copy must not
+    # be signalled as success at the HTTP layer (502 ⇒ a caller that only checks
+    # the status code won't mistake a non-event for a green promotion).
+    if result.get("status") == "failed":
+        response.status_code = 502
+    return result
 
 
 @app.post("/rollback", response_model=PromotionResponse, status_code=201)
@@ -79,8 +85,8 @@ def get_promotion(promotion_id: int):
 
 
 @app.post("/scans", response_model=ScanResponse, status_code=201)
-def create_scan(req: ScanCreateRequest):
-    return record_scan(
+async def create_scan(req: ScanCreateRequest):
+    return await record_scan(
         req.image_name, req.tag, req.registry, req.scanned_by,
         req.critical, req.high, req.medium, req.low, req.total, req.report,
     )

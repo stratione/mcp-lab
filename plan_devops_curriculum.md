@@ -42,9 +42,26 @@ following the curriculum; the Pipeline Board shows the same truth live.
 - [x] (2026-06-12 02:30Z) Component F — labctl CLI. 63 tests green. Full command surface per contract §7. Launcher restructured (see decision log).
 - [x] (2026-06-12 02:05Z) Component G — docs. CURRICULUM.md (7 modules, by-hand+by-agent+break-fix), README (15 services, full tier, two editions), PRE-WORKSHOP (prewarm-full). Canonical CI YAML diff-identical to contract. Fixed pre-existing README link/tool-count errors.
 - [x] (2026-06-12 02:40Z) Integration pass: 345 tests green (labctl 63 + promotion 61 + mcp-server 49 + chat-ui 110/2skip + frontend 62). `docker compose config -q` clean (default + full-profile). Frontend `npm run build` clean. Teardown cleans `mcp-lab-app-*`/CI containers by label (A anticipated C's note). Events-envelope reconciled (E tolerates {events}). Contract `cd labctl`→`labctl-cli` updated.
-- [ ] Live verification on this machine: full-tier bring-up, end-to-end CI run, scan gate block + pass, promote chain, deploy, rollback, `labctl check 1..7`
-- [ ] Adversarial review pass over the full diff; fix confirmed findings
-- [ ] Final docs truth pass + commits
+- [x] (2026-06-12 12:01Z) Live verification on this machine (Docker 29.4.3). Full-tier bring-up clean (8 core services + act-runner + trivy all healthy; both tokens minted; cold-open invariant held — all MCP servers off). e2e baseline 11/11. Real CI: `labctl ci init` → Gitea Actions run #1 success → `hello-app` in registry-dev tagged `latest`+SHA. Scan gate: promote-without-scan refused (exit 1), Trivy scan (0 crit/0 high) → gate PASS → promote allowed. Per-env gate confirmed (staging→prod needs a staging scan, not just dev). Promote chain dev→staging→prod (audits #1–#4), digest preserved end-to-end. Deploy from prod serves `{"message":"Hello from MCP Lab!","version":"1.0.0"}` on :9082; `/api/pipeline/state` reflects commit+CI+registries. Rollback: bumped app to v1.1.0 (CI run #2 → new digest, full chain to prod), `labctl rollback` (audit #5) restored the v1.0.0 digest — redeploy served version 1.0.0 again. `labctl check 1..7` all PASS.
+- [x] (2026-06-12 13:50Z) Adversarial review pass over the full curriculum diff
+  (`66a4585^...HEAD`, ~10.6k lines / 94 files) via four parallel per-component
+  reviewers (promotion-service, mcp-server, scripts/infra, labctl), each probing
+  the live lab to confirm. Findings converged on the scan gate (the talk's
+  thesis) being bypassable. All confirmed findings fixed (see Decision Log) and
+  locked with regression tests. Suites after fixes: promotion 63, mcp-server 50,
+  labctl 65, chat-ui 111/1skip, frontend 62 vitest — all green; `docker compose
+  config -q` clean (default + full).
+- [x] (2026-06-12 14:45Z) Rebuilt promotion-service + all five MCP images on the
+  fixed code; restarted promotion-service (additive scans.digest migration ran,
+  cleaned DB preserved). Live digest-fix verify 7/7: ge=0 reject (422); scan binds
+  to dev's live digest; promote with matching digest 201; tag-swap to an unscanned
+  digest → promote 409 (the exact TOCTOU the review used, now blocked); tag
+  restored. Lab left at the cleaned baseline.
+- [x] (2026-06-12 14:45Z) Docs truth pass: CURRICULUM module 5 now teaches per-env
+  re-attestation (the staging→prod hop's required staging scan) and the digest
+  binding; by-agent prompt updated to scan each hop's source registry. Contract §2
+  scan-gate spec updated for digest binding, per-env re-attestation, the scans
+  `digest` field + ge=0, and the 502-on-failed-copy promote status.
 
 ## Surprises & Discoveries (Living)
 
@@ -56,6 +73,40 @@ following the curriculum; the Pipeline Board shows the same truth live.
 - **2026-06-12** Component A discovered Gitea blocks webhooks to private
   hosts by default; added `GITEA__webhook__ALLOWED_HOST_LIST=external,chat-ui`
   so the pipeline-event webhook can deliver at all.
+- **2026-06-12 (live verify)** The scan gate is **per-environment**, not
+  scan-once: a passing scan recorded in `dev` lets dev→staging through, but
+  staging→prod is refused until a scan is recorded against the image in
+  `staging`. Stronger than the plan's prose implied, and pedagogically good
+  (each environment re-attests), but worth calling out in CURRICULUM module 5
+  so attendees aren't surprised by the second refusal. Live run needed scans
+  #1 (dev) + #2 (staging) to reach prod.
+- **2026-06-12 (live verify)** Zero defects found in live end-to-end: every
+  acceptance step passed first try on Docker 29.4.3. CI runs completed in ~7s
+  (in-repo `mcp-lab-ci-base` image + plain `run:` steps, no checkout pull).
+- **2026-06-12 (adversarial review)** The live happy-path run passed clean, but
+  an adversarial sweep found the scan gate — the security control the whole talk
+  is about — bypassable several independent ways the happy path can't surface:
+  (1) the gate bound to the *tag*, not the manifest digest, so re-pointing a tag
+  to vulnerable bytes *after* a passing scan (TOCTOU) promoted unscanned bytes to
+  prod — confirmed live by pushing an unscanned digest through; (2) a Trivy
+  report with no `Results` key (what Trivy emits for an image it can't analyze)
+  tallied as 0 criticals → recorded `passed=true` — "not analyzed" was
+  indistinguishable from "analyzed clean"; (3) a failed `/promote` returned HTTP
+  201, so a caller checking only the status code saw a green promotion that never
+  happened; (4) a second consecutive `rollback` was a no-op that still reported
+  success (it inferred "current" from promote rows only, ignoring prior
+  rollbacks); (5) `labctl check 4` read the newest hello-app scan ignoring tag,
+  so a stray scan of any junk tag passed the security module; (6) teardown's
+  image regex omitted staging :5003 and hardcoded `sample-app`, leaking deployed
+  `hello-app` images every workshop re-run. Lesson: a passing live e2e proves the
+  intended path works; it says nothing about the adversarial paths, which is
+  exactly where a security-teaching lab must be sound.
+- **2026-06-12 (registry constraint)** Surgically removing the review's `evil`/
+  `evil2` tags from the live registries is impossible without a volume recreate:
+  they alias the *same* manifest digest as `hello-app:latest` (they were created
+  by re-pointing), and Registry v2 deletes by digest (taking all tags on it),
+  with delete not even enabled in the lab. The fabricated promotion-service DB
+  rows were removable surgically; the tags only clear on a registry-volume reset.
 
 ## Decision Log (Living)
 
@@ -86,6 +137,31 @@ following the curriculum; the Pipeline Board shows the same truth live.
   share a name). All 79 doc references use `./labctl <cmd>` (command form),
   which now resolves. `make test-labctl` → `cd labctl-cli`. Repo-root
   detection (3 dirnames up) is unaffected by the rename. (2026-06-12)
+
+- **Scan gate binds to the manifest digest, not the tag** (review fix) → each
+  scan records the digest the tag pointed at when scanned (`resolve_digest`,
+  additive `scans.digest` column); the gate resolves the source tag→digest at
+  promote time and requires a *passing scan of that exact digest*, then copies by
+  that pinned digest. Closes the TOCTOU tag-swap. Caller-supplied severity counts
+  are kept (lab scanners write them) but now bounded by digest + `ge=0`
+  validation; making the service itself the scanner (full prod-grade) was judged
+  out of scope for a stdlib teaching lab. (2026-06-12)
+- **A Trivy report with no `Results` key is INDETERMINATE, not clean** (review
+  fix) → `scan_image` refuses a verdict and records nothing, so an un-analyzable
+  image can't satisfy the gate; `Results: []` (analyzed, zero findings) still
+  passes. (2026-06-12)
+- **Failed `/promote` returns 502, not 201** (review fix) → the audit row is
+  still written, but a failed registry copy is no longer signalled as success at
+  the HTTP layer. `rollback` now derives "current" from the registry's live
+  digest + counts prior rollbacks, so a second rollback steps to a genuinely
+  different digest or 404s instead of a false-success no-op. (2026-06-12)
+- **labctl checks verify the taught invariant, not a proxy** (review fix) →
+  `check 4` pins to `hello-app:latest` (the deployable artifact), `check 3`
+  requires a human tag (rejects the 40-hex CI SHA tag the workflow already
+  pushes), and `--verbose` scrubs the basic-auth password (`$GITEA_PASS`) like it
+  already scrubbed the token (D-007). Teardown's image sweep now matches all
+  three registry ports / any image name. `gitea_get_action_run` matches on `id`
+  only (run_number is a colliding namespace). (2026-06-12)
 
 ## Outcomes & Retrospective (Living)
 

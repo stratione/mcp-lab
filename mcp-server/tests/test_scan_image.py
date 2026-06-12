@@ -201,6 +201,25 @@ async def test_scan_image_unreachable_trivy_is_actionable(monkeypatch, force_doc
     assert fake_httpx.calls == []
 
 
+async def test_scan_image_no_results_is_indeterminate_not_pass(
+        monkeypatch, force_docker_engine, lab_config, fake_httpx, scan_tool):
+    """A Trivy report with no `Results` key (an image it can't analyze) must NOT
+    be recorded as a passing scan — otherwise an unassessed image could satisfy
+    the promotion scan gate."""
+    no_results = {
+        "SchemaVersion": 2, "ArtifactName": "registry-dev:5000/hello-app:latest",
+        "ArtifactType": "container_image",
+        # note: no "Results" key at all
+    }
+    _capture_subprocess(monkeypatch, returncode=0, stdout=json.dumps(no_results).encode())
+
+    out = await scan_tool()
+    assert "INDETERMINATE" in out
+    assert "PASSED" not in out
+    # nothing recorded → the gate keeps blocking
+    assert fake_httpx.calls == []
+
+
 async def test_scan_image_promotion_service_down_still_summarizes(
         monkeypatch, force_docker_engine, lab_config, fake_httpx, scan_tool):
     """If recording the scan fails, the tool still returns the counts plus a

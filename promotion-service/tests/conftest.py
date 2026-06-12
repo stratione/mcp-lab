@@ -43,20 +43,55 @@ async def client(lab_db):
 
 
 @pytest.fixture
-def fake_copy(monkeypatch):
+def registry_state():
+    """Shared in-memory registry: (image, tag, registry_name) → current digest.
+
+    fake_copy/fake_repoint write to it (a push moves a tag's digest) and
+    fake_resolve reads from it, so the digest-bound scan gate and rollback see a
+    consistent picture without a real registry. Tests can poke an entry directly
+    to simulate a tag being re-pointed (the TOCTOU case).
+    """
+    return {}
+
+
+# Stable digest returned for any (image, tag, registry) the tests never push to
+# — distinct from fake_copy's zero-padded digests so rollback target selection
+# (most recent digest differing from current) behaves deterministically.
+DEFAULT_DIGEST = "sha256:" + "e" * 64
+
+
+@pytest.fixture(autouse=True)
+def fake_resolve(monkeypatch, registry_state):
+    """Auto-stub digest resolution so unit tests never touch a real registry.
+
+    Returns the digest currently stored in `registry_state` for a tag, or a
+    stable DEFAULT_DIGEST for tags nothing has pushed to (so a scan and its
+    later gate check agree on the digest).
+    """
+    async def _resolve(image_name, ref, registry_name):
+        return registry_state.get((image_name, ref, registry_name), DEFAULT_DIGEST), "resolved"
+
+    monkeypatch.setattr(promote, "resolve_digest", _resolve)
+    return registry_state
+
+
+@pytest.fixture
+def fake_copy(monkeypatch, registry_state):
     """Replace the registry copy with a recorder that always succeeds.
 
     Each call returns a distinct digest so promotion history is meaningful
-    for rollback tests. Yields a recorder with `.calls` = list of
+    for rollback tests, and records that digest into `registry_state` for the
+    target (modelling a real push). Yields a recorder with `.calls` = list of
     (image, tag, from, to) tuples and `.digests` = the digest each returned.
     """
     calls = []
     digests = []
 
-    async def _copy(image_name, tag, from_registry, to_registry):
+    async def _copy(image_name, tag, from_registry, to_registry, source_ref=None):
         calls.append((image_name, tag, from_registry, to_registry))
         digest = f"sha256:{len(calls):064d}"
         digests.append(digest)
+        registry_state[(image_name, tag, to_registry)] = digest
         return True, digest, "success"
 
     monkeypatch.setattr(promote, "copy_image", _copy)
@@ -73,12 +108,15 @@ class _CopyRecorder:
 
 
 @pytest.fixture
-def fake_repoint(monkeypatch):
-    """Replace the in-registry tag re-point with a recorder that succeeds."""
+def fake_repoint(monkeypatch, registry_state):
+    """Replace the in-registry tag re-point with a recorder that succeeds and
+    moves the tag's digest in `registry_state` (so a follow-up rollback sees the
+    re-pointed digest as current)."""
     calls = []
 
     async def _repoint(image_name, tag, registry_name, digest):
         calls.append((image_name, tag, registry_name, digest))
+        registry_state[(image_name, tag, registry_name)] = digest
         return True, "success"
 
     monkeypatch.setattr(promote, "repoint_tag", _repoint)

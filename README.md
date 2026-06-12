@@ -1,6 +1,6 @@
 # MCP DevOps Workshop Lab
 
-> **DevOpsDays Austin 2026** — hands-on workshop. Run it on your own laptop and follow along live.
+> Hands-on workshop — run it on your own laptop and follow along live.
 
 A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transforms DevOps tooling by acting as a unified control, translation, and policy plane. Learners experience the friction of raw API interaction, then progressively enable MCP tools to see how structured tool calling eliminates complexity.
 

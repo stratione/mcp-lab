@@ -41,6 +41,19 @@ def test_check_security_fail_then_pass(lab_env, capsys):
     assert "PASS" in out
 
 
+def test_check_security_pins_to_latest_tag(lab_env, capsys):
+    # A passing scan of some *other* tag must not satisfy module 4 — it pins to
+    # hello-app:latest (the deployable artifact).
+    lab_env.promotion.state["scans"] = [{
+        "id": 1, "image_name": "hello-app", "tag": "throwaway", "registry": "dev",
+        "scanned_by": "labctl", "critical": 0, "high": 0, "medium": 0, "low": 0,
+        "total": 0, "passed": True, "report": "{}", "created_at": "now"}]
+    rc = cli.main(["check", "4"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "no scan recorded for hello-app:latest" in out
+
+
 def test_check_artifacts(lab_env, capsys):
     lab_env.registries["dev"].state["tags"]["hello-app"] = ["latest"]
     rc = cli.main(["check", "artifacts"])
@@ -51,6 +64,16 @@ def test_check_artifacts(lab_env, capsys):
     lab_env.registries["dev"].state["tags"]["hello-app"] = ["latest", "v1.0.0"]
     rc = cli.main(["check", "artifacts"])
     assert rc == 0
+
+
+def test_check_artifacts_sha_tag_does_not_count(lab_env, capsys):
+    # A CI-pushed 40-char hex SHA tag must NOT satisfy module 3 — that module
+    # teaches a deliberate human retag, which CI never produces.
+    lab_env.registries["dev"].state["tags"]["hello-app"] = ["latest", "a" * 40]
+    rc = cli.main(["check", "artifacts"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "retag" in out
 
 
 def test_check_all_exit_code_counts_failures(lab_env, fake_proc, capsys):
