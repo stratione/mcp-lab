@@ -79,7 +79,11 @@ export function CornerMenu() {
         <Divider />
         <Row>
           <span>Flying Blind <span className="text-faint text-xs">no tools</span></span>
-          <Switch checked={flyingBlind} onCheckedChange={toggleFlying} />
+          <Switch
+            checked={flyingBlind}
+            onCheckedChange={toggleFlying}
+            data-testid="flying-blind-switch"
+          />
         </Row>
         <Divider />
         <RowButton onClick={() => useLab.getState().kickWalkthrough()}>

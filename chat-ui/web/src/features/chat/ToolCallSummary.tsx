@@ -15,6 +15,9 @@ export function ToolCallSummary({ call }: { call: ToolCall }) {
         <span className="bg-tool-bg text-tool-fg px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide">tool</span>
         <span className="font-mono text-text">{call.name}</span>
         <span className={ok ? 'text-ok' : 'text-err'}>{ok ? '✓' : '✗'}</span>
+        {call.duration_ms != null && (
+          <span className="text-faint text-xs">{Math.round(call.duration_ms)}ms</span>
+        )}
         <span className="ml-auto text-faint text-xs">{open ? '▴ collapse' : '▾ expand'}</span>
       </button>
       {open && <ToolCallExpanded call={call} />}

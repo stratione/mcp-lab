@@ -43,3 +43,10 @@ chat-ui/app/static/
 **/.playwright-mcp/
 walkthrough-*.png
 scripts/*.png
+
+# Local agent state
+.claude/
+
+# macOS Finder duplicate-on-copy artifacts
+* 2
+* 2.*

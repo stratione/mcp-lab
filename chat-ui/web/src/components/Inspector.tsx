@@ -97,8 +97,7 @@ export function Inspector() {
             <TabsTrigger
               key={key}
               value={key}
-              // label is rendered explicitly (not via `capitalize`) so we can
-              // use multi-word names like "MCP servers".
+              data-testid={`inspector-tab-${key}`}
               className="text-xs px-0 pb-1.5 rounded-none data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-text data-[state=inactive]:text-muted"
             >
               {label}
