@@ -42,7 +42,7 @@ following the curriculum; the Pipeline Board shows the same truth live.
 - [x] (2026-06-12 02:30Z) Component F — labctl CLI. 63 tests green. Full command surface per contract §7. Launcher restructured (see decision log).
 - [x] (2026-06-12 02:05Z) Component G — docs. CURRICULUM.md (7 modules, by-hand+by-agent+break-fix), README (15 services, full tier, two editions), PRE-WORKSHOP (prewarm-full). Canonical CI YAML diff-identical to contract. Fixed pre-existing README link/tool-count errors.
 - [x] (2026-06-12 02:40Z) Integration pass: 345 tests green (labctl 63 + promotion 61 + mcp-server 49 + chat-ui 110/2skip + frontend 62). `docker compose config -q` clean (default + full-profile). Frontend `npm run build` clean. Teardown cleans `mcp-lab-app-*`/CI containers by label (A anticipated C's note). Events-envelope reconciled (E tolerates {events}). Contract `cd labctl`→`labctl-cli` updated.
-- [ ] Live verification on this machine: full-tier bring-up, end-to-end CI run, scan gate block + pass, promote chain, deploy, rollback, `labctl check 1..7`
+- [x] (2026-06-12 12:01Z) Live verification on this machine (Docker 29.4.3). Full-tier bring-up clean (8 core services + act-runner + trivy all healthy; both tokens minted; cold-open invariant held — all MCP servers off). e2e baseline 11/11. Real CI: `labctl ci init` → Gitea Actions run #1 success → `hello-app` in registry-dev tagged `latest`+SHA. Scan gate: promote-without-scan refused (exit 1), Trivy scan (0 crit/0 high) → gate PASS → promote allowed. Per-env gate confirmed (staging→prod needs a staging scan, not just dev). Promote chain dev→staging→prod (audits #1–#4), digest preserved end-to-end. Deploy from prod serves `{"message":"Hello from MCP Lab!","version":"1.0.0"}` on :9082; `/api/pipeline/state` reflects commit+CI+registries. Rollback: bumped app to v1.1.0 (CI run #2 → new digest, full chain to prod), `labctl rollback` (audit #5) restored the v1.0.0 digest — redeploy served version 1.0.0 again. `labctl check 1..7` all PASS.
 - [ ] Adversarial review pass over the full diff; fix confirmed findings
 - [ ] Final docs truth pass + commits
 
@@ -56,6 +56,16 @@ following the curriculum; the Pipeline Board shows the same truth live.
 - **2026-06-12** Component A discovered Gitea blocks webhooks to private
   hosts by default; added `GITEA__webhook__ALLOWED_HOST_LIST=external,chat-ui`
   so the pipeline-event webhook can deliver at all.
+- **2026-06-12 (live verify)** The scan gate is **per-environment**, not
+  scan-once: a passing scan recorded in `dev` lets dev→staging through, but
+  staging→prod is refused until a scan is recorded against the image in
+  `staging`. Stronger than the plan's prose implied, and pedagogically good
+  (each environment re-attests), but worth calling out in CURRICULUM module 5
+  so attendees aren't surprised by the second refusal. Live run needed scans
+  #1 (dev) + #2 (staging) to reach prod.
+- **2026-06-12 (live verify)** Zero defects found in live end-to-end: every
+  acceptance step passed first try on Docker 29.4.3. CI runs completed in ~7s
+  (in-repo `mcp-lab-ci-base` image + plain `run:` steps, no checkout pull).
 
 ## Decision Log (Living)
 
