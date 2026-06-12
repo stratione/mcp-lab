@@ -2,7 +2,7 @@
 
 > Hands-on workshop — run it on your own laptop and follow along live.
 
-> 🗺️ **New here?** [How the course is used — one picture](docs/course-overview.md) shows the whole flow at a glance.
+> 🎓 **Take the free course:** [**Hands on the Wheel — Governing AI Agents Across Your DevOps Stack**](docs/COURSE.md) &nbsp;·&nbsp; 🗺️ [the whole pipeline in one picture](docs/course-overview.md)
 
 A hands-on workshop that teaches how the **Model Context Protocol (MCP)** transforms DevOps tooling by acting as a unified control, translation, and policy plane. Learners experience the friction of raw API interaction, then progressively enable MCP tools to see how structured tool calling eliminates complexity.
 
@@ -183,6 +183,15 @@ Cleanup: `make down` to stop, `./scripts/3-teardown.sh` for a full reset.
 - **[TODO.md](TODO.md)** — roadmap and known issues.
 
 Each script under `scripts/` is self-documenting — read the header comments or run with `--help`. Service-level READMEs and Swagger live alongside each component (`user-api/`, `mcp-server/`, `chat-ui/`, `promotion-service/`).
+
+---
+
+## Want this run for your team?
+
+This lab and course are free and open. I also deliver the curriculum as a
+**hands-on workshop** — half- or full-day, in person or remote — tailored to your
+team's stack. If your team is putting AI agents near its delivery pipeline:
+👉 **[connect with me on LinkedIn](https://www.linkedin.com/in/dr-noe-lorona-7198181a7/)**. — *Dr. Noe Lorona*
 
 ---
 

@@ -401,7 +401,16 @@
           <h1 class="title">LLMs want to make you <span class="accent">happy</span></h1>
           <div class="body" style="justify-content: flex-start;">
             <div class="chart-row">
-              <img src="sycophancy-chart.png" alt="Sycophancy in AI chart from Cheng et al., Science 2025" />
+              <div class="chart-bars" style="flex:1; min-width:340px; display:flex; flex-direction:column; gap:30px; justify-content:center;" role="img" aria-label="AI endorses the user 77 to 94 percent of the time versus humans at 39 percent. Cheng et al., Science 2025.">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:24px; color:#ddd; margin-bottom:8px;"><span>AI endorses the user</span><strong style="color:var(--accent)">77&ndash;94%</strong></div>
+                  <div style="height:36px; background:#2a2a2a; border-radius:6px; overflow:hidden;"><div style="width:85%; height:100%; background:var(--accent);"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:24px; color:#ddd; margin-bottom:8px;"><span>Humans endorse the user</span><strong style="color:#aaa">39%</strong></div>
+                  <div style="height:36px; background:#2a2a2a; border-radius:6px; overflow:hidden;"><div style="width:39%; height:100%; background:#888;"></div></div>
+                </div>
+              </div>
               <div class="chart-stats">
                 <p style="font-size:32px; margin-bottom:18px;"><strong style="color:var(--accent)">AI endorses user actions ~77&ndash;94%.</strong><br/><span style="color:#aaa; font-size:0.85em;">Humans: 39%.</span></p>
                 <p style="margin-top:24px; color:#ccc; font-size:26px;">When users discuss real personal conflicts:</p>
