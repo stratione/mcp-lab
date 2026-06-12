@@ -3,6 +3,8 @@
 > The MCP walkthrough teaches you what MCP is; this curriculum teaches you the
 > **CI/CD craft underneath it** — on the same lab, on your own laptop, with real
 > Git, real pipelines, real registries, real scanners.
+>
+> 🗺️ See **[How the course is used — one picture](course-overview.md)** for the whole flow at a glance.
 
 ---
 
