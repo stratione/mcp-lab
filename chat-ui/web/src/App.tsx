@@ -7,6 +7,7 @@ import { CmdK } from '@/components/CmdK'
 import { useShortcuts } from '@/lib/shortcuts'
 import { Shortcuts } from '@/components/Shortcuts'
 import { Walkthrough } from '@/components/Walkthrough'
+import { FlyingBlindBanner } from '@/components/FlyingBlindBanner'
 import { useLab } from '@/lib/store'
 import { useServers } from '@/features/servers/useServers'
 import { setHallucinationMode } from '@/lib/api'
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-bg text-text">
       <Header />
+      <FlyingBlindBanner />
       <div className="flex-1 flex min-h-0">
         <ChatPane />
         <Inspector />

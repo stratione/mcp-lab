@@ -4,6 +4,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { applyTheme, applyDensity, type Theme, type Density } from '@/lib/theme'
+import { InfoDot } from '@/components/HelpTip'
+import { FLYING_BLIND_HELP } from '@/lib/help'
 import { useLab } from '@/lib/store'
 import { setHallucinationMode } from '@/lib/api'
 
@@ -75,10 +77,18 @@ export function CornerMenu() {
             <span className="text-sm">A</span>
             <span className="text-xs text-muted w-10 text-right">{Math.round(scale * 100)}%</span>
           </div>
+          {/* Live preview — text here scales with the density/size choice. */}
+          <div className="mx-2 mt-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5">
+            <div className="text-sm text-text">Aa — sample chat text</div>
+            <div className="text-xs text-muted">adjusts live as you change the size</div>
+          </div>
         </Section>
         <Divider />
         <Row>
-          <span>Flying Blind <span className="text-faint text-xs">no tools</span></span>
+          <span className="flex items-center gap-1.5">
+            Flying Blind <span className="text-faint text-xs">no tools</span>
+            <InfoDot title="Flying Blind" body={FLYING_BLIND_HELP} />
+          </span>
           <Switch
             checked={flyingBlind}
             onCheckedChange={toggleFlying}
