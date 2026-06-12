@@ -1,8 +1,8 @@
 # The DevOps Curriculum — Seven Modules, By Hand First
 
-> **DevOpsDays Austin 2026** — the deep track. The walkthrough teaches you what MCP is;
-> this curriculum teaches you the **CI/CD craft underneath it** — on the same lab,
-> on your own laptop, with real Git, real pipelines, real registries, real scanners.
+> The MCP walkthrough teaches you what MCP is; this curriculum teaches you the
+> **CI/CD craft underneath it** — on the same lab, on your own laptop, with real
+> Git, real pipelines, real registries, real scanners.
 
 ---
 
@@ -865,7 +865,7 @@ timeline, and the event feed tells the whole incident story top to bottom.
 ```
 
 All seven green? You've run a complete, gated, audited software delivery lifecycle
-on your own laptop — by hand *and* by agent. See you at DevOpsDays Austin.
+on your own laptop — by hand *and* by agent.
 
 ---
 
