@@ -10,9 +10,16 @@ USER_API_URL = os.environ.get("USER_API_URL", "http://user-api:8001")
 GITEA_URL = os.environ.get("GITEA_URL", "http://gitea:3000")
 GITEA_TOKEN = os.environ.get("GITEA_TOKEN", "")
 DEV_REGISTRY_URL = os.environ.get("DEV_REGISTRY_URL", "http://registry-dev:5000")
+STAGING_REGISTRY_URL = os.environ.get("STAGING_REGISTRY_URL", "http://registry-staging:5000")
 PROD_REGISTRY_URL = os.environ.get("PROD_REGISTRY_URL", "http://registry-prod:5000")
 PROMOTION_SERVICE_URL = os.environ.get("PROMOTION_SERVICE_URL", "http://promotion-service:8002")
+TRIVY_SERVER_URL = os.environ.get("TRIVY_SERVER_URL", "http://trivy:8080")
+
+# Registry hostnames as seen from inside the lab network (skopeo / trivy
+# image references — no scheme, unlike the *_URL vars above).
 DEV_REGISTRY_HOST = os.environ.get("DEV_REGISTRY_HOST", "registry-dev:5000")
+STAGING_REGISTRY_HOST = os.environ.get("STAGING_REGISTRY_HOST", "registry-staging:5000")
+PROD_REGISTRY_HOST = os.environ.get("PROD_REGISTRY_HOST", "registry-prod:5000")
 
 # Feature switches
 USER_MCP_ENABLED = _bool_env("USER_MCP_ENABLED")

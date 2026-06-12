@@ -19,15 +19,22 @@ echo ""
 cd "$PROJECT_DIR"
 
 echo "[1/5] Bringing stack down (containers, volumes, images)..."
-# Include all profiles so compose also stops MCP server containers
-COMPOSE_PROFILES=user,gitea,registry,promotion $COMPOSE down -v --remove-orphans --rmi all || true
+# Include all profiles so compose also stops MCP server containers plus the
+# full-tier ci (act-runner) and security (trivy) services
+COMPOSE_PROFILES=user,gitea,registry,promotion,runner,ci,security $COMPOSE down -v --remove-orphans --rmi all || true
 
 echo "[2/5] Removing leftover lab containers..."
 LEFTOVER_CONTAINERS="$($ENGINE ps -a --format '{{.Names}}' | rg "^${PROJECT_NAME}[-_]" || true)"
-if [ -n "$LEFTOVER_CONTAINERS" ]; then
+# Deployed app containers (mcp-lab-app-<env>) and CI job containers are
+# started outside compose; find them by the teardown label instead of name.
+LEFTOVER_LABELED_CONTAINERS="$($ENGINE ps -a --filter "label=mcp-lab.teardown=true" --format '{{.Names}}' || true)"
+if [ -n "$LEFTOVER_CONTAINERS" ] || [ -n "$LEFTOVER_LABELED_CONTAINERS" ]; then
   while IFS= read -r c; do
     [ -n "$c" ] && $ENGINE rm -f "$c" >/dev/null 2>&1 || true
   done <<< "$LEFTOVER_CONTAINERS"
+  while IFS= read -r c; do
+    [ -n "$c" ] && $ENGINE rm -f "$c" >/dev/null 2>&1 || true
+  done <<< "$LEFTOVER_LABELED_CONTAINERS"
   echo "    Removed leftover containers."
 else
   echo "    No leftover containers found."

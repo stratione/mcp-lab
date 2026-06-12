@@ -6,8 +6,13 @@
 #   --tier=small    user-api + chat-ui + (backing services)               (~700 MB)
 #   --tier=medium   + Gitea                                                (~900 MB)
 #   --tier=large    + registries + promotion + runner — full lab          (~1.5 GB)
+#   --tier=full     large + Gitea Actions CI runner + Trivy scanning      (~1.9 GB)
 #   (no flag)       interactive prompt if a TTY; otherwise defaults to large
 #                   (preserves prior single-command behavior for CI/automation)
+#
+# Edition selection:
+#   --edition=gui   start the Chat UI on :3001 (default)
+#   --edition=cli   skip the Chat UI — drive the lab with ./labctl instead
 #
 # IMPORTANT: tier controls which BACKING services start at boot. ALL MCP
 # servers are off by default in every tier — the workshop's cold-open
@@ -25,17 +30,25 @@ ENV_SECRETS_FILE="$PROJECT_DIR/.env.secrets"
 
 # ── Parse args ──
 TIER=""
+EDITION=""
 for arg in "$@"; do
   case "$arg" in
-    --tier=small|--tier=medium|--tier=large)
+    --tier=small|--tier=medium|--tier=large|--tier=full)
       TIER="${arg#--tier=}"
       ;;
     --tier=*)
-      echo "Unknown tier: ${arg#--tier=} (must be: small, medium, large)" >&2
+      echo "Unknown tier: ${arg#--tier=} (must be: small, medium, large, full)" >&2
+      exit 2
+      ;;
+    --edition=cli|--edition=gui)
+      EDITION="${arg#--edition=}"
+      ;;
+    --edition=*)
+      echo "Unknown edition: ${arg#--edition=} (must be: cli, gui)" >&2
       exit 2
       ;;
     -h|--help)
-      sed -n '2,11p' "$0" | sed 's|^# \{0,1\}||'
+      sed -n '2,16p' "$0" | sed 's|^# \{0,1\}||'
       exit 0
       ;;
     *)
@@ -70,22 +83,25 @@ if [ -z "$TIER" ]; then
       small)  DEFAULT_NUM=1 ;;
       medium) DEFAULT_NUM=2 ;;
       large)  DEFAULT_NUM=3 ;;
+      full)   DEFAULT_NUM=4 ;;
       *)      DEFAULT_NUM=1; DEFAULT_PROMPT_TIER="small" ;;
     esac
     echo ""
-    echo "  Pick your tier  (you can level up later with 'make medium' / 'make large')"
+    echo "  Pick your tier  (you can level up later with 'make medium' / 'make large' / 'make full')"
     echo ""
     echo "    1) small  (~700 MB)  user-api + chat-ui                       \"What is MCP?\""
     echo "    2) medium (~900 MB)  + Gitea                                  \"MCP acts on your behalf\""
     echo "    3) large  (~1.5 GB)  + registries + promotion service + runner backing infra"
+    echo "    4) full   (~1.9 GB)  + Gitea Actions CI runner + Trivy security scanning"
     echo "                         (all MCP servers stay OFF — enable them from the UI)"
     echo ""
-    read -r -p "  Choice [1/2/3] (default: $DEFAULT_NUM = $DEFAULT_PROMPT_TIER): " CHOICE
+    read -r -p "  Choice [1/2/3/4] (default: $DEFAULT_NUM = $DEFAULT_PROMPT_TIER): " CHOICE
     CHOICE="${CHOICE:-$DEFAULT_NUM}"
     case "$CHOICE" in
       1|small)  TIER="small" ;;
       2|medium) TIER="medium" ;;
       3|large)  TIER="large" ;;
+      4|full)   TIER="full" ;;
       *)
         echo "  Invalid choice: $CHOICE — falling back to default ($DEFAULT_PROMPT_TIER)"
         TIER="$DEFAULT_PROMPT_TIER"
@@ -96,6 +112,18 @@ if [ -z "$TIER" ]; then
     # Non-TTY (CI, piped, automated): use hard default
     TIER="large"
   fi
+fi
+
+# ── Resolve edition ──
+# Precedence mirrors tier: flag > last-used (.env MCP_LAB_EDITION) > gui.
+if [ -z "$EDITION" ]; then
+  if [ -f "$ENV_FILE" ]; then
+    EDITION="$(grep "^MCP_LAB_EDITION=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  fi
+  case "$EDITION" in
+    cli|gui) ;;
+    *) EDITION="gui" ;;
+  esac
 fi
 
 # Tier → service list + image-build groups.
@@ -133,7 +161,32 @@ case "$TIER" in
     TIER_DESC="large (~1.5 GB) — full backing infra (all MCPs still off)"
     TIER_HAS_GITEA=1
     ;;
+  full)
+    # large + the `ci` (act-runner) and `security` (trivy) profiles. Those
+    # two are started AFTER bootstrap, because act-runner needs a runner
+    # registration token that only a healthy Gitea can mint.
+    TIER_SERVICES=""
+    TIER_FG_BUILDS="mcp-user mcp-gitea mcp-registry mcp-promotion mcp-runner"
+    TIER_BG_BUILDS=""
+    TIER_DESC="full (~1.9 GB) — large + Gitea Actions CI + Trivy scanning (all MCPs still off)"
+    TIER_HAS_GITEA=1
+    ;;
 esac
+
+# CLI edition: identical backing services minus the Chat UI (./labctl drives
+# the lab from the host instead). Skipping chat-ui in `up` also skips its
+# image build — compose only builds services it starts.
+if [ "$EDITION" = "cli" ]; then
+  if [ -z "$TIER_SERVICES" ]; then
+    # large/full normally use bare `compose up -d` (every unprofiled
+    # service). No "all except X" syntax exists, so enumerate the unprofiled
+    # services explicitly. Keep in sync with docker-compose.yml.
+    TIER_SERVICES="user-api gitea registry-dev registry-staging registry-prod promotion-service bootstrap"
+  else
+    TIER_SERVICES="$(echo "$TIER_SERVICES" | tr ' ' '\n' | grep -v '^chat-ui$' | tr '\n' ' ')"
+  fi
+  TIER_DESC="$TIER_DESC [cli edition — no chat-ui]"
+fi
 
 # Render a simple terminal progress bar.
 # Args: current total label
@@ -234,6 +287,13 @@ if grep -q "^MCP_LAB_TIER=" "$ENV_FILE"; then
   sed_inplace "s|^MCP_LAB_TIER=.*|MCP_LAB_TIER=$TIER|" "$ENV_FILE"
 else
   echo "MCP_LAB_TIER=$TIER" >> "$ENV_FILE"
+fi
+
+# Persist the chosen edition the same way (gui = Chat UI, cli = labctl only).
+if grep -q "^MCP_LAB_EDITION=" "$ENV_FILE"; then
+  sed_inplace "s|^MCP_LAB_EDITION=.*|MCP_LAB_EDITION=$EDITION|" "$ENV_FILE"
+else
+  echo "MCP_LAB_EDITION=$EDITION" >> "$ENV_FILE"
 fi
 
 # Record the host-side absolute path to the project so the Chat UI can
@@ -374,27 +434,93 @@ else
   fi
 fi
 
+# ── Full tier extras: CI base image, runner registration, trivy + act-runner ──
+if [ "$TIER" = "full" ]; then
+  echo "[full 1/3] Building CI job base image (mcp-lab-ci-base:latest)..."
+  if $ENGINE build -t mcp-lab-ci-base:latest "$PROJECT_DIR/ci-base" > /tmp/mcp-ci-base-build.log 2>&1; then
+    echo "    ci-base built (log: /tmp/mcp-ci-base-build.log)"
+  else
+    echo "    WARNING: ci-base build failed — CI jobs won't run."
+    echo "    See /tmp/mcp-ci-base-build.log, then retry:"
+    echo "        $ENGINE build -t mcp-lab-ci-base:latest ./ci-base"
+  fi
+
+  echo "[full 2/3] Minting Gitea Actions runner registration token..."
+  # Gitea is healthy by now (bootstrap gated on it), but the actions
+  # subsystem can lag a few seconds behind the health endpoint — retry.
+  RUNNER_TOKEN=""
+  RUNNER_ATTEMPTS=0
+  while [ $RUNNER_ATTEMPTS -lt 10 ]; do
+    RUNNER_TOKEN="$($COMPOSE exec -T -u git gitea gitea actions generate-runner-token 2>/dev/null | tail -1 | tr -d '[:space:]')" || true
+    # Real tokens are 40-char alphanumerics; anything shorter is a partial
+    # log line from a not-yet-ready Gitea.
+    if [ "${#RUNNER_TOKEN}" -ge 20 ]; then
+      break
+    fi
+    RUNNER_TOKEN=""
+    RUNNER_ATTEMPTS=$((RUNNER_ATTEMPTS + 1))
+    sleep 3
+  done
+
+  if [ -n "$RUNNER_TOKEN" ]; then
+    if grep -q "^RUNNER_REGISTRATION_TOKEN=" "$ENV_FILE"; then
+      sed_inplace "s|^RUNNER_REGISTRATION_TOKEN=.*|RUNNER_REGISTRATION_TOKEN=$RUNNER_TOKEN|" "$ENV_FILE"
+    else
+      echo "RUNNER_REGISTRATION_TOKEN=$RUNNER_TOKEN" >> "$ENV_FILE"
+    fi
+    echo "    Runner token written to .env (RUNNER_REGISTRATION_TOKEN)"
+  else
+    echo "    WARNING: could not mint a runner registration token."
+    echo "    Mint one manually and put it in .env, then restart the runner:"
+    echo "        $COMPOSE exec -u git gitea gitea actions generate-runner-token"
+    echo "        # .env → RUNNER_REGISTRATION_TOKEN=<token>"
+    echo "        COMPOSE_PROFILES=ci,security $COMPOSE up -d act-runner"
+  fi
+
+  echo "[full 3/3] Starting CI + security services (trivy, act-runner)..."
+  COMPOSE_PROFILES=ci,security $COMPOSE up -d trivy act-runner \
+    || echo "    WARNING: could not start trivy/act-runner — check '$COMPOSE logs trivy act-runner'."
+fi
+
 echo ""
 echo "========================================================"
 echo ""
-echo "  Congrats! Your MCP DevOps Lab ($TIER tier) is up and running!"
+echo "  Congrats! Your MCP DevOps Lab ($TIER tier, $EDITION edition) is up and running!"
 echo ""
-echo "  Open your browser:    http://localhost:3001"
-echo "                        Click '◇ Walkthrough' in the header for a"
-echo "                        guided tour, or just start chatting."
+if [ "$EDITION" = "cli" ]; then
+  echo "  CLI edition — no Chat UI. Drive the lab from your terminal:"
+  echo "      ./labctl status"
+  echo "      ./labctl --help"
+else
+  echo "  Open your browser:    http://localhost:3001"
+  echo "                        Click '◇ Walkthrough' in the header for a"
+  echo "                        guided tour, or just start chatting."
+fi
 echo ""
 if [ "$TIER_HAS_GITEA" = 1 ]; then
   echo "  Gitea admin:          mcpadmin / mcpadmin123"
+  echo ""
+fi
+if [ "$TIER" = "full" ]; then
+  echo "  CI runner:            registered with Gitea as 'lab-runner'"
+  echo "                        (Gitea → repo → Actions tab after a push)"
+  echo "  Trivy scanner:        http://localhost:8087/healthz"
   echo ""
 fi
 if [ "$TIER" = "small" ]; then
   echo "  Want more tools? Level up at any time:"
   echo "      make medium       # adds Gitea + per-user auth demos"
   echo "      make large        # adds registries + promotion + runner (full lab)"
+  echo "      make full         # + Gitea Actions CI + Trivy security scanning"
   echo ""
 elif [ "$TIER" = "medium" ]; then
   echo "  Want the CI/CD pipeline? Level up:"
   echo "      make large        # adds registries + promotion + runner"
+  echo "      make full         # + Gitea Actions CI + Trivy security scanning"
+  echo ""
+elif [ "$TIER" = "large" ]; then
+  echo "  Want real CI + security scanning? Level up:"
+  echo "      make full         # adds Gitea Actions CI runner + Trivy"
   echo ""
 fi
 echo "  ── Optional: Cloud LLM keys ──"

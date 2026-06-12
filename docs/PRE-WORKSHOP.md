@@ -28,6 +28,48 @@ That's it. The chat-ui auto-detects whatever you've pulled.
 
 ---
 
+## Doing the DevOps curriculum? Prewarm the `full` tier
+
+The seven-module [DevOps curriculum](CURRICULUM.md) runs on the **full** tier —
+everything in `large` plus a real Gitea Actions CI runner and a Trivy security
+scanner. Same rule as the models: pull it at home, not at the venue.
+
+```bash
+make prewarm-full     # pulls/builds every image for the full tier — does NOT start anything
+```
+
+This runs the `small` → `medium` → `large` prewarms first (tiers are strict
+supersets), then pulls the trivy and act-runner images and builds the local CI job
+image (`mcp-lab-ci-base:latest`). Sizes:
+
+| Tier | Total images |
+|------|--------------|
+| `large` | ~1.5 GB |
+| `full`  | ~1.9 GB (adds `aquasec/trivy`, `gitea/act_runner`, and the locally built `mcp-lab-ci-base`) |
+
+On workshop morning, `make full` (or `./scripts/2-setup.sh --tier=full`) then
+starts offline-fast. One more cache worth warming: Trivy downloads its
+vulnerability database on the **first scan** and keeps it in a volume so later
+scans work offline — if you bring the lab up at home and run one
+`./labctl scan hello-app:latest -r dev` after module 2, even that is prepaid.
+
+### No Ollama needed for the CLI edition
+
+The curriculum's **by-hand paths (modules 1–7)** need only a terminal and
+**Python 3.9+** — no Ollama, no API keys, no LLM at all. That's the CLI edition:
+
+```bash
+./scripts/2-setup.sh --tier=full --edition=cli    # or: make full EDITION=cli
+./labctl status
+```
+
+Everything below this point (Ollama installs, model pulls, API keys) applies to
+the chat-driven paths: the walkthrough, the GUI edition, and the curriculum's
+"by agent" sections. If you're terminal-only, you can stop reading here — just do
+the prewarm above.
+
+---
+
 ## Why pre-pull
 
 The lab runs entirely on your laptop. The only thing it needs from the internet during the workshop is a working LLM. Ollama runs models locally — but the *first* time you ask for a model it downloads multiple gigabytes from Ollama's servers.
@@ -242,9 +284,10 @@ curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
 
 | Step | Required? | Time | Disk |
 |------|-----------|------|------|
-| Install Ollama        | Yes  | 2 min | ~100 MB |
-| Pull `llama3.1:8b`    | Yes  | 3 min | 4.9 GB  |
+| Install Ollama        | Yes (GUI / chat paths; not needed for the CLI edition)  | 2 min | ~100 MB |
+| Pull `llama3.1:8b`    | Yes (GUI / chat paths)  | 3 min | 4.9 GB  |
 | Pull `gemma4:e4b`     | Optional bonus | 6–8 min | 9.6 GB |
+| `make prewarm-full`   | If doing the DevOps curriculum | 3–5 min | ~1.9 GB (all lab images) |
 
 **Total disk** if you do everything: ~15 GB. Make sure you have at least 25 GB free.
 

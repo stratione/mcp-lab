@@ -49,7 +49,7 @@ def test_dashboard_query_param_handler_present_in_source():
     regressions even before a build.
     """
     from pathlib import Path
-    REPO_ROOT = Path("/Users/noelorona/Desktop/repos/mcp-lab")
+    REPO_ROOT = Path(__file__).resolve().parents[2]
     src_dir = REPO_ROOT / "chat-ui/web/src"
     sources = list(src_dir.rglob("*.tsx")) + list(src_dir.rglob("*.ts"))
     assert sources, f"No TS sources found under {src_dir}"

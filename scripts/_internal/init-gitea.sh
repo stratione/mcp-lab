@@ -6,7 +6,7 @@ ADMIN_USER="mcpadmin"
 ADMIN_PASS="mcpadmin123"
 ADMIN_EMAIL="mcpadmin@lab.local"
 
-echo "  [1/4] Creating admin user..."
+echo "  [1/6] Creating admin user..."
 # Use basic auth to test if user exists already
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "$ADMIN_USER:$ADMIN_PASS" "$GITEA_URL/api/v1/user" 2>/dev/null)
 if [ "$STATUS" = "200" ]; then
@@ -19,7 +19,7 @@ else
     > /dev/null 2>&1 || echo "    Registration form method failed, user may need manual creation"
 fi
 
-echo "  [2/4] Creating API token..."
+echo "  [2/6] Creating API token..."
 # Delete existing token if any
 curl -sf -X DELETE "$GITEA_URL/api/v1/users/$ADMIN_USER/tokens/mcp-lab-token" \
   -u "$ADMIN_USER:$ADMIN_PASS" > /dev/null 2>&1 || true
@@ -43,14 +43,14 @@ else
   echo "    docker compose exec -u git gitea gitea admin user create --admin --username mcpadmin --password mcpadmin123 --email mcpadmin@lab.local --must-change-password=false"
 fi
 
-echo "  [3/4] Creating sample-app repository..."
+echo "  [3/6] Creating sample-app repository..."
 curl -sf -X POST "$GITEA_URL/api/v1/user/repos" \
   -u "$ADMIN_USER:$ADMIN_PASS" \
   -H "Content-Type: application/json" \
   -d '{"name":"sample-app","description":"Sample application for MCP lab","auto_init":true,"default_branch":"main"}' \
   > /dev/null 2>&1 || echo "    Repo may already exist (OK)"
 
-echo "  [4/4] Adding app.py and Dockerfile to sample-app..."
+echo "  [4/6] Adding app.py and Dockerfile to sample-app..."
 
 # --- app.py ---
 EXISTS=$(curl -sf "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/contents/app.py" \
@@ -119,7 +119,28 @@ else
   echo "    Dockerfile already exists (OK)"
 fi
 
-echo "  [5/5] Seeding workshop demo users..."
+echo "  [5/6] Registering chat-ui pipeline webhook on sample-app..."
+# Feeds the Pipeline Board's live event feed (POST /api/events/gitea on
+# chat-ui). Idempotent: skip if a hook already points at that URL. In the
+# CLI edition chat-ui is absent — Gitea still accepts the hook and simply
+# fails deliveries, which is harmless.
+WEBHOOK_URL="http://chat-ui:3001/api/events/gitea"
+EXISTING_HOOK=$(curl -sf "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/hooks" \
+  -u "$ADMIN_USER:$ADMIN_PASS" 2>/dev/null \
+  | jq -r --arg url "$WEBHOOK_URL" '.[] | select(.config.url == $url) | .id' | head -1)
+
+if [ -n "$EXISTING_HOOK" ]; then
+  echo "    Webhook already registered (OK)"
+else
+  curl -sf -X POST "$GITEA_URL/api/v1/repos/$ADMIN_USER/sample-app/hooks" \
+    -u "$ADMIN_USER:$ADMIN_PASS" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"gitea\",\"active\":true,\"events\":[\"push\",\"create\",\"delete\"],\"config\":{\"url\":\"$WEBHOOK_URL\",\"content_type\":\"json\"}}" \
+    > /dev/null 2>&1 && echo "    Webhook registered -> $WEBHOOK_URL" \
+    || echo "    Could not register webhook"
+fi
+
+echo "  [6/6] Seeding workshop demo users..."
 # These extra users power the "MCP can act on your behalf" demo. Workshop
 # attendees can pass username + password to any gitea_* tool and watch
 # the resulting commit/repo show up under that identity in Gitea.

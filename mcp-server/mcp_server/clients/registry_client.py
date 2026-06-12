@@ -3,8 +3,23 @@ from .. import config
 from . import check_response
 
 
+def registry_url(registry: str) -> str:
+    """Map a registry name (dev/staging/prod) to its base URL."""
+    urls = {
+        "dev": config.DEV_REGISTRY_URL,
+        "staging": config.STAGING_REGISTRY_URL,
+        "prod": config.PROD_REGISTRY_URL,
+    }
+    try:
+        return urls[registry]
+    except KeyError:
+        raise ValueError(
+            f"Unknown registry {registry!r}. Valid registries: dev, staging, prod"
+        ) from None
+
+
 async def list_images(registry: str = "dev") -> list[str]:
-    url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
+    url = registry_url(registry)
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{url}/v2/_catalog", timeout=10.0)
         check_response(resp)
@@ -12,7 +27,7 @@ async def list_images(registry: str = "dev") -> list[str]:
 
 
 async def list_tags(image_name: str, registry: str = "dev") -> list[str]:
-    url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
+    url = registry_url(registry)
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{url}/v2/{image_name}/tags/list", timeout=10.0)
         check_response(resp)
@@ -20,7 +35,7 @@ async def list_tags(image_name: str, registry: str = "dev") -> list[str]:
 
 
 async def get_manifest(image_name: str, tag: str, registry: str = "dev") -> dict:
-    url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
+    url = registry_url(registry)
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{url}/v2/{image_name}/manifests/{tag}",
@@ -40,8 +55,8 @@ async def get_manifest(image_name: str, tag: str, registry: str = "dev") -> dict
 
 async def tag_image(image_name: str, current_tag: str, new_tag: str, registry: str = "dev") -> bool:
     """Retag an existing image by putting its manifest under a new tag."""
-    url = config.DEV_REGISTRY_URL if registry == "dev" else config.PROD_REGISTRY_URL
-    
+    url = registry_url(registry)
+
     # 1. Get the manifest of the current tag
     data = await get_manifest(image_name, current_tag, registry)
     manifest = data["manifest"]

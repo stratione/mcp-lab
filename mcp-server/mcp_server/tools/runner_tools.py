@@ -29,10 +29,46 @@ import shutil
 import tempfile
 import urllib.parse
 
+import httpx
 from mcp.server.fastmcp import FastMCP, Context
 
 from .. import config
+from ..clients import check_response
 from ..engine import engine_cmd
+
+
+# Trivy reports get truncated to this size before being recorded with the
+# promotion service (matches the service's own 200 KB cap).
+_MAX_REPORT_BYTES = 200_000
+
+
+def _registry_host(registry: str) -> str:
+    """Lab-network hostname (no scheme) for a registry name."""
+    return {
+        "dev": config.DEV_REGISTRY_HOST,
+        "staging": config.STAGING_REGISTRY_HOST,
+        "prod": config.PROD_REGISTRY_HOST,
+    }[registry]
+
+
+def _severity_counts(report: dict) -> dict:
+    """Tally severity counts from a Trivy JSON report.
+
+    Trivy omits `Results` for images with no targets and `Vulnerabilities`
+    for clean targets, so every key access is defensive.
+    """
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}
+    for result in report.get("Results") or []:
+        if not isinstance(result, dict):
+            continue
+        for vuln in result.get("Vulnerabilities") or []:
+            if not isinstance(vuln, dict):
+                continue
+            counts["total"] += 1
+            severity = str(vuln.get("Severity", "")).lower()
+            if severity in counts:
+                counts[severity] += 1
+    return counts
 
 
 async def _run(
@@ -208,59 +244,112 @@ def register(mcp: FastMCP):
     async def scan_image(
         image_name: str = "hello-app",
         tag: str = "latest",
+        registry: str = "dev",
         ctx: Context | None = None,
     ) -> str:
         """
-        Run a (mock) security scan on a container image and return a JSON
-        report of vulnerabilities.
+        Run a REAL Trivy security scan on a container image in one of the lab
+        registries, record the result with the promotion service (so the
+        scan gate can see it), and return a human-readable summary.
 
         DEFAULTS: if the user just says "scan the image" or "scan the hello world
-        app", call with no arguments — defaults to "hello-app:latest".
+        app", call with no arguments — defaults to "hello-app:latest" in the
+        dev registry.
 
         Args:
             image_name: Name of the image to scan.
             tag: Tag of the image.
+            registry: Which registry holds the image — dev, staging or prod.
 
         Returns:
-            JSON string with security report.
+            Summary string: severity counts, PASSED/FAILED, and the scan
+            record id.
         """
-        import random
+        if registry not in ("dev", "staging", "prod"):
+            return (
+                f"Invalid registry: {registry!r}. Must be one of: dev, staging, prod."
+            )
 
-        if ctx is not None:
-            await ctx.info(f"Scanning {image_name}:{tag}...")
+        image_ref = f"{_registry_host(registry)}/{image_name}:{tag}"
 
-        vulnerabilities = []
+        # Run the trivy CLIENT as a sibling container on the lab network,
+        # pointed at the long-running trivy SERVER (which holds the vuln DB).
+        rc, stdout, stderr = await _run(
+            *engine_cmd(
+                "run", "--rm", "--network", "mcp-lab-net",
+                "aquasec/trivy:latest", "image",
+                "--server", config.TRIVY_SERVER_URL,
+                "--format", "json", "--insecure",
+                image_ref,
+            ),
+            ctx=ctx,
+        )
+        if rc != 0:
+            err = stderr.decode(errors="replace").strip()
+            return (
+                f"Trivy scan of {image_ref} failed. The trivy server at "
+                f"{config.TRIVY_SERVER_URL} may not be running — start it with: "
+                f"docker compose --profile security up -d trivy. "
+                f"Engine output: {err[-500:]}"
+            )
 
-        # 20% chance of finding a "critical" vulnerability if not 'auth-service' (just for demo)
-        if "auth-service" not in image_name and random.random() < 0.2:
-            vulnerabilities.append({
-                "id": "CVE-2026-1234",
-                "severity": "CRITICAL",
-                "package": "openssl",
-                "fixed_version": "3.0.15",
-                "description": "Buffer overflow in SSL handshake.",
-            })
+        report_text = stdout.decode(errors="replace")
+        try:
+            report = json.loads(report_text)
+        except ValueError:
+            return (
+                f"Trivy scan of {image_ref} produced unparseable output. The "
+                f"trivy server at {config.TRIVY_SERVER_URL} may not be running — "
+                f"start it with: docker compose --profile security up -d trivy."
+            )
 
-        # Always find some low/medium issues
-        vulnerabilities.append({
-            "id": "CVE-2026-5678",
-            "severity": "LOW",
-            "package": "curl",
-            "fixed_version": "8.10.1",
-            "description": "Minor information leak.",
-        })
+        counts = _severity_counts(report)
 
-        status = "PASSED" if not any(v["severity"] == "CRITICAL" for v in vulnerabilities) else "FAILED"
+        # Record the scan with the promotion service so the scan gate
+        # (PROMOTION_REQUIRE_SCAN) can see it. `passed` is computed
+        # server-side from the critical count vs policy.
+        scan_id = None
+        passed = None
+        record_note = ""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{config.PROMOTION_SERVICE_URL}/scans",
+                    json={
+                        "image_name": image_name,
+                        "tag": tag,
+                        "registry": registry,
+                        "scanned_by": "mcp-runner",
+                        "critical": counts["critical"],
+                        "high": counts["high"],
+                        "medium": counts["medium"],
+                        "low": counts["low"],
+                        "total": counts["total"],
+                        "report": report_text[:_MAX_REPORT_BYTES],
+                    },
+                    timeout=30.0,
+                )
+                check_response(resp)
+                saved = resp.json()
+                scan_id = saved.get("id")
+                passed = saved.get("passed")
+        except Exception as e:
+            record_note = (
+                f" WARNING: scan completed but could not be recorded with the "
+                f"promotion service at {config.PROMOTION_SERVICE_URL} ({e}); "
+                f"promotion scan gates will not see this scan."
+            )
 
-        return json.dumps({
-            "status": status,
-            "image": f"{image_name}:{tag}",
-            "scanner": "Trivy (Mock)",
-            "vulnerabilities": vulnerabilities,
-            "summary": {
-                "critical": sum(1 for v in vulnerabilities if v["severity"] == "CRITICAL"),
-                "high": 0,
-                "medium": 0,
-                "low": sum(1 for v in vulnerabilities if v["severity"] == "LOW"),
-            },
-        }, indent=2)
+        if passed is None:
+            passed = counts["critical"] == 0
+        verdict = "PASSED" if passed else "FAILED"
+
+        summary = (
+            f"Trivy scan of {image_ref}: {counts['critical']} critical, "
+            f"{counts['high']} high, {counts['medium']} medium, "
+            f"{counts['low']} low ({counts['total']} findings total). "
+            f"Result: {verdict}."
+        )
+        if scan_id is not None:
+            summary += f" Scan record id: {scan_id}."
+        return summary + record_note

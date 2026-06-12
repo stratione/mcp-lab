@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""labctl — the MCP DevOps Lab command-line edition.
+
+Stdlib-only launcher (no install, no venv). Run it straight from the repo root:
+
+    ./labctl status
+    ./labctl check 2
+
+The Python package lives in labctl-cli/ (kept as a directory so its test
+suite runs via `cd labctl-cli && python3 -m pytest`); this file is the
+user-facing entrypoint. Symlink it onto your PATH if you like:
+
+    ln -s "$(pwd)/labctl" ~/.local/bin/labctl
+"""
+
+import os
+import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_HERE, "labctl-cli"))
+
+from labctl_pkg.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

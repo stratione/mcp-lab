@@ -1,0 +1,35 @@
+# act_runner config for the lab's Gitea Actions runner.
+# Mounted read-only at /config.yaml by docker-compose (act-runner service).
+# Minimal subset of the upstream format:
+# https://gitea.com/gitea/act_runner — `act_runner generate-config`.
+
+log:
+  level: info
+
+runner:
+  # Registration state lives on the act-runner-data volume (the service's
+  # working dir is /data), so re-creating the container doesn't re-register.
+  file: .runner
+  capacity: 1
+  timeout: 3h
+  fetch_timeout: 5s
+  fetch_interval: 2s
+
+cache:
+  enabled: false
+
+container:
+  # Job containers join the lab network so steps can reach gitea:3000,
+  # registry-dev:5000, chat-ui:3001, trivy:8080, etc. by service name.
+  network: mcp-lab-net
+  privileged: false
+  # Hand each job the host engine socket so `docker build` inside a step
+  # talks to the same daemon the lab runs on (sibling containers, no DinD).
+  options: "-v /var/run/docker.sock:/var/run/docker.sock"
+  # Lab images (mcp-lab-ci-base) only exist locally — a pull would fail.
+  force_pull: false
+  valid_volumes:
+    - /var/run/docker.sock
+
+host:
+  workdir_parent: /data/workdir

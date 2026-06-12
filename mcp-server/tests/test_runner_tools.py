@@ -158,13 +158,31 @@ async def test_deploy_app_does_not_raise_attribute_error_without_ctx(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_scan_image_returns_valid_json(monkeypatch):
-    """scan_image is a pure mock; just confirm it runs without ctx and emits JSON."""
+async def test_scan_image_unreachable_engine_is_actionable(monkeypatch):
+    """scan_image is now a REAL Trivy scan (devops-curriculum contract §3).
+    When the engine/trivy invocation fails, it must return an actionable
+    string mentioning how to start the trivy server — never a stack trace.
+    Full scan behavior is covered in test_scan_image.py."""
+
+    class FakeProc:
+        def __init__(self, returncode, stdout=b"", stderr=b""):
+            self.returncode = returncode
+            self._stdout = stdout
+            self._stderr = stderr
+
+        async def communicate(self):
+            return self._stdout, self._stderr
+
+    async def fake_exec(*args, **kwargs):
+        return FakeProc(returncode=1, stderr=b"connection refused")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
     tools = _fresh_runner_tools()
     out = await tools["scan_image"](image_name="sample-app", tag="v1.0.0")
-    parsed = json.loads(out)
-    assert parsed["status"] in ("PASSED", "FAILED")
-    assert parsed["image"] == "sample-app:v1.0.0"
+    assert isinstance(out, str)
+    assert "docker compose --profile security up -d trivy" in out
+    assert "Traceback" not in out
 
 
 # ─── auth + default-repo fixes (the bug from the chat-ui transcript) ───

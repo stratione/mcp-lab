@@ -83,6 +83,37 @@ async def get_file(owner: str, repo: str, filepath: str, ref: str = "main",
         return resp.json()
 
 
+async def list_action_tasks(owner: str, repo: str,
+                            username: str | None = None, password: str | None = None):
+    """List Gitea Actions runs/tasks for a repo.
+
+    GET /repos/{owner}/{repo}/actions/tasks — the response envelope varies
+    by Gitea version (dict with "workflow_runs" vs bare list); callers
+    handle both shapes.
+    """
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{config.GITEA_URL}/api/v1/repos/{owner}/{repo}/actions/tasks",
+            headers=gitea_headers(username, password),
+            timeout=10.0,
+        )
+        check_response(resp)
+        return resp.json()
+
+
+async def create_tag(owner: str, repo: str, tag_name: str, target: str = "main", message: str = "",
+                     username: str | None = None, password: str | None = None) -> dict:
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{config.GITEA_URL}/api/v1/repos/{owner}/{repo}/tags",
+            headers=gitea_headers(username, password),
+            json={"tag_name": tag_name, "target": target, "message": message},
+            timeout=10.0,
+        )
+        check_response(resp)
+        return resp.json()
+
+
 async def create_file(owner: str, repo: str, filepath: str, content: str,
                       message: str = "Add file", branch: str = "main",
                       username: str | None = None, password: str | None = None) -> dict:

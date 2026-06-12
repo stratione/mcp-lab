@@ -4,11 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ArchitectureDiagram } from './ArchitectureDiagram'
 import { McpServerDiagram } from './McpServerDiagram'
 import { McpHelpDialog } from './McpHelpDialog'
+import { PipelineBoard } from './PipelineBoard'
 import { useLab } from '@/lib/store'
 
 export function Header() {
   const [archOpen, setArchOpen] = useState(false)
   const [anatomyOpen, setAnatomyOpen] = useState(false)
+  const [pipelineOpen, setPipelineOpen] = useState(false)
   // Workshop / Walkthrough button: toggles workshopMode and surfaces the
   // Walkthrough inspector tab so the tour is immediately visible. The
   // walkthrough lives permanently as a tab next to Try — there's no
@@ -95,6 +97,16 @@ export function Header() {
         >
           ◇ {workshopMode ? 'Walkthrough (open)' : 'Walkthrough'}
         </button>
+        <button
+          type="button"
+          onClick={() => setPipelineOpen(true)}
+          className="text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
+          data-testid="pipeline-button"
+          title="Live CI/CD pipeline board — commit → CI → registries → scan → promote → deploy"
+        >
+          ⛓ Pipeline
+        </button>
+        <PipelineBoard open={pipelineOpen} onOpenChange={setPipelineOpen} />
         <McpHelpDialog />
       </div>
       <CornerMenu />

@@ -28,6 +28,11 @@ services:
       - GITEA__database__DB_TYPE=sqlite3
       - GITEA__security__INSTALL_LOCK=true
       - GITEA__service__DISABLE_REGISTRATION=false
+      - GITEA__actions__ENABLED=true
+      # Gitea blocks webhooks to private hosts by default ("external").
+      # chat-ui must stay allowed so the pipeline-event webhook (registered
+      # by init-gitea.sh) actually delivers.
+      - GITEA__webhook__ALLOWED_HOST_LIST=external,chat-ui
     volumes:
       - gitea-data:/data
     networks:
@@ -46,6 +51,21 @@ services:
       - "5001:5000"
     volumes:
       - registry-dev-data:/var/lib/registry
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  registry-staging:
+    image: registry:2
+    ports:
+      - "5003:5000"
+    volumes:
+      - registry-staging-data:/var/lib/registry
     networks:
       - mcp-lab-net
     healthcheck:
@@ -80,7 +100,13 @@ services:
     environment:
       - USER_API_URL=http://user-api:8001
       - DEV_REGISTRY_URL=http://registry-dev:5000
+      - STAGING_REGISTRY_URL=http://registry-staging:5000
       - PROD_REGISTRY_URL=http://registry-prod:5000
+      # Compose opts into the strict curriculum policy; the code defaults
+      # (two-stage, no scan gate) preserve legacy behavior for tests.
+      - PROMOTION_FLOW=three-stage
+      - PROMOTION_REQUIRE_SCAN=true
+      - PROMOTION_MAX_CRITICAL=0
     volumes:
       - promotion-data:/app/data
     networks:
@@ -89,6 +115,8 @@ services:
       user-api:
         condition: service_healthy
       registry-dev:
+        condition: service_healthy
+      registry-staging:
         condition: service_healthy
       registry-prod:
         condition: service_healthy
@@ -159,12 +187,15 @@ services:
     environment:
       - MCP_TRANSPORT=streamable-http
       - DEV_REGISTRY_URL=http://registry-dev:5000
+      - STAGING_REGISTRY_URL=http://registry-staging:5000
       - PROD_REGISTRY_URL=http://registry-prod:5000
     command: [ "python", "-m", "mcp_server.server_registry" ]
     networks:
       - mcp-lab-net
     depends_on:
       registry-dev:
+        condition: service_healthy
+      registry-staging:
         condition: service_healthy
       registry-prod:
         condition: service_healthy
@@ -210,7 +241,10 @@ services:
     environment:
       - MCP_TRANSPORT=streamable-http
       - DEV_REGISTRY_HOST=registry-dev:5000
+      - STAGING_REGISTRY_HOST=registry-staging:5000
       - PROD_REGISTRY_HOST=registry-prod:5000
+      - PROMOTION_SERVICE_URL=http://promotion-service:8002
+      - TRIVY_SERVER_URL=http://trivy:8080
       # CONTAINER_ENGINE selects between the docker CLI (engine=docker) and
       # podman --remote (engine=podman). Set by 2-setup.sh in .env.
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
@@ -251,6 +285,14 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - CHAT_DATA_DIR=/app/data
       - CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
+      # Pipeline Board backend: chat-ui aggregates Gitea Actions runs,
+      # registry catalogs, and promotion/scan records into /api/pipeline/state.
+      - GITEA_URL=http://gitea:3000
+      - GITEA_TOKEN=${GITEA_TOKEN:-}
+      - PROMOTION_SERVICE_URL=http://promotion-service:8002
+      - DEV_REGISTRY_URL=http://registry-dev:5000
+      - STAGING_REGISTRY_URL=http://registry-staging:5000
+      - PROD_REGISTRY_URL=http://registry-prod:5000
       # Host-side absolute path to the project root (set by 2-setup.sh).
       # Surfaced via /api/mcp-status so the UI can render copy-able commands
       # that work from any directory.
@@ -269,6 +311,56 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  trivy:
+    image: aquasec/trivy:latest
+    profiles: [ "security" ]
+    ports:
+      - "8087:8080"
+    command: [ "server", "--listen", "0.0.0.0:8080" ]
+    volumes:
+      # Persists the vulnerability DB so scans work offline after first pull.
+      - trivy-cache:/root/.cache/trivy
+    networks:
+      - mcp-lab-net
+    healthcheck:
+      # Trivy images are alpine-based, so busybox wget is available.
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # First boot downloads the vuln DB before the server listens.
+      start_period: 60s
+    restart: unless-stopped
+
+  act-runner:
+    image: gitea/act_runner:latest
+    profiles: [ "ci" ]
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      # Minted by 2-setup.sh (full tier) via
+      # `gitea actions generate-runner-token` and written into .env.
+      - GITEA_RUNNER_REGISTRATION_TOKEN=${RUNNER_REGISTRATION_TOKEN:-}
+      - GITEA_RUNNER_NAME=lab-runner
+      # Both labels resolve to the in-repo CI base image so the canonical
+      # workflow's `runs-on: ubuntu-latest` works without pulling GitHub's
+      # multi-GB runner image.
+      - GITEA_RUNNER_LABELS=ubuntu-latest:docker://mcp-lab-ci-base:latest,lab:docker://mcp-lab-ci-base:latest
+      - CONFIG_FILE=/config.yaml
+    # label=disable bypasses rootless Podman's SELinux denial of socket
+    # access. No-op on Docker Desktop. Same rationale as mcp-runner.
+    security_opt:
+      - label=disable
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/act-runner/config.yaml:/config.yaml:ro
+      - act-runner-data:/data
+    networks:
+      - mcp-lab-net
+    depends_on:
+      gitea:
+        condition: service_healthy
     restart: unless-stopped
 
   bootstrap:
@@ -293,6 +385,9 @@ services:
       registry-dev:
         condition: service_healthy
         required: false
+      registry-staging:
+        condition: service_healthy
+        required: false
       registry-prod:
         condition: service_healthy
         required: false
@@ -303,11 +398,17 @@ volumes:
   user-api-data:
   gitea-data:
   registry-dev-data:
+  registry-staging-data:
   registry-prod-data:
   promotion-data:
   chat-ui-data:
+  trivy-cache:
+  act-runner-data:
 
 
 networks:
   mcp-lab-net:
     driver: bridge
+    # Fixed name so host-side tooling (labctl, CI job containers, docs) can
+    # say `--network mcp-lab-net` without compose project-name guessing.
+    name: mcp-lab-net

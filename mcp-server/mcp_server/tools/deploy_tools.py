@@ -23,8 +23,23 @@ from .. import config
 from ..engine import engine_cmd
 
 
-# Host port mapping per environment
+# Deploy canon (contract §1):
+#   container name  mcp-lab-app-<env>
+#   host ports      dev=9080, staging=9081, prod=9082 → container 8080
+#   labels          mcp-lab.teardown=true, mcp-lab.deployed=true, mcp-lab.env=<env>
+#   network         mcp-lab-net
+#   image pulled from the registry matching the environment
 ENV_PORTS = {"dev": 9080, "staging": 9081, "prod": 9082}
+LAB_NETWORK = "mcp-lab-net"
+
+
+def _registry_host(environment: str) -> str:
+    """Lab-network registry hostname for an environment."""
+    return {
+        "dev": config.DEV_REGISTRY_HOST,
+        "staging": config.STAGING_REGISTRY_HOST,
+        "prod": config.PROD_REGISTRY_HOST,
+    }[environment]
 
 
 async def _run(*args: str, ctx: Context | None = None) -> tuple[int, bytes, bytes]:
@@ -76,15 +91,14 @@ def register(mcp: FastMCP):
             }, indent=2)
 
         # Use the compose-internal registry hostname so skopeo (running on
-        # the lab network) can reach it.
-        if environment == "prod":
-            registry_host = os.environ.get("PROD_REGISTRY_HOST", "registry-prod:5000")
-        else:
-            registry_host = config.DEV_REGISTRY_HOST  # registry-dev:5000
+        # the lab network) can reach it. Each environment deploys from its
+        # own registry (dev→registry-dev, staging→registry-staging,
+        # prod→registry-prod).
+        registry_host = _registry_host(environment)
 
         full_image_remote = f"{registry_host}/{image_name}:{tag}"
         local_tag = f"localhost/{image_name}:{tag}-{environment}"
-        container_name = f"hello-app-{environment}"
+        container_name = f"mcp-lab-app-{environment}"
         host_port = ENV_PORTS[environment]
 
         steps: list[str] = []
@@ -127,12 +141,16 @@ def register(mcp: FastMCP):
                 }, indent=2)
             steps.append(f"Loaded image into local engine as {local_tag}")
 
-        # 3. Run the container on the lab network with host port mapping.
+        # 3. Run the container on the lab network with host port mapping and
+        #    the canonical labels (teardown discovery + pipeline-board state).
         rc, stdout, stderr = await _run(
             *engine_cmd(
                 "run", "-d",
                 "--name", container_name,
-                "--network", "mcp-lab_mcp-lab-net",
+                "--network", LAB_NETWORK,
+                "--label", "mcp-lab.teardown=true",
+                "--label", "mcp-lab.deployed=true",
+                "--label", f"mcp-lab.env={environment}",
                 "-p", f"{host_port}:8080",
                 local_tag,
             ),

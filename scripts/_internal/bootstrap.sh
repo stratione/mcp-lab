@@ -20,12 +20,18 @@ fi
 # depends_on already gated us on the deps that ARE present.
 GITEA_UP=0
 REGISTRY_DEV_UP=0
+TRIVY_UP=0
 
 if curl -sf -o /dev/null --max-time 3 http://gitea:3000/api/v1/version 2>/dev/null; then
   GITEA_UP=1
 fi
 if curl -sf -o /dev/null --max-time 3 http://registry-dev:5000/v2/ 2>/dev/null; then
   REGISTRY_DEV_UP=1
+fi
+# Trivy only runs in the full tier (profile "security"); used purely to
+# decide whether to advertise `make full` in the level-up hints below.
+if curl -sf -o /dev/null --max-time 3 http://trivy:8080/healthz 2>/dev/null; then
+  TRIVY_UP=1
 fi
 
 if [ "$GITEA_UP" = 1 ]; then
@@ -59,8 +65,12 @@ if [ "$GITEA_UP" = 1 ]; then
 fi
 if [ "$REGISTRY_DEV_UP" = 1 ]; then
   echo "  Registry Dev         http://localhost:5001/v2/_catalog"
+  echo "  Registry Staging     http://localhost:5003/v2/_catalog"
   echo "  Registry Prod        http://localhost:5002/v2/_catalog"
   echo "  Promotion health     http://localhost:8002/health"
+fi
+if [ "$TRIVY_UP" = 1 ]; then
+  echo "  Trivy scanner        http://localhost:8087/healthz"
 fi
 echo ""
 echo "  MCP Servers (always OFF by default — opt in below)"
@@ -68,11 +78,11 @@ echo "  ────────────────────────
 echo ""
 echo "  mcp-user               http://localhost:8003/mcp  7 tools"
 if [ "$GITEA_UP" = 1 ]; then
-  echo "  mcp-gitea              http://localhost:8004/mcp  7 tools"
+  echo "  mcp-gitea              http://localhost:8004/mcp  10 tools"
 fi
 if [ "$REGISTRY_DEV_UP" = 1 ]; then
-  echo "  mcp-registry           http://localhost:8005/mcp  3 tools"
-  echo "  mcp-promotion          http://localhost:8006/mcp  3 tools"
+  echo "  mcp-registry           http://localhost:8005/mcp  4 tools"
+  echo "  mcp-promotion          http://localhost:8006/mcp  6 tools"
   echo "  mcp-runner             http://localhost:8007/mcp  3 tools"
 fi
 echo ""
@@ -91,11 +101,11 @@ echo "  2. Enable MCP servers one at a time as you progress:"
 echo ""
 echo "     $ENGINE compose up -d mcp-user        # +7 user tools"
 if [ "$GITEA_UP" = 1 ]; then
-  echo "     $ENGINE compose up -d mcp-gitea       # +7 git/repo tools"
+  echo "     $ENGINE compose up -d mcp-gitea       # +10 git/repo/CI tools"
 fi
 if [ "$REGISTRY_DEV_UP" = 1 ]; then
-  echo "     $ENGINE compose up -d mcp-registry    # +3 registry tools"
-  echo "     $ENGINE compose up -d mcp-promotion   # +3 promotion tools"
+  echo "     $ENGINE compose up -d mcp-registry    # +4 registry tools"
+  echo "     $ENGINE compose up -d mcp-promotion   # +6 promotion/scan/rollback tools"
   echo "     $ENGINE compose up -d mcp-runner      # +3 build/scan/deploy tools"
 fi
 echo ""
@@ -103,13 +113,19 @@ echo "  3. To stop an MCP server:"
 echo ""
 echo "     $ENGINE compose stop mcp-user"
 echo ""
-if [ "$GITEA_UP" != 1 ] || [ "$REGISTRY_DEV_UP" != 1 ]; then
+echo "  Prefer the terminal? ./labctl drives the whole lab from your"
+echo "  shell (CLI edition): ./labctl status, ./labctl modules, ..."
+echo ""
+if [ "$GITEA_UP" != 1 ] || [ "$REGISTRY_DEV_UP" != 1 ] || [ "$TRIVY_UP" != 1 ]; then
   echo "  Want more tools? Level up to a bigger tier:"
   if [ "$GITEA_UP" != 1 ]; then
     echo "     make medium      # adds Gitea + per-user auth demos"
   fi
   if [ "$REGISTRY_DEV_UP" != 1 ]; then
     echo "     make large       # adds registries + promotion + runner (full lab)"
+  fi
+  if [ "$TRIVY_UP" != 1 ]; then
+    echo "     make full        # adds Gitea Actions CI runner + Trivy scanning"
   fi
   echo ""
 fi

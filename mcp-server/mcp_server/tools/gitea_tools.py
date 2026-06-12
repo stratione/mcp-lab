@@ -22,6 +22,49 @@ _AUTH_DOC = (
     "is given, the lab's admin token is used."
 )
 
+# Per-run log endpoints vary across Gitea versions and are often absent, so
+# the action-run tools point users at the runner's own logs instead.
+_LOGS_HINT = (
+    "Step logs are not exposed by this Gitea version's API; "
+    "run: docker compose logs act-runner"
+)
+
+
+def _parse_action_tasks(data) -> list[dict]:
+    """Normalize the /actions/tasks response into a list of run summaries.
+
+    Gitea versions disagree on the envelope: some return
+    {"total_count": N, "workflow_runs": [...]}, others a bare list (and a
+    few use "entries"). Handle all of them; unknown shapes yield [].
+    """
+    if isinstance(data, dict):
+        runs = next(
+            (data[key] for key in ("workflow_runs", "entries", "data")
+             if isinstance(data.get(key), list)),
+            [],
+        )
+    elif isinstance(data, list):
+        runs = data
+    else:
+        runs = []
+    return [
+        {
+            "id": r.get("id"),
+            "name": r.get("name"),
+            "display_title": r.get("display_title"),
+            "status": r.get("status"),
+            "event": r.get("event"),
+            "head_branch": r.get("head_branch"),
+            "head_sha": (r.get("head_sha") or "")[:12],
+            "run_number": r.get("run_number"),
+            "workflow_id": r.get("workflow_id"),
+            "created_at": r.get("created_at"),
+            "updated_at": r.get("updated_at"),
+            "url": r.get("url"),
+        }
+        for r in runs if isinstance(r, dict)
+    ]
+
 
 def register(mcp: FastMCP):
     @mcp.tool()
@@ -111,3 +154,67 @@ def register(mcp: FastMCP):
         import json
         data = await gitea_client.create_file(owner, repo, filepath, content, message, branch, username, password)
         return json.dumps({"path": filepath, "commit": data.get("commit", {}).get("sha", "")[:12]}, indent=2)
+
+    @mcp.tool()
+    async def gitea_list_action_runs(owner: str, repo: str,
+                                     username: str | None = None, password: str | None = None) -> str:
+        f"""List Gitea Actions (CI) runs for a repository, newest first.
+
+        Returns a JSON object with the run count and a "runs" array
+        (id, status, event, head branch/sha, timestamps).
+
+        Auth: {_AUTH_DOC}
+        """
+        import json
+        data = await gitea_client.list_action_tasks(owner, repo, username, password)
+        runs = _parse_action_tasks(data)
+        total = data.get("total_count", len(runs)) if isinstance(data, dict) else len(runs)
+        return json.dumps({
+            "owner": owner,
+            "repo": repo,
+            "total_count": total,
+            "runs": runs,
+        }, indent=2)
+
+    @mcp.tool()
+    async def gitea_get_action_run(owner: str, repo: str, run_id: int,
+                                   username: str | None = None, password: str | None = None) -> str:
+        f"""Get a single Gitea Actions (CI) run by its id (status, event,
+        head branch/sha, timestamps). Step logs are not available via this
+        Gitea version's API — the result includes a hint for where to look.
+
+        Auth: {_AUTH_DOC}
+        """
+        import json
+        data = await gitea_client.list_action_tasks(owner, repo, username, password)
+        runs = _parse_action_tasks(data)
+        match = next(
+            (r for r in runs
+             if str(r.get("id")) == str(run_id) or str(r.get("run_number")) == str(run_id)),
+            None,
+        )
+        if match is None:
+            return json.dumps({
+                "error": f"No Actions run with id {run_id} found in {owner}/{repo}",
+                "available_run_ids": [r.get("id") for r in runs],
+                "logs_hint": _LOGS_HINT,
+            }, indent=2)
+        return json.dumps({"run": match, "logs_hint": _LOGS_HINT}, indent=2)
+
+    @mcp.tool()
+    async def gitea_create_tag(owner: str, repo: str, tag_name: str,
+                               target: str = "main", message: str = "",
+                               username: str | None = None, password: str | None = None) -> str:
+        f"""Create a git tag in a Gitea repository (e.g. to cut a release like
+        "v1.0.0"). target is the branch or commit to tag (default "main").
+
+        Auth: {_AUTH_DOC}
+        """
+        import json
+        data = await gitea_client.create_tag(owner, repo, tag_name, target, message, username, password)
+        return json.dumps({
+            "tag": data.get("name", tag_name),
+            "target": target,
+            "commit": ((data.get("commit") or {}).get("sha") or "")[:12],
+            "message": data.get("message", message),
+        }, indent=2)

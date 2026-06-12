@@ -23,12 +23,17 @@ from .mcp_client import (
 )
 from .llm_providers import get_provider
 from .model_catalog import list_models, resolve_auto
+from . import pipeline
+from .events import EventStore, VALID_EVENT_SOURCES, normalize_gitea_event
 
 app = FastAPI(title="MCP DevOps Lab Chat UI", version="1.0.0")
 
 # Server-side chat history storage (persisted in Docker volume)
 CHAT_DATA_DIR = pathlib.Path(os.environ.get("CHAT_DATA_DIR", "/app/data"))
 CHAT_HISTORY_FILE = CHAT_DATA_DIR / "chat_history.json"
+
+# Pipeline event ring buffer (Pipeline Board feed) — same volume.
+_event_store = EventStore(CHAT_DATA_DIR / "events.json")
 
 # Per-provider API keys from environment
 _API_KEYS: dict = {
@@ -671,7 +676,7 @@ async def mcp_control(request: Request):
 # Prevents the chat-ui from being used as a port-scan reflector.
 _PROBE_ALLOWLIST = re.compile(
     r"^http://(localhost|127\.0\.0\.1):"
-    r"(3000|3001|5001|5002|8001|8002|8003|8004|8005|8006|8007|9080|9081|9082|11434)"
+    r"(3000|3001|5001|5002|5003|8001|8002|8003|8004|8005|8006|8007|8087|9080|9081|9082|11434)"
     r"(/.*)?$"
 )
 
@@ -682,8 +687,10 @@ _PORT_TO_HOST = {
     "3001": "localhost:3001",       # chat-ui itself
     "5001": "registry-dev:5000",    # registry internal port is 5000
     "5002": "registry-prod:5000",
+    "5003": "registry-staging:5000",
     "8001": "user-api:8001",
     "8002": "promotion-service:8002",
+    "8087": "trivy:8080",           # trivy server internal port is 8080
 }
 
 def _rewrite_probe_url(url: str) -> str:
@@ -716,6 +723,71 @@ async def probe_url(request: Request):
         return {"status": 0, "body": "connection refused"}
     except httpx.TimeoutException:
         return {"status": 0, "body": "timed out"}
+
+
+# ─── Pipeline events & state ────────────────────────────────────────────
+# Backs the Pipeline Board (contract §4): a persisted event feed that
+# Gitea webhooks / CI runs / MCP tools post into, plus an aggregated
+# pipeline snapshot the board polls every few seconds.
+
+
+@app.post("/api/events", status_code=201)
+async def post_event(request: Request):
+    """Append one event: {source, type, summary, detail?}. Source is a
+    closed set; type is free-form (e.g. "ci.success")."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be JSON")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+    source = str(body.get("source") or "")
+    if source not in VALID_EVENT_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"source must be one of {sorted(VALID_EVENT_SOURCES)}",
+        )
+    record = await _event_store.append(
+        source=source,
+        type=str(body.get("type") or ""),
+        summary=str(body.get("summary") or ""),
+        detail=str(body.get("detail") or ""),
+    )
+    return {"id": record["id"]}
+
+
+@app.get("/api/events")
+async def get_events(limit: int = 50):
+    """Newest first."""
+    return {"events": await _event_store.list(limit)}
+
+
+@app.post("/api/events/gitea")
+async def post_gitea_event(request: Request):
+    """Raw Gitea webhook receiver (registered on mcpadmin/sample-app by
+    bootstrap). Always answers 200 fast — Gitea retries/disables hooks
+    that error, and a malformed payload is still worth a feed entry."""
+    try:
+        try:
+            payload = json.loads(await request.body() or b"")
+        except Exception:
+            payload = None
+        event_header = request.headers.get("X-Gitea-Event", "")
+        type_, summary, detail = normalize_gitea_event(payload, event_header)
+        record = await _event_store.append(
+            source="gitea", type=type_, summary=summary, detail=detail
+        )
+        return {"ok": True, "id": record["id"]}
+    except Exception as e:
+        logger.warning("gitea webhook dropped: %s", e)
+        return {"ok": False}
+
+
+@app.get("/api/pipeline/state")
+async def pipeline_state():
+    """Aggregated CI/CD snapshot; every section degrades independently
+    to {"status": "offline"} — never 500s (see pipeline.py)."""
+    return await pipeline.get_pipeline_state(_event_store)
 
 
 @app.get("/api/chat-history")
