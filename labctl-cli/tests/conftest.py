@@ -155,9 +155,11 @@ def promotion_router(method, record, state):
         return _json(201, row)
     if path == "/scans" and method == "GET":
         items = state["scans"]
-        wanted = record["query"].get("image_name", [None])[0]
-        if wanted:
-            items = [s for s in items if s["image_name"] == wanted]
+        # Mirror the real service: filter on image_name AND tag AND registry.
+        for key in ("image_name", "tag", "registry"):
+            wanted = record["query"].get(key, [None])[0]
+            if wanted:
+                items = [s for s in items if s.get(key) == wanted]
         summaries = [{k: v for k, v in s.items() if k != "report"} for s in items]
         return _json(200, summaries)
     if path.startswith("/scans/") and method == "GET":

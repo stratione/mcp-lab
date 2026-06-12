@@ -44,10 +44,12 @@ def test_verbose_never_prints_token(lab_env, capsys):
     assert "Authorization: token $GITEA_TOKEN" in captured.err
 
 
-def test_basic_auth_echoed_when_no_token(lab_env, capsys):
+def test_basic_auth_password_scrubbed_when_no_token(lab_env, capsys):
     cli.main(["-v", "repos"])
     err = capsys.readouterr().err
-    assert "-u mcpadmin:mcpadmin123" in err  # lab-only creds, intentionally shown
+    # The username may show, but the real password must never be echoed (D-007).
+    assert "mcpadmin123" not in err
+    assert "$GITEA_PASS" in err
 
 
 def test_json_stdout_stays_clean_with_verbose(lab_env, capsys):

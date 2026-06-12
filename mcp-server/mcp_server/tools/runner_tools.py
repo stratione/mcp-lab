@@ -303,6 +303,20 @@ def register(mcp: FastMCP):
                 f"start it with: docker compose --profile security up -d trivy."
             )
 
+        # A report with no `Results` key means Trivy produced no vulnerability
+        # analysis at all (an image it can't introspect) — distinct from
+        # "analyzed and clean", which yields `Results: [...]` with zero vulns.
+        # Recording it as a pass would let an unassessed image satisfy the
+        # promotion scan gate, so refuse a verdict and record nothing.
+        if report.get("Results") is None:
+            return (
+                f"Trivy scan of {image_ref} produced no analyzable results — the "
+                f"report has no `Results` (the image may be unsupported, empty, or "
+                f"the wrong reference). Treating as INDETERMINATE, not clean: no "
+                f"scan was recorded, so promotion gates will keep blocking. Verify "
+                f"the image and registry, then re-scan."
+            )
+
         counts = _severity_counts(report)
 
         # Record the scan with the promotion service so the scan gate
@@ -341,8 +355,14 @@ def register(mcp: FastMCP):
             )
 
         if passed is None:
+            # The promotion service (the verdict-of-record, which applies the
+            # configured max-critical policy) didn't answer — fall back to a
+            # local estimate and label it unverified so it can't be mistaken for
+            # an authoritative gate pass.
             passed = counts["critical"] == 0
-        verdict = "PASSED" if passed else "FAILED"
+            verdict = "PASSED (unverified)" if passed else "FAILED (unverified)"
+        else:
+            verdict = "PASSED" if passed else "FAILED"
 
         summary = (
             f"Trivy scan of {image_ref}: {counts['critical']} critical, "

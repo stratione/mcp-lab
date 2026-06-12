@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
 RegistryName = Literal["dev", "staging", "prod"]
@@ -43,11 +43,11 @@ class ScanCreateRequest(BaseModel):
     tag: str
     registry: RegistryName
     scanned_by: str
-    critical: int = 0
-    high: int = 0
-    medium: int = 0
-    low: int = 0
-    total: int = 0
+    critical: int = Field(0, ge=0)
+    high: int = Field(0, ge=0)
+    medium: int = Field(0, ge=0)
+    low: int = Field(0, ge=0)
+    total: int = Field(0, ge=0)
     passed: bool = False  # ignored — recomputed server-side from critical vs PROMOTION_MAX_CRITICAL
     report: str = ""  # JSON string, truncated to 200 KB server-side
 
@@ -64,6 +64,7 @@ class ScanSummary(BaseModel):
     low: int
     total: int
     passed: bool
+    digest: Optional[str] = None  # manifest the scan covered; the gate binds to it
     created_at: str
 
 

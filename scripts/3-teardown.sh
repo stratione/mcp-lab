@@ -43,7 +43,7 @@ fi
 echo "[3/5] Removing leftover lab images..."
 LEFTOVER_IMAGES="$(
   $ENGINE images --format '{{.Repository}}:{{.Tag}}' \
-    | rg "(^|/)${PROJECT_NAME}-|^localhost:5001/sample-app:|^localhost:5002/sample-app:" \
+    | rg "(^|/)${PROJECT_NAME}-|^localhost:500[123]/" \
     || true
 )"
 LEFTOVER_LABELED_IMAGES="$($ENGINE images --filter "label=mcp-lab.teardown=true" --format '{{.ID}}' || true)"

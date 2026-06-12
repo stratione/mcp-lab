@@ -4,11 +4,17 @@ Each check returns (passed: bool, detail: str, hint: str). The hint is only
 shown on failure and always names the next command to try.
 """
 
+import re
+
 from . import deploy, env, gitea, http, promotion, proc, registry
 from .errors import LabError
 
 OWNER, REPO = env.DEFAULT_OWNER, env.DEFAULT_REPO
 APP = "hello-app"
+
+# A CI commit-SHA tag is the 40-char hex git SHA the workflow pushes
+# (registry-dev:5000/hello-app:"$GITHUB_SHA"); a human retag (v1.0.0) is not.
+_SHA_TAG = re.compile(r"^[0-9a-f]{40}$")
 
 
 def check_git(ctx):
@@ -44,10 +50,15 @@ def check_ci(ctx):
 
 def check_artifacts(ctx):
     image_tags = registry.tags(ctx, "dev", APP)
-    extra = [t for t in image_tags if t != "latest"]
-    if extra:
-        return (True, "dev registry has non-latest tag(s) for {}: {}".format(APP, ", ".join(sorted(extra))), "")
-    return (False, "only 'latest' exists for {} in dev".format(APP),
+    # CI already pushes a commit-SHA tag (40 hex chars) on every run, so merely
+    # "a non-latest tag exists" passes for free. Module 3 teaches a deliberate
+    # human retag (e.g. v1.0.0), so require a tag the SHA-push step would never
+    # produce: non-latest and not a 40-char hex SHA.
+    human = [t for t in image_tags
+             if t != "latest" and not _SHA_TAG.match(t)]
+    if human:
+        return (True, "dev registry has human tag(s) for {}: {}".format(APP, ", ".join(sorted(human))), "")
+    return (False, "only 'latest' and CI commit-SHA tag(s) exist for {} in dev".format(APP),
             "module 3: ./labctl retag {}:latest v1.0.0".format(APP))
 
 
@@ -56,14 +67,16 @@ def check_security(ctx):
     if not scans:
         return (False, "no scans recorded yet",
                 "module 4: ./labctl scan {}:latest".format(APP))
-    app_scans = promotion.list_scans(ctx, image_name=APP, limit=1)
+    # The deployable artifact is hello-app:latest — pin the verdict to that tag
+    # so a stray scan of some other tag can't make this module pass falsely.
+    app_scans = promotion.list_scans(ctx, image_name=APP, tag="latest", limit=1)
     if not app_scans:
-        return (False, "no scan recorded for {}".format(APP),
+        return (False, "no scan recorded for {}:latest".format(APP),
                 "module 4: ./labctl scan {}:latest".format(APP))
     latest = app_scans[0]
     if latest.get("passed"):
-        return (True, "latest {} scan passed (critical={})".format(APP, latest.get("critical")), "")
-    return (False, "latest {} scan FAILED (critical={})".format(APP, latest.get("critical")),
+        return (True, "latest {}:latest scan passed (critical={})".format(APP, latest.get("critical")), "")
+    return (False, "latest {}:latest scan FAILED (critical={})".format(APP, latest.get("critical")),
             "fix the base image (./labctl fix vulnerable-base), let CI rebuild, then rescan")
 
 

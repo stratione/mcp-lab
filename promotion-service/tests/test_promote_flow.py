@@ -73,12 +73,13 @@ async def test_blocked_promotion_writes_no_audit_row(client, fake_copy, monkeypa
 
 
 async def test_copy_failure_records_failed_row(client, monkeypatch, lab_db):
-    async def _copy(image_name, tag, from_registry, to_registry):
+    async def _copy(image_name, tag, from_registry, to_registry, source_ref=None):
         return False, "", f"Image {image_name}:{tag} not found in {from_registry} registry"
 
     monkeypatch.setattr(lab_db, "copy_image", _copy)
     resp = await post_promote(client)
-    assert resp.status_code == 201
+    # Failed copy returns 502 (not a 201 "success") but still carries the audit row.
+    assert resp.status_code == 502
     body = resp.json()
     assert body["status"] == "failed"
     assert "not found in dev registry" in body["detail"]
