@@ -61,6 +61,31 @@ done
 # ── Detect container engine (prompts user if both are available) ──
 source "$SCRIPT_DIR/_internal/_detect-engine.sh"
 
+# ── Work around a stale Docker credential helper (common macOS gotcha) ──
+# ~/.docker/config.json often still names a credential helper left behind by an
+# uninstalled Docker Desktop (e.g. "credsStore": "desktop"), but the helper
+# binary is gone. Compose then dies pulling PUBLIC images with:
+#   error getting credentials … "docker-credential-desktop": executable file not found
+# Every lab image is public, so if the named helper is missing we point
+# DOCKER_CONFIG at a clean temp dir for this run. Non-destructive — the user's
+# real ~/.docker/config.json is left untouched.
+_docker_cfg="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
+if [ -f "$_docker_cfg" ]; then
+  _cred_helper="$(grep -oE '"creds?Store"[[:space:]]*:[[:space:]]*"[^"]+"' "$_docker_cfg" 2>/dev/null \
+    | head -1 | sed -E 's/.*"([^"]+)"$/\1/')"
+  if [ -n "$_cred_helper" ] && ! command -v "docker-credential-$_cred_helper" >/dev/null 2>&1; then
+    _clean_docker_cfg="$(mktemp -d)"
+    printf '{}\n' > "$_clean_docker_cfg/config.json"
+    export DOCKER_CONFIG="$_clean_docker_cfg"
+    echo ""
+    echo "  NOTE: ~/.docker/config.json names credential helper '$_cred_helper', but"
+    echo "        'docker-credential-$_cred_helper' isn't installed (a common leftover from"
+    echo "        an uninstalled Docker Desktop). The lab's images are all public, so this"
+    echo "        run uses a clean Docker config — your real config is left untouched."
+    echo ""
+  fi
+fi
+
 # ── Resolve tier ──
 # Precedence:
 #   1. --tier=X flag (highest)
