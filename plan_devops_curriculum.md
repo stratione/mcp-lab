@@ -51,8 +51,17 @@ following the curriculum; the Pipeline Board shows the same truth live.
   locked with regression tests. Suites after fixes: promotion 63, mcp-server 50,
   labctl 65, chat-ui 111/1skip, frontend 62 vitest — all green; `docker compose
   config -q` clean (default + full).
-- [ ] Final docs truth pass + commits (review fixes committed; CURRICULUM module
-  5 note on per-env re-attestation still pending)
+- [x] (2026-06-12 14:45Z) Rebuilt promotion-service + all five MCP images on the
+  fixed code; restarted promotion-service (additive scans.digest migration ran,
+  cleaned DB preserved). Live digest-fix verify 7/7: ge=0 reject (422); scan binds
+  to dev's live digest; promote with matching digest 201; tag-swap to an unscanned
+  digest → promote 409 (the exact TOCTOU the review used, now blocked); tag
+  restored. Lab left at the cleaned baseline.
+- [x] (2026-06-12 14:45Z) Docs truth pass: CURRICULUM module 5 now teaches per-env
+  re-attestation (the staging→prod hop's required staging scan) and the digest
+  binding; by-agent prompt updated to scan each hop's source registry. Contract §2
+  scan-gate spec updated for digest binding, per-env re-attestation, the scans
+  `digest` field + ge=0, and the 502-on-failed-copy promote status.
 
 ## Surprises & Discoveries (Living)
 
