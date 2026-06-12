@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CornerMenu } from './CornerMenu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { HelpTip } from './HelpTip'
 import { ArchitectureDiagram } from './ArchitectureDiagram'
 import { McpServerDiagram } from './McpServerDiagram'
 import { McpHelpDialog } from './McpHelpDialog'
@@ -21,32 +22,25 @@ export function Header() {
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b border-border bg-surface">
       <div className="flex items-center gap-3">
-        <a
-          href="https://devopsdays.org/events/2026-austin"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0"
-          title="DevOpsDays Austin 2026"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}austin-devopsdays-2026.png`}
-            alt="DevOpsDays Austin 2026"
-            className="h-7 w-auto block"
-          />
-        </a>
-        <span className="text-faint">·</span>
-        <span className="font-semibold text-sm">MCP DevOps Lab</span>
+        <span className="font-semibold text-sm flex items-center gap-1.5 shrink-0">
+          <span aria-hidden>⛓</span> MCP DevOps Lab
+        </span>
         <Dialog open={archOpen} onOpenChange={setArchOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="ml-2 text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
-              data-testid="architecture-button"
-              title="Show system architecture diagram"
-            >
-              ◇ Architecture
-            </button>
-          </DialogTrigger>
+          <HelpTip
+            side="bottom"
+            title="System architecture"
+            body="A diagram of every service in the lab and how they connect."
+          >
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="ml-2 text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
+                data-testid="architecture-button"
+              >
+                ◇ Architecture
+              </button>
+            </DialogTrigger>
+          </HelpTip>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>System Architecture</DialogTitle>
@@ -55,16 +49,21 @@ export function Header() {
           </DialogContent>
         </Dialog>
         <Dialog open={anatomyOpen} onOpenChange={setAnatomyOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
-              data-testid="mcp-anatomy-button"
-              title="Inside one MCP server — the four layers a tool call passes through"
-            >
-              ◇ MCP Internals
-            </button>
-          </DialogTrigger>
+          <HelpTip
+            side="bottom"
+            title="Inside an MCP server"
+            body="The four layers a tool call passes through — transport, protocol, handler, and the backing service."
+          >
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
+                data-testid="mcp-anatomy-button"
+              >
+                ◇ MCP Internals
+              </button>
+            </DialogTrigger>
+          </HelpTip>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>What's inside an MCP server</DialogTitle>
@@ -72,40 +71,48 @@ export function Header() {
             <McpServerDiagram />
           </DialogContent>
         </Dialog>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !workshopMode
-            setWorkshopMode(next)
-            // Surface the Walkthrough tab when opening so the user
-            // doesn't click the button, then wonder where the tour went.
-            if (next) setInspectorTab('walkthrough')
-          }}
-          className={
-            'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +
-            (workshopMode
-              ? 'text-text bg-surface-2'
-              : 'text-muted hover:text-text')
-          }
-          data-testid="walkthrough-button"
-          aria-pressed={workshopMode}
-          title={
+        <HelpTip
+          side="bottom"
+          title="Guided walkthrough"
+          body={
             workshopMode
               ? 'Close the guided walkthrough (your progress is saved).'
-              : 'Open a guided tour through the lab — ask without tools, enable an MCP, watch grounded answers replace hallucinations.'
+              : 'A guided tour: ask without tools, enable an MCP, then watch grounded answers replace the hallucinations.'
           }
         >
-          ◇ {workshopMode ? 'Walkthrough (open)' : 'Walkthrough'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setPipelineOpen(true)}
-          className="text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
-          data-testid="pipeline-button"
-          title="Live CI/CD pipeline board — commit → CI → registries → scan → promote → deploy"
+          <button
+            type="button"
+            onClick={() => {
+              const next = !workshopMode
+              setWorkshopMode(next)
+              // Surface the Walkthrough tab when opening so the user
+              // doesn't click the button, then wonder where the tour went.
+              if (next) setInspectorTab('walkthrough')
+            }}
+            className={
+              'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +
+              (workshopMode ? 'text-text bg-surface-2' : 'text-muted hover:text-text')
+            }
+            data-testid="walkthrough-button"
+            aria-pressed={workshopMode}
+          >
+            ◇ {workshopMode ? 'Walkthrough (open)' : 'Walkthrough'}
+          </button>
+        </HelpTip>
+        <HelpTip
+          side="bottom"
+          title="Pipeline board"
+          body="Live CI/CD view: commit → CI → registries → scan gate → promote → deploy."
         >
-          ⛓ Pipeline
-        </button>
+          <button
+            type="button"
+            onClick={() => setPipelineOpen(true)}
+            className="text-xs text-muted hover:text-text border border-border rounded-md px-2 py-1 transition-colors"
+            data-testid="pipeline-button"
+          >
+            ⛓ Pipeline
+          </button>
+        </HelpTip>
         <PipelineBoard open={pipelineOpen} onOpenChange={setPipelineOpen} />
         <McpHelpDialog />
       </div>
