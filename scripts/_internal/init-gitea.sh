@@ -3,6 +3,7 @@
 
 GITEA_URL="http://gitea:3000"
 ADMIN_USER="mcpadmin"
+# gitguardian:ignore — intentional workshop default, local Gitea only, not a production secret
 ADMIN_PASS="mcpadmin123"
 ADMIN_EMAIL="mcpadmin@lab.local"
 
