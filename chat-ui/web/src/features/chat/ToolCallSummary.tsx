@@ -6,7 +6,7 @@ export function ToolCallSummary({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false)
   const ok = call.result != null && !String(call.result).startsWith('Error')
   return (
-    <div className="my-1">
+    <div className="my-1 animate-in fade-in slide-in-from-bottom-1 duration-300">
       <button
         type="button"
         onClick={() => setOpen(!open)}

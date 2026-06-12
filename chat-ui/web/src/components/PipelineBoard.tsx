@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { HelpTip } from '@/components/HelpTip'
+import { Skeleton } from '@/components/ui/skeleton'
 import { STAGE_HELP, SOURCE_HELP, STATUS_LEGEND } from '@/lib/help'
 import { cn } from '@/lib/utils'
 import {
@@ -246,6 +247,35 @@ function RegistryTable({
     if (r.status === 'ok') r.images.forEach((img) => names.add(img.name))
   }
   const rows = [...names].sort()
+
+  // Promotion reach per (image, tag): the furthest registry a tag has reached,
+  // so a chip can be tinted to show how far through dev → staging → prod it has
+  // been promoted — the same tag turns green everywhere once it lands in prod.
+  const reach = new Map<string, 'prod' | 'staging' | 'dev'>()
+  for (const col of cols) {
+    const r = state.registries[col]
+    if (r.status !== 'ok') continue
+    for (const img of r.images) {
+      for (const t of img.tags) {
+        const key = `${img.name}@${t}`
+        const cur = reach.get(key)
+        if (col === 'prod') reach.set(key, 'prod')
+        else if (col === 'staging' && cur !== 'prod') reach.set(key, 'staging')
+        else if (!cur) reach.set(key, 'dev')
+      }
+    }
+  }
+  const tagClass = (name: string, t: string) => {
+    switch (reach.get(`${name}@${t}`)) {
+      case 'prod':
+        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+      case 'staging':
+        return 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+      default:
+        return 'bg-surface-2 text-muted border-border'
+    }
+  }
+
   return (
     <div className="space-y-2">
       <table className="w-full text-xs border-collapse">
@@ -282,7 +312,7 @@ function RegistryTable({
                     ) : (
                       <span className="flex flex-wrap gap-1">
                         {tags.map((t) => (
-                          <Chip key={t} className="bg-surface-2 text-muted border-border normal-case">
+                          <Chip key={t} className={cn('normal-case transition-colors', tagClass(name, t))}>
                             {t}
                           </Chip>
                         ))}
@@ -304,6 +334,20 @@ function RegistryTable({
           )}
         </tbody>
       </table>
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-faint">
+          <span className="uppercase tracking-wider">promoted to:</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" /> prod
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-amber-400" /> staging
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-faint" /> dev only
+          </span>
+        </div>
+      )}
       {state.registries[highlight].status === 'offline' && <Hint>{HINTS.registry(highlight)}</Hint>}
     </div>
   )
@@ -501,7 +545,11 @@ function Drawer({
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {!state ? (
-          <Hint>Waiting for pipeline state…</Hint>
+          <div className="space-y-2" aria-busy="true" aria-label="Loading details">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
         ) : stage === 'commit' ? (
           <CommitPanel state={state} />
         ) : stage === 'ci' ? (
@@ -532,14 +580,32 @@ function Drawer({
 
 // ── Event feed strip ────────────────────────────────────────────────────────
 
-function EventFeed({ events, error }: { events: PipelineEvent[] | undefined; error: boolean }) {
+function EventFeed({
+  events,
+  error,
+  loading,
+}: {
+  events: PipelineEvent[] | undefined
+  error: boolean
+  loading: boolean
+}) {
   return (
     <div className="border-t border-border bg-surface shrink-0 max-h-44 flex flex-col">
       <div className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-wider text-faint shrink-0">
         Event feed
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-2">
-        {error || !events ? (
+        {loading && !events ? (
+          <ul className="space-y-1.5 py-1" aria-busy="true" aria-label="Loading events">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="flex items-center gap-2">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-4 w-14" />
+                <Skeleton className="h-3 flex-1" />
+              </li>
+            ))}
+          </ul>
+        ) : error || !events ? (
           <div className="text-xs text-muted py-1">{HINTS.events}</div>
         ) : events.length === 0 ? (
           <div className="text-xs text-muted py-1">
@@ -667,7 +733,11 @@ function BoardBody() {
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
             {stateQ.isLoading ? (
-              <p className="text-sm text-muted">Loading pipeline state…</p>
+              <div className="space-y-3" aria-busy="true" aria-label="Loading pipeline state">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-24 w-full" />
+              </div>
             ) : stateQ.isError ? (
               <Hint>
                 Could not reach /api/pipeline/state — is the chat-ui backend up to date? Refresh
@@ -685,7 +755,11 @@ function BoardBody() {
               </>
             )}
           </div>
-          <EventFeed events={events} error={eventsQ.isError && !events} />
+          <EventFeed
+            events={events}
+            error={eventsQ.isError && !events}
+            loading={eventsQ.isLoading && !events}
+          />
         </div>
         {selected && <Drawer stage={selected} state={state} onClose={() => setSelected(null)} />}
       </div>

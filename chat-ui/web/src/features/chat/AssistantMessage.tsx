@@ -16,7 +16,7 @@ export function AssistantMessage({ content, status, provider, model }: Props) {
   // follows it (not the user prompt that comes after the response).
   const showTag = status === 'ok' && (model || provider)
   return (
-    <div className="self-start max-w-[90%] flex flex-col gap-1">
+    <div className="self-start max-w-[90%] flex flex-col gap-1 animate-in fade-in slide-in-from-bottom-1 duration-300">
       {showTag && (
         <div
           className="self-start text-[10px] text-faint font-mono px-1.5 py-0.5 rounded border border-border bg-bg"
