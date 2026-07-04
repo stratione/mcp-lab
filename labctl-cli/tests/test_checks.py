@@ -175,3 +175,20 @@ def test_check_byo_server_down(lab_env, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert rc == 1
     assert "not answering" in out
+
+
+def test_check_deploy_health_url_template(lab_env, fake_proc, monkeypatch, capsys):
+    # In-network callers (chat-ui backend) probe the app container directly
+    # via LABCTL_APP_HEALTH_URL_TPL — regression pin for the unbound `port`
+    # crash on this path.
+    svc = FakeService(lambda m, r, s: (200, "application/json", b'{"status":"ok"}', None))
+    monkeypatch.setenv("LABCTL_APP_HEALTH_URL_TPL", svc.url.rstrip("/") + "/{env}")
+    fake_proc.add(lambda argv: "ps" in argv, lambda argv: __import__("subprocess").CompletedProcess(
+        argv, 0, stdout="mcp-lab-app-prod\n", stderr=""))
+    try:
+        rc = cli.main(["--engine", "docker", "check", "6"])
+    finally:
+        svc.stop()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "mcp-lab-app-prod running and healthy at" in out

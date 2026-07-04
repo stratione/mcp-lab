@@ -46,6 +46,18 @@ Classic mode stays untouched; the overlay can always be switched off.
       persists server-side, FAIL banner renders detail + hint, walkthrough
       button exits Learn and selects its tab, zero console errors.
 
+## Round 3 — full-functionality test (2026-07-04)
+
+Every lab function exercised end-to-end on Podman, full tier. Modules 1–7 all
+PASS by hand (real CI runs, Trivy scans, gated promotions, deploy, rollback);
+module 8 correctly FAIL-until-authored. Agent flows verified live: grounded
+tool-calling (OpenAI gpt-5-mini, 2 tool calls, confidence 0.9 High), local
+models via Ollama (ornith:latest, llama3.2:3b) where the confidence heuristic
+correctly flagged weak/fabricated replies at 0.1, LLM-verify caught a planted
+omission, chat-compare showed blind-pane fabrication. Three engine-parity bugs
+found and fixed (see Surprises); `.env.secrets` ANTHROPIC_API_KEY is revoked
+(401) — needs a fresh key; GOOGLE_API_KEY also invalid (400); OPENAI key valid.
+
 ## Surprises & Discoveries (Living)
 
 - `labctl_pkg` is stdlib-only by design — it can be vendored into the chat-ui
@@ -60,6 +72,20 @@ Classic mode stays untouched; the overlay can always be switched off.
 - Module 6's health probe (`localhost:908x`) is unreachable from inside the
   chat-ui container — added `LABCTL_APP_HEALTH_URL_TPL` so in-network callers
   probe `http://mcp-lab-app-{env}:8080` instead.
+- Podman engine-parity round (all fixed + regression-tested):
+  1. CI job containers hit SELinux "permission denied" on the mounted engine
+     socket — act_runner `container.options: "--security-opt label=disable"`
+     (the runner container already had the flag; jobs didn't inherit it).
+  2. `docker build` inside CI silently used buildx's docker-container driver
+     against Podman and left the image in build cache; short tags also stored
+     as `localhost/hello-app` while `docker-daemon:` lookups expand to
+     `docker.io/library/…` — canonical workflow now builds with `--load` and
+     fully-qualified tags (Docker-identical behavior).
+  3. `labctl deploy` pull failed with "HTTPS to HTTP registry" — Podman does
+     not auto-trust localhost registries like Docker; pull now adds
+     `--tls-verify=false` only when engine is podman.
+- `check_deploy` crashed (unbound `port`) on the health-template path — the
+  success message referenced the localhost port; now prints the probed URL.
 - `ArchitectureDiagram.tsx` already exists (header dialog) — the "startup
   diagram" TODO item is a first-visit auto-open, not new artwork.
 

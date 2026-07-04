@@ -29,7 +29,13 @@ container:
   # second `-v /var/run/docker.sock:...` makes the daemon reject the job with
   # "Duplicate mount point". valid_volumes still whitelists the socket so a
   # workflow may mount it explicitly if it ever needs to.
-  options: ""
+  #
+  # label=disable: rootless Podman's SELinux policy denies JOB containers
+  # access to that mounted socket (the runner container itself gets the same
+  # flag from docker-compose.yml). Docker accepts and ignores the option, so
+  # it's safe on both engines. Without it every `docker build` step dies with
+  # "permission denied ... /var/run/docker.sock".
+  options: "--security-opt label=disable"
   # Lab images (mcp-lab-ci-base) only exist locally — a pull would fail.
   force_pull: false
   valid_volumes:

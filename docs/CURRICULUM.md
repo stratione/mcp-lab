@@ -196,11 +196,11 @@ jobs:
           if ls test_*.py >/dev/null 2>&1; then python3 -m pytest -q; else echo "no tests"; fi
       - name: Build image
         run: |
-          docker build -t hello-app:"$GITHUB_SHA" -t hello-app:latest .
+          docker build --load -t docker.io/library/hello-app:"$GITHUB_SHA" -t docker.io/library/hello-app:latest .
       - name: Push to dev registry
         run: |
-          skopeo copy --dest-tls-verify=false docker-daemon:hello-app:latest docker://registry-dev:5000/hello-app:latest
-          skopeo copy --dest-tls-verify=false docker-daemon:hello-app:"$GITHUB_SHA" docker://registry-dev:5000/hello-app:"$GITHUB_SHA"
+          skopeo copy --dest-tls-verify=false docker-daemon:docker.io/library/hello-app:latest docker://registry-dev:5000/hello-app:latest
+          skopeo copy --dest-tls-verify=false docker-daemon:docker.io/library/hello-app:"$GITHUB_SHA" docker://registry-dev:5000/hello-app:"$GITHUB_SHA"
       - name: Notify chat-ui
         run: |
           curl -sf -X POST http://chat-ui:3001/api/events -H 'Content-Type: application/json' \
@@ -229,7 +229,12 @@ Line by line:
   **no image is built or pushed** — the gate ordering is the whole point.
 - **`Build image`** — builds the app's `Dockerfile` and tags the result twice:
   immutable (`hello-app:<sha>`) and moving (`hello-app:latest`). Module 3 is
-  entirely about why you want both.
+  entirely about why you want both. The tags are written **fully qualified**
+  (`docker.io/library/hello-app`) on purpose: Docker normalizes the short and
+  long forms to the same name, but Podman stores a short tag as
+  `localhost/hello-app`, and then the next step's `docker-daemon:` lookup
+  (which always expands short names to `docker.io/library/…`) can't find it.
+  Fully-qualified tags behave identically on both engines.
 - **`Push to dev registry`** — `skopeo copy` moves the image from the job's Docker
   daemon (`docker-daemon:`) into the dev registry (`docker://registry-dev:5000/...`).
   `--dest-tls-verify=false` because lab registries speak plain HTTP. Note where it

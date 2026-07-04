@@ -36,7 +36,13 @@ def deploy(ctx, image, tag, envname):
     ref = image_ref(image, tag, envname)
     name = env.APP_CONTAINER_TPL.format(env=envname)
 
-    pulled = proc.run_cmd(ctx, [engine, "pull", ref])
+    # Docker treats localhost registries as insecure automatically; Podman
+    # does not and tries HTTPS against the plain-HTTP lab registry. The flag
+    # only exists on podman, so keep the docker invocation untouched.
+    pull_cmd = [engine, "pull", ref]
+    if engine == "podman":
+        pull_cmd = [engine, "pull", "--tls-verify=false", ref]
+    pulled = proc.run_cmd(ctx, pull_cmd)
     if pulled.returncode != 0:
         raise LabError(
             "could not pull {} — is the {} registry up and the image pushed there? "

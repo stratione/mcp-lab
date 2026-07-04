@@ -129,7 +129,7 @@ def check_deploy(ctx):
         try:
             resp = http.request(ctx, "GET", url, service=name, timeout=3)
             if resp.status == 200:
-                return (True, "{} running and healthy on :{}".format(name, port), "")
+                return (True, "{} running and healthy at {}".format(name, url), "")
         except http.ServiceDown:
             continue
     return (False, "deployed container found but /health did not return 200",

@@ -65,11 +65,11 @@ jobs:
           if ls test_*.py >/dev/null 2>&1; then python3 -m pytest -q; else echo "no tests"; fi
       - name: Build image
         run: |
-          docker build -t hello-app:"$GITHUB_SHA" -t hello-app:latest .
+          docker build --load -t docker.io/library/hello-app:"$GITHUB_SHA" -t docker.io/library/hello-app:latest .
       - name: Push to dev registry
         run: |
-          skopeo copy --dest-tls-verify=false docker-daemon:hello-app:latest docker://registry-dev:5000/hello-app:latest
-          skopeo copy --dest-tls-verify=false docker-daemon:hello-app:"$GITHUB_SHA" docker://registry-dev:5000/hello-app:"$GITHUB_SHA"
+          skopeo copy --dest-tls-verify=false docker-daemon:docker.io/library/hello-app:latest docker://registry-dev:5000/hello-app:latest
+          skopeo copy --dest-tls-verify=false docker-daemon:docker.io/library/hello-app:"$GITHUB_SHA" docker://registry-dev:5000/hello-app:"$GITHUB_SHA"
       - name: Notify chat-ui
         run: |
           curl -sf -X POST http://chat-ui:3001/api/events -H 'Content-Type: application/json' \\

@@ -67,8 +67,8 @@ def test_ci_init_creates_canonical_workflow(lab_env, capsys):
     content = lab_env.gitea.state["files"][".gitea/workflows/ci.yml"]["content"]
     assert content.startswith("name: CI")
     assert "on: [push]" in content
-    assert "docker build -t hello-app:" in content
-    assert "skopeo copy --dest-tls-verify=false docker-daemon:hello-app:latest "\
+    assert "docker build --load -t docker.io/library/hello-app:" in content
+    assert "skopeo copy --dest-tls-verify=false docker-daemon:docker.io/library/hello-app:latest "\
            "docker://registry-dev:5000/hello-app:latest" in content
     assert "python3 -m pytest -q" in content
 

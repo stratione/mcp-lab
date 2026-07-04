@@ -148,11 +148,11 @@ def openai_auto() -> str:
 _ANTHROPIC_RECOMMENDED = {"claude-haiku-4-5-20251001", "claude-sonnet-4-6"}
 
 _ANTHROPIC_FALLBACK: list[dict[str, Any]] = [
-    {"id": "claude-opus-4-7",          "label": "Claude Opus 4.7 (most capable)", "supports_tools": True},
-    {"id": "claude-sonnet-4-6",        "label": "Claude Sonnet 4.6 (balanced)",   "supports_tools": True},
+    {"id": "claude-opus-4-8",          "label": "Claude Opus 4.8 (most capable)", "supports_tools": True},
+    {"id": "claude-sonnet-5",          "label": "Claude Sonnet 5 (balanced)",     "supports_tools": True},
+    {"id": "claude-opus-4-7",          "label": "Claude Opus 4.7",                "supports_tools": True},
+    {"id": "claude-sonnet-4-6",        "label": "Claude Sonnet 4.6",              "supports_tools": True},
     {"id": "claude-haiku-4-5-20251001","label": "Claude Haiku 4.5 (fast)",        "supports_tools": True},
-    {"id": "claude-sonnet-4-5-20250929","label": "Claude Sonnet 4.5",             "supports_tools": True},
-    {"id": "claude-opus-4-1-20250805", "label": "Claude Opus 4.1",                "supports_tools": True},
 ]
 
 _ANTHROPIC_AUTO = "claude-sonnet-4-6"
