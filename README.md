@@ -40,12 +40,18 @@ The workshop is canonical inside the app: open `http://localhost:3001` and click
 
 ## Two editions
 
-Beyond the walkthrough, the lab ships a seven-module **DevOps curriculum** — Git, CI pipelines as code, registries, security scanning, promotion, deploy, and day-2 ops — in two editions that **share one backend**:
+Beyond the walkthrough, the lab ships an eight-module **DevOps curriculum** — Git, CI pipelines as code, registries, security scanning, promotion, deploy, day-2 ops, and building your own MCP tool — in two editions that **share one backend**:
 
 - **CLI edition** — drive everything with `./labctl` (stdlib-only Python ≥ 3.9, no pip install) from a terminal. No chat-ui, no LLM required for the by-hand paths. `./scripts/2-setup.sh --tier=full --edition=cli` (or `make full EDITION=cli`).
 - **GUI edition** — the chat-ui plus the live **⛓ Pipeline Board** (commit → CI → registry-dev → scan → staging → prod → deployed, polled live, with an event feed). `./scripts/2-setup.sh --tier=full` (the default `--edition=gui`).
 
 Every module is done **by hand first** (real `git`/`curl`/`docker`/`skopeo` commands; `labctl --verbose` prints the raw equivalent of everything it wraps), **then by agent** (the same job via MCP tools). Start here: **[docs/CURRICULUM.md](docs/CURRICULUM.md)**.
+
+GUI edition bonus: click **◆ Learn** in the chat-ui header (or press `⌘L`) for
+**Learn Mode** — a course shell with the eight modules in a left rail, lesson
+steps with copyable commands in the middle, the agent docked right, per-step
+progress that survives restarts, and Verify buttons that run the exact same
+checks as `./labctl check <n>`. One click returns you to the classic chat.
 
 ---
 

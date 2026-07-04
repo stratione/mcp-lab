@@ -19,20 +19,23 @@ Classic mode stays untouched; the overlay can always be switched off.
 - [x] (2026-07-03) Recon: chat-ui stack (React 19/Vite/Tailwind/shadcn, token
       theming), backend endpoints, labctl checks, workshop lesson pattern
 - [x] (2026-07-03) Design spec written and approved
-- [ ] M1: Flying Blind copy "will → may" (banner + help text)
-- [ ] M1: Architecture dialog auto-opens on first visit
-- [ ] M2: Learn Mode store flag + header toggle + ⌘L shortcut
-- [ ] M2: Learn theme tokens (`data-mode="learn"`) in globals.css
-- [ ] M2: LearnShell layout (rail / lesson / chat) + curriculum.ts content for
-      modules 1–8
-- [ ] M3: `custom_tools.py` skeleton + wiring into mcp-user server
-- [ ] M3: CURRICULUM.md Module 8 section (raw JSON-RPC → author → agent → verify)
-- [ ] M3: `labctl check 8` (stock-manifest diff on mcp-user tools)
-- [ ] M4: progress persistence API + curriculum check API (vendored labctl_pkg)
-- [ ] M4: Verify buttons wired in LessonPane
-- [ ] M5: containers built and lab run end-to-end (compose build + up,
-      browser-level verification of Learn Mode + checks)
-- [ ] M5: docs updated (README, TODO) + tests green
+- [x] (2026-07-03) M1: Flying Blind copy "will → may" (banner + empty-chat starter)
+- [x] (2026-07-03) M1: Architecture dialog auto-opens on first visit
+- [x] (2026-07-03) M2: Learn Mode store flag + header toggle + ⌘L shortcut
+- [x] (2026-07-03) M2: Learn theme tokens (`data-mode="learn"`) in globals.css
+- [x] (2026-07-03) M2: LearnShell layout (rail / lesson / chat) + curriculum.ts
+      content for modules 1–8
+- [x] (2026-07-03) M3: `custom_tools.py` skeleton + wiring into mcp-user server
+- [x] (2026-07-03) M3: CURRICULUM.md Module 8 section (raw JSON-RPC → author →
+      agent → verify)
+- [x] (2026-07-03) M3: `labctl check 8` (stock-manifest diff on mcp-user tools)
+- [x] (2026-07-03) M4: progress persistence API + curriculum check API
+      (vendored labctl_pkg)
+- [x] (2026-07-03) M4: Verify buttons wired in LessonPane
+- [x] (2026-07-03) M5: containers built and lab run end-to-end (podman compose
+      build + up; browser-verified Learn Mode, Verify PASS, persistence)
+- [x] (2026-07-03) M5: docs updated (README, TODO) + tests green (65 labctl
+      pytest, 64 web vitest)
 
 ## Surprises & Discoveries (Living)
 
@@ -40,8 +43,14 @@ Classic mode stays untouched; the overlay can always be switched off.
   image and reused verbatim for the in-app Verify buttons. Single source of
   truth for module checks.
 - The chat-ui backend already shells out to the container engine for
-  `/api/mcp-control`, so module 6's `engine ps` check should work in-container
-  (to be confirmed at M4).
+  `/api/mcp-control`, so module 6's `engine ps` check works in-container
+  (confirmed live — returns the correct "no mcp-lab-app-* running" FAIL).
+- FastMCP (stateless streamable-http) serves `/mcp` and 307-redirects
+  `/mcp/`; urllib refuses to re-POST through a redirect, so the raw curls in
+  Module 8 and `check_byo` use the no-slash path.
+- Module 6's health probe (`localhost:908x`) is unreachable from inside the
+  chat-ui container — added `LABCTL_APP_HEALTH_URL_TPL` so in-network callers
+  probe `http://mcp-lab-app-{env}:8080` instead.
 - `ArchitectureDiagram.tsx` already exists (header dialog) — the "startup
   diagram" TODO item is a first-visit auto-open, not new artwork.
 
@@ -61,7 +70,21 @@ Classic mode stays untouched; the overlay can always be switched off.
 
 ## Outcomes & Retrospective (Living)
 
-_Will be completed at milestone completion and plan completion._
+Shipped 2026-07-03, verified in running containers (Podman on this machine —
+the lab's engine-agnostic promise held; only note: FastMCP serves `/mcp` and
+307-redirects `/mcp/`, which urllib won't re-POST through, so every raw curl
+and the check use the no-slash path). Live verification: Learn Mode toggle
+on/off with classic mode intact, all 8 modules render, Verify module 1
+returned PASS with the identical detail string as `./labctl check 1`,
+progress survived both a page reload and `compose restart chat-ui`, and the
+full Module 8 arc was exercised for real — check 8 FAIL (9 stock tools) →
+uncommented `pipeline_health` → rebuilt mcp-user → PASS from both the CLI and
+the API, with a raw `tools/call` returning live registry data → reverted to
+the stock skeleton → FAIL again. Test suites: 65 labctl pytest + 64 web
+vitest, all green (one cold-start flake on the first containerized vitest
+run; clean on rerun). Biggest design win: vendoring the stdlib-only
+labctl_pkg into the chat-ui image made "UI Verify == CLI check" true by
+construction instead of by discipline.
 
 ## Context and Orientation
 
