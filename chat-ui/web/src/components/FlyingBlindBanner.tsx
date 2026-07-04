@@ -19,7 +19,7 @@ export function FlyingBlindBanner() {
       <span aria-hidden className="text-warn">⚠</span>
       <span className="text-text/90">
         <strong className="font-semibold text-warn">Flying Blind</strong> — the model has no tools,
-        so it will confidently make things up.
+        so it may confidently make things up.
       </span>
       <InfoDot side="bottom" title="Flying Blind" body={FLYING_BLIND_HELP} className="text-warn" />
       <button

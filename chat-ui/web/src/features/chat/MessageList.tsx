@@ -43,7 +43,7 @@ export function MessageList() {
             <h2 className="text-base font-semibold text-text">MCP DevOps Lab</h2>
             <p className="text-sm text-muted mt-1.5 leading-relaxed">
               Pick a provider in the chip below, then ask the agent something. With no tools enabled
-              it will confidently make things up — that's the first lesson. Try one:
+              it may confidently make things up — that's the first lesson. Try one:
             </p>
             <div className="flex flex-col gap-2 mt-5 text-left">
               {STARTERS.map((s) => (

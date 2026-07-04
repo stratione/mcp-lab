@@ -8,6 +8,7 @@ import { useShortcuts } from '@/lib/shortcuts'
 import { Shortcuts } from '@/components/Shortcuts'
 import { Walkthrough } from '@/components/Walkthrough'
 import { FlyingBlindBanner } from '@/components/FlyingBlindBanner'
+import { LearnShell } from '@/features/learn/LearnShell'
 import { useLab } from '@/lib/store'
 import { useServers } from '@/features/servers/useServers'
 import { setHallucinationMode } from '@/lib/api'
@@ -17,7 +18,14 @@ export default function App() {
   const setInspectorTab = useLab((s) => s.setInspectorTab)
   const flyingBlind = useLab((s) => s.flyingBlind)
   const setFlyingBlind = useLab((s) => s.setFlyingBlind)
+  const learnMode = useLab((s) => s.learnMode)
   const { data: servers } = useServers()
+
+  // Learn Mode theme: globals.css keys its token overrides off this attribute.
+  useEffect(() => {
+    if (learnMode) document.documentElement.dataset.mode = 'learn'
+    else delete document.documentElement.dataset.mode
+  }, [learnMode])
 
   // workshop launcher: opening /?dashboard=open switches inspector to compare tab
   useEffect(() => {
@@ -45,11 +53,17 @@ export default function App() {
     <div className="h-screen flex flex-col bg-bg text-text">
       <Header />
       <FlyingBlindBanner />
-      <div className="flex-1 flex min-h-0">
-        <ChatPane />
-        <Inspector />
-      </div>
-      <InputRow />
+      {learnMode ? (
+        <LearnShell />
+      ) : (
+        <>
+          <div className="flex-1 flex min-h-0">
+            <ChatPane />
+            <Inspector />
+          </div>
+          <InputRow />
+        </>
+      )}
       <CmdK />
       <Shortcuts />
       <Walkthrough />

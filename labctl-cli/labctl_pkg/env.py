@@ -86,6 +86,15 @@ class Config:
 
         self.gitea_user = GITEA_USER
         self.gitea_pass = GITEA_PASS
+        # Module 8 (build your own MCP tool) probes the user MCP server's
+        # tools/list. Overridable like every other endpoint so the chat-ui
+        # backend (in-network) can point it at http://mcp-user:8003.
+        self.mcp_user_url = environ.get("LABCTL_MCP_USER_URL", "http://localhost:8003")
+        # Deployed-app health probes default to the host-mapped ports
+        # (http://localhost:9082/health). In-network callers (the chat-ui
+        # backend running these checks for Learn Mode) override with e.g.
+        # "http://mcp-lab-app-{env}:8080" — {env} is filled per container.
+        self.app_health_tpl = environ.get("LABCTL_APP_HEALTH_URL_TPL", "")
         token = (self.dotenv.get("GITEA_TOKEN") or "").strip()
         self.gitea_token = "" if token in _TOKEN_PLACEHOLDERS else token
 

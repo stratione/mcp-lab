@@ -1,4 +1,4 @@
-# The DevOps Curriculum — Seven Modules, By Hand First
+# The DevOps Curriculum — Eight Modules, By Hand First
 
 > The MCP walkthrough teaches you what MCP is; this curriculum teaches you the
 > **CI/CD craft underneath it** — on the same lab, on your own laptop, with real
@@ -867,7 +867,88 @@ timeline, and the event feed tells the whole incident story top to bottom.
 ```
 
 All seven green? You've run a complete, gated, audited software delivery lifecycle
-on your own laptop — by hand *and* by agent.
+on your own laptop — by hand *and* by agent. One module left — the one where you
+switch sides of the protocol.
+
+---
+
+## Module 8: Build your own MCP tool
+
+**What you're learning.** For seven modules you *consumed* MCP tools; now you
+author one. Three ideas do all the work: an MCP tool is (1) a **function** whose
+(2) **signature becomes a JSON schema** the client advertises, with (3) a
+**docstring the model reads to decide when to call it**. Once you've shipped one
+tool, every MCP server you meet — GitHub's, Kubernetes', your company's — is just
+"someone else's `custom_tools.py`". This module also demystifies the wire: MCP is
+JSON-RPC 2.0 over HTTP, and you'll speak it raw with `curl` before writing any code.
+
+### By hand — speak raw MCP first
+
+The mcp-user server runs in **stateless** streamable-HTTP mode, so single requests
+stand alone. `tools/list` is the discovery call every client (including the
+chat-ui) makes; the reply comes back as a server-sent-events frame whose `data:`
+line is the JSON-RPC response:
+
+```bash
+curl -s http://localhost:8003/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Read the reply: every tool has a `name`, a `description` (the docstring!), and an
+`inputSchema` derived from the Python signature. Now *call* one, exactly the way
+the model does:
+
+```bash
+curl -s http://localhost:8003/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_roles","arguments":{}}}'
+```
+
+That's the entire magic trick: discovery + invocation, two JSON-RPC methods.
+Everything the chat has done since module 1 reduces to these two calls.
+
+### By hand — author a tool
+
+Open `mcp-server/mcp_server/custom_tools.py`. It's the learner workspace —
+imported by the mcp-user server, shipped with a documented, commented-out worked
+example (`pipeline_health`: one call that summarizes all three registry catalogs
+plus the five most recent promotion audit rows). Uncomment it, or write your own
+from the skeleton in the module docstring. Then rebuild and restart the server:
+
+```bash
+$EDITOR mcp-server/mcp_server/custom_tools.py
+docker compose build mcp-user
+docker compose up -d mcp-user
+```
+
+Re-run the `tools/list` curl — your tool is in the list, schema and all. No
+registration step, no config file: the decorator *is* the registration.
+
+### By agent
+
+GUI edition — make sure mcp-user is online, then ask:
+
+> Give me a one-call health summary of the delivery pipeline using the
+> pipeline_health tool, and tell me which tool you used.
+
+Then the real lesson — **the docstring is the prompt**. Change *only* the
+docstring (say, remove "Use this when asked for a pipeline overview"), rebuild,
+ask an ambiguous question ("how's the pipeline doing?"), and watch whether the
+model still picks your tool. Tool selection quality tracks docstring quality —
+that's the craft MCP authors actually practice.
+
+### Verify
+
+```bash
+./labctl check 8
+```
+
+PASS means: mcp-user serves at least one tool beyond the stock set. The check
+does exactly what you did by hand — a `tools/list` JSON-RPC call — and diffs the
+result against the stock manifest.
 
 ---
 

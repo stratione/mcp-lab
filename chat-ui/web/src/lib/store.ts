@@ -66,6 +66,14 @@ export type LabState = {
   workshopMode: boolean
   setWorkshopMode: (v: boolean) => void
 
+  // Learn Mode: the KodeKloud-style course shell (rail / lesson / chat).
+  // Toggleable overlay — off means the classic UI, untouched.
+  learnMode: boolean
+  setLearnMode: (v: boolean) => void
+
+  learnModule: number
+  setLearnModule: (n: number) => void
+
   workshopStep: number
   setWorkshopStep: (n: number) => void
 
@@ -118,6 +126,12 @@ export const useLab = create<LabState>()(
       workshopMode: false,
       setWorkshopMode: (workshopMode) => set({ workshopMode }),
 
+      learnMode: false,
+      setLearnMode: (learnMode) => set({ learnMode }),
+
+      learnModule: 1,
+      setLearnModule: (learnModule) => set({ learnModule }),
+
       workshopStep: 0,
       setWorkshopStep: (workshopStep) => set({ workshopStep }),
 
@@ -136,6 +150,10 @@ export const useLab = create<LabState>()(
         messages: s.messages,
         traces: s.traces,
         sessionTokens: s.sessionTokens,
+        // Learn Mode survives a refresh: mid-course attendees come back to
+        // the module they were on, still in the course shell.
+        learnMode: s.learnMode,
+        learnModule: s.learnModule,
       }),
       // If a 'pending' message was on screen when the user refreshed, it'll
       // never resolve — convert it to an error so the UI shows a Retry button

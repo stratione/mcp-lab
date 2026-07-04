@@ -41,6 +41,30 @@
   color-scheme: dark;
 }
 
+/* Learn Mode theme — the KodeKloud-style course shell. Applied via
+ * data-mode="learn" on <html> (set by App when the store's learnMode is on).
+ * Always dark: a deep indigo night palette with a violet accent. Overrides
+ * BOTH light and dark classic tokens so the shell looks identical regardless
+ * of the classic theme the user had picked. Classic tokens above untouched. */
+:root[data-mode='learn'],
+:root.dark[data-mode='learn'] {
+  --bg: 11 13 20;
+  --surface: 17 20 31;
+  --surface-2: 26 30 46;
+  --border: 42 47 69;
+  --text: 232 234 246;
+  --muted: 156 163 192;
+  --faint: 107 113 148;
+  --primary: 139 124 246;
+  --primary-fg: 255 255 255;
+  --ok: 52 211 153;
+  --warn: 251 191 36;
+  --err: 248 113 113;
+  --tool-bg: 46 42 94;
+  --tool-fg: 180 167 255;
+  color-scheme: dark;
+}
+
 html, body, #root { height: 100%; }
 body { background: rgb(var(--bg)); color: rgb(var(--text)); font-family: theme('fontFamily.sans'); }
 

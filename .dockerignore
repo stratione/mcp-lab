@@ -1,0 +1,24 @@
+# Root-context builds (chat-ui vendors labctl_pkg, so its build context is
+# the repo root). Keep the context lean — everything here is host-side noise
+# the images must never see.
+.git
+.gitignore
+.context
+**/node_modules
+**/dist
+**/.vite
+**/.pytest_cache
+**/__pycache__
+**/*.pyc
+.DS_Store
+*.log
+docs
+scripts
+.env
+.env.secrets
+chat-ui/cypress
+chat-ui/tests
+chat-ui/pytest.ini
+chat-ui/requirements-dev.txt
+chat-ui/package.json
+chat-ui/package-lock.json

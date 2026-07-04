@@ -1,8 +1,12 @@
+# NOTE: build context is the REPO ROOT (compose sets context: . +
+# dockerfile: chat-ui/Dockerfile) so this image can vendor labctl_pkg —
+# the stdlib-only labctl package that powers the Learn Mode Verify buttons
+# with the exact same checks as `./labctl check <n>`.
 FROM node:22-alpine AS web-builder
 WORKDIR /web
-COPY web/package.json web/package-lock.json ./
+COPY chat-ui/web/package.json chat-ui/web/package-lock.json ./
 RUN npm ci
-COPY web/ ./
+COPY chat-ui/web/ ./
 RUN VITE_DOCKER=1 npm run build
 
 FROM python:3.12-slim
@@ -18,10 +22,14 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY chat-ui/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ ./app/
+COPY chat-ui/app/ ./app/
+# Vendored, never forked: the single source of truth for module checks stays
+# labctl-cli/labctl_pkg. /app is on sys.path (uvicorn cwd), so the backend
+# imports it as `labctl_pkg`.
+COPY labctl-cli/labctl_pkg/ ./labctl_pkg/
 COPY --from=web-builder /web/dist ./app/static
 
 EXPOSE 3001

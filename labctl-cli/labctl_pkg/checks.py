@@ -4,6 +4,7 @@ Each check returns (passed: bool, detail: str, hint: str). The hint is only
 shown on failure and always names the next command to try.
 """
 
+import json
 import re
 
 from . import deploy, env, gitea, http, promotion, proc, registry
@@ -118,12 +119,15 @@ def check_deploy(ctx):
                 "module 6: ./labctl deploy {}:latest --env dev".format(APP))
     for name in names:
         envname = name.rsplit("-", 1)[-1]
-        port = env.DEPLOY_PORTS.get(envname)
-        if not port:
-            continue
+        if ctx.cfg.app_health_tpl:
+            url = ctx.cfg.app_health_tpl.format(env=envname) + "/health"
+        else:
+            port = env.DEPLOY_PORTS.get(envname)
+            if not port:
+                continue
+            url = "http://localhost:{}/health".format(port)
         try:
-            resp = http.request(ctx, "GET", "http://localhost:{}/health".format(port),
-                                service=name, timeout=3)
+            resp = http.request(ctx, "GET", url, service=name, timeout=3)
             if resp.status == 200:
                 return (True, "{} running and healthy on :{}".format(name, port), "")
         except http.ServiceDown:
@@ -138,6 +142,60 @@ def check_ops(ctx):
         return (True, "rollback audit row found", "")
     return (False, "no rollback recorded yet",
             "module 7: ./labctl rollback {} --env prod".format(APP))
+
+
+# Module 8: the stock tools mcp-user always serves. A learner-authored tool
+# is anything in tools/list beyond this set (delete_all_users is registered
+# conditionally, so it's stock either way). Keep in sync with
+# mcp-server/mcp_server/tools/user_tools.py.
+_STOCK_USER_TOOLS = {
+    "list_roles", "list_users", "get_user", "get_user_by_username",
+    "create_user", "update_user", "deactivate_user", "activate_user",
+    "delete_user", "delete_all_users",
+}
+
+
+def _jsonrpc_result(resp):
+    """Parse a JSON-RPC reply that may arrive as a bare JSON body or as a
+    streamable-http SSE frame (`event: message` / `data: {...}`)."""
+    text = resp.body.decode("utf-8", errors="replace")
+    if "text/event-stream" in resp.header("Content-Type"):
+        for line in text.splitlines():
+            if line.startswith("data:"):
+                return json.loads(line[len("data:"):].strip()).get("result", {})
+        raise LabError("no data: frame in SSE reply")
+    return json.loads(text or "null").get("result", {})
+
+
+def check_byo(ctx):
+    # No trailing slash: FastMCP serves /mcp and 307-redirects /mcp/, and
+    # urllib won't re-POST a body through a redirect.
+    url = ctx.cfg.mcp_user_url.rstrip("/") + "/mcp"
+    try:
+        resp = http.request(
+            ctx, "POST", url,
+            headers={"Accept": "application/json, text/event-stream"},
+            json_body={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            service="mcp-user",
+        )
+    except http.ServiceDown:
+        return (False, "mcp-user is not answering at {}".format(ctx.cfg.mcp_user_url),
+                "module 8 needs the user MCP server: docker compose up -d mcp-user")
+    if resp.status != 200:
+        return (False, "tools/list returned HTTP {}".format(resp.status),
+                "restart the server and retry: docker compose up -d mcp-user")
+    try:
+        tools = _jsonrpc_result(resp).get("tools", [])
+    except (LabError, ValueError):
+        return (False, "could not parse tools/list reply from mcp-user",
+                "restart the server and retry: docker compose up -d mcp-user")
+    names = {t.get("name", "") for t in tools}
+    custom = sorted(names - _STOCK_USER_TOOLS - {""})
+    if custom:
+        return (True, "learner tool(s) live on mcp-user: {}".format(", ".join(custom)), "")
+    return (False, "mcp-user serves only the {} stock tools".format(len(names)),
+            "module 8: write your tool in mcp-server/mcp_server/custom_tools.py, then "
+            "docker compose build mcp-user && docker compose up -d mcp-user")
 
 
 def catalog_safe(ctx, reg):
@@ -155,6 +213,7 @@ MODULES = [
     (5, "promotion", "hello-app promoted to staging AND prod with audit rows", check_promotion),
     (6, "deploy", "an mcp-lab-app-* container is running and its /health returns 200", check_deploy),
     (7, "ops", "at least one rollback recorded in the promotion audit log", check_ops),
+    (8, "byo", "a learner-authored tool is served by mcp-user beyond the stock set", check_byo),
 ]
 
 

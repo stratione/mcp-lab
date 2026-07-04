@@ -790,6 +790,68 @@ async def pipeline_state():
     return await pipeline.get_pipeline_state(_event_store)
 
 
+CURRICULUM_PROGRESS_FILE = CHAT_DATA_DIR / "curriculum_progress.json"
+
+
+@app.get("/api/curriculum/progress")
+async def get_curriculum_progress():
+    """Learn Mode step completion — {done: {"<module>.<step>": true}}."""
+    try:
+        if CURRICULUM_PROGRESS_FILE.exists():
+            return JSONResponse(content=json.loads(CURRICULUM_PROGRESS_FILE.read_text()))
+    except Exception:
+        pass
+    return JSONResponse(content={"done": {}})
+
+
+@app.post("/api/curriculum/progress")
+async def save_curriculum_progress(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=422, content={"detail": "invalid JSON"})
+    if not isinstance(data, dict) or not isinstance(data.get("done"), dict):
+        return JSONResponse(status_code=422, content={"detail": "expected {done: {...}}"})
+    done = {str(k): True for k, v in data["done"].items() if v}
+    try:
+        CHAT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        CURRICULUM_PROGRESS_FILE.write_text(json.dumps({"done": done}))
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@app.post("/api/curriculum/check/{module}")
+def run_curriculum_check(module: int):
+    """Run the real labctl module check (vendored labctl_pkg — the exact
+    same functions as `./labctl check <n>`) against the in-network service
+    URLs from the LABCTL_* env vars. Sync on purpose: labctl is blocking
+    stdlib urllib, and FastAPI runs `def` endpoints in the threadpool.
+    """
+    try:
+        from labctl_pkg import checks as labctl_checks
+        from labctl_pkg import env as labctl_env
+        from labctl_pkg.errors import LabError
+    except ImportError as e:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"labctl_pkg not vendored into this image: {e}"},
+        )
+    try:
+        ctx = labctl_env.Context(labctl_env.Config())
+        selected = labctl_checks.resolve(str(module))
+    except LabError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+    _num, _name, _desc, fn = selected[0]
+    try:
+        passed, detail, hint = fn(ctx)
+    except LabError as e:
+        return {"passed": False, "detail": str(e), "hint": "is the lab up? ./labctl status"}
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"detail": str(e)})
+    return {"passed": bool(passed), "detail": detail, "hint": hint}
+
+
 @app.get("/api/chat-history")
 async def get_chat_history():
     try:

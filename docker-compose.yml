@@ -272,7 +272,10 @@ services:
 
   chat-ui:
     build:
-      context: ./chat-ui
+      # Repo-root context so the image can vendor labctl-cli/labctl_pkg
+      # (Learn Mode's Verify buttons run the real `labctl check` logic).
+      context: .
+      dockerfile: chat-ui/Dockerfile
       labels:
         mcp-lab.teardown: "true"
     ports:
@@ -297,6 +300,18 @@ services:
       # Surfaced via /api/mcp-status so the UI can render copy-able commands
       # that work from any directory.
       - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-}
+      # Learn Mode Verify: the vendored labctl_pkg runs module checks from
+      # inside this container, so every endpoint gets its in-network address.
+      - LABCTL_REPO_ROOT=/app
+      - LABCTL_GITEA_URL=http://gitea:3000
+      - LABCTL_PROMOTION_URL=http://promotion-service:8002
+      - LABCTL_REGISTRY_DEV_URL=http://registry-dev:5000
+      - LABCTL_REGISTRY_STAGING_URL=http://registry-staging:5000
+      - LABCTL_REGISTRY_PROD_URL=http://registry-prod:5000
+      - LABCTL_MCP_USER_URL=http://mcp-user:8003
+      # Deployed-app health probes can't use localhost:908x from in here;
+      # hit the app container directly on the shared network instead.
+      - LABCTL_APP_HEALTH_URL_TPL=http://mcp-lab-app-{env}:8080
     user: "0:0"
     security_opt:
       - label=disable

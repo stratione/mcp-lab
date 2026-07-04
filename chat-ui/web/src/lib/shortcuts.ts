@@ -18,10 +18,17 @@ export function useShortcuts() {
   const setFlying = useLab((s) => s.setFlyingBlind)
   const flying = useLab((s) => s.flyingBlind)
   const setShortcutsOpen = useLab((s) => s.setShortcutsOpen)
+  const learnMode = useLab((s) => s.learnMode)
+  const setLearnMode = useLab((s) => s.setLearnMode)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey
+      if (meta && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        setLearnMode(!learnMode)
+        return
+      }
       if (meta && e.key.toLowerCase() === 'j') {
         e.preventDefault()
         const cur = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
@@ -69,5 +76,5 @@ export function useShortcuts() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [clear, setFlying, flying, setShortcutsOpen])
+  }, [clear, setFlying, flying, setShortcutsOpen, learnMode, setLearnMode])
 }

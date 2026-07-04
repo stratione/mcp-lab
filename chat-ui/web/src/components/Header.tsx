@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CornerMenu } from './CornerMenu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { HelpTip } from './HelpTip'
@@ -8,8 +8,15 @@ import { McpHelpDialog } from './McpHelpDialog'
 import { PipelineBoard } from './PipelineBoard'
 import { useLab } from '@/lib/store'
 
+// First visit only: auto-open the Architecture dialog so learners form a
+// mental model of the system before the cold open (TODO.md acceptance item).
+const SEEN_ARCH_KEY = 'mcp-lab.seen-arch'
+
 export function Header() {
-  const [archOpen, setArchOpen] = useState(false)
+  const [archOpen, setArchOpen] = useState(() => !localStorage.getItem(SEEN_ARCH_KEY))
+  useEffect(() => {
+    localStorage.setItem(SEEN_ARCH_KEY, '1')
+  }, [])
   const [anatomyOpen, setAnatomyOpen] = useState(false)
   const [pipelineOpen, setPipelineOpen] = useState(false)
   // Workshop / Walkthrough button: toggles workshopMode and surfaces the
@@ -19,6 +26,8 @@ export function Header() {
   const workshopMode = useLab((s) => s.workshopMode)
   const setWorkshopMode = useLab((s) => s.setWorkshopMode)
   const setInspectorTab = useLab((s) => s.setInspectorTab)
+  const learnMode = useLab((s) => s.learnMode)
+  const setLearnMode = useLab((s) => s.setLearnMode)
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b border-border bg-surface">
       <div className="flex items-center gap-3">
@@ -97,6 +106,30 @@ export function Header() {
             aria-pressed={workshopMode}
           >
             ◇ {workshopMode ? 'Walkthrough (open)' : 'Walkthrough'}
+          </button>
+        </HelpTip>
+        <HelpTip
+          side="bottom"
+          title="Learn Mode"
+          body={
+            learnMode
+              ? 'Back to the classic chat layout (course progress is saved).'
+              : 'The guided course shell: 8 modules with progress tracking, copyable commands, in-app verify — and the agent docked right. ⌘L toggles it.'
+          }
+        >
+          <button
+            type="button"
+            onClick={() => setLearnMode(!learnMode)}
+            className={
+              'text-xs border rounded-md px-2 py-1 transition-colors ' +
+              (learnMode
+                ? 'text-primary-fg bg-primary border-primary'
+                : 'text-muted hover:text-text border-border')
+            }
+            data-testid="learn-mode-button"
+            aria-pressed={learnMode}
+          >
+            ◆ {learnMode ? 'Learn (on)' : 'Learn'}
           </button>
         </HelpTip>
         <HelpTip
