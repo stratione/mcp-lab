@@ -71,6 +71,23 @@ async def ollama_models() -> list[dict[str, Any]]:
 
 
 def ollama_auto() -> str:
+    """Prefer a model the user actually has: the workshop default if pulled,
+    else the first pulled catalog model, else any pulled model (e.g. a custom
+    one like ornith:latest), else fall back to the workshop default."""
+    try:
+        with httpx.Client(timeout=3.0) as c:
+            r = c.get(f"{_OLLAMA_URL.rstrip('/')}/api/tags")
+            r.raise_for_status()
+            installed = [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+    except Exception:
+        installed = []
+    if "llama3.1:8b" in installed:
+        return "llama3.1:8b"
+    for entry in _OLLAMA_CATALOG:
+        if entry["id"] in installed:
+            return entry["id"]
+    if installed:
+        return sorted(installed)[0]
     return "llama3.1:8b"
 
 
