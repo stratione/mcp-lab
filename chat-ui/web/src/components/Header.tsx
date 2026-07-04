@@ -96,7 +96,12 @@ export function Header() {
               setWorkshopMode(next)
               // Surface the Walkthrough tab when opening so the user
               // doesn't click the button, then wonder where the tour went.
-              if (next) setInspectorTab('walkthrough')
+              // Learn Mode hides the inspector entirely, so opening the
+              // walkthrough also exits Learn (course progress is saved).
+              if (next) {
+                setInspectorTab('walkthrough')
+                setLearnMode(false)
+              }
             }}
             className={
               'text-xs border border-border rounded-md px-2 py-1 transition-colors ' +
@@ -119,7 +124,14 @@ export function Header() {
         >
           <button
             type="button"
-            onClick={() => setLearnMode(!learnMode)}
+            onClick={() => {
+              const next = !learnMode
+              setLearnMode(next)
+              // Symmetric with the walkthrough button: the course shell and
+              // the wizard both want to drive; close the wizard when Learn
+              // opens (its progress is saved too).
+              if (next) setWorkshopMode(false)
+            }}
             className={
               'text-xs border rounded-md px-2 py-1 transition-colors ' +
               (learnMode

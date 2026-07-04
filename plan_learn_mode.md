@@ -36,6 +36,15 @@ Classic mode stays untouched; the overlay can always be switched off.
       build + up; browser-verified Learn Mode, Verify PASS, persistence)
 - [x] (2026-07-03) M5: docs updated (README, TODO) + tests green (65 labctl
       pytest, 64 web vitest)
+- [x] (2026-07-03) Round 2 — test & improve: ⌘L documented in Shortcuts
+      dialog; "Toggle Learn Mode" CmdK command; Walkthrough↔Learn mutual
+      exclusivity (each closes the other, both save progress); regression
+      tests added — 4 labctl check-8 tests (SSE + bare-JSON parse, learner
+      tool PASS, server-down), 7 curriculum.ts invariant vitest tests, 6
+      backend /api/curriculum pytest tests. Suites: 69 labctl + 71 vitest +
+      115 chat-ui pytest, all green. Browser-verified: checkbox click
+      persists server-side, FAIL banner renders detail + hint, walkthrough
+      button exits Learn and selects its tab, zero console errors.
 
 ## Surprises & Discoveries (Living)
 

@@ -108,3 +108,70 @@ def test_modules_lists_all_seven_without_lab(capsys, monkeypatch, tmp_path):
     assert rc == 0
     for name in ("git", "ci", "artifacts", "security", "promotion", "deploy", "ops"):
         assert name in out
+
+
+# ── module 8: build your own MCP tool ────────────────────────────────────────
+
+from .conftest import FakeService
+
+
+def _mcp_router(tools, sse=True):
+    payload = {"jsonrpc": "2.0", "id": 1,
+               "result": {"tools": [{"name": n} for n in tools]}}
+    def router(method, record, state):
+        if record["path"] == "/mcp" and method == "POST":
+            if sse:
+                body = "event: message\ndata: {}\n\n".format(json.dumps(payload)).encode()
+                return 200, "text/event-stream", body, None
+            return 200, "application/json", json.dumps(payload).encode(), None
+        return 404, "application/json", b"{}", None
+    return router
+
+
+_STOCK = ["list_roles", "list_users", "get_user", "get_user_by_username",
+          "create_user", "update_user", "deactivate_user", "activate_user",
+          "delete_user"]
+
+
+def test_check_byo_stock_only_fails(lab_env, monkeypatch, capsys):
+    svc = FakeService(_mcp_router(_STOCK))
+    monkeypatch.setenv("LABCTL_MCP_USER_URL", svc.url)
+    try:
+        rc = cli.main(["check", "8"])
+    finally:
+        svc.stop()
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "stock tools" in out
+    assert "custom_tools.py" in out  # the hint names the workspace file
+
+
+def test_check_byo_learner_tool_passes(lab_env, monkeypatch, capsys):
+    svc = FakeService(_mcp_router(_STOCK + ["pipeline_health"]))
+    monkeypatch.setenv("LABCTL_MCP_USER_URL", svc.url)
+    try:
+        rc = cli.main(["check", "byo"])
+    finally:
+        svc.stop()
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "pipeline_health" in out
+
+
+def test_check_byo_parses_bare_json_reply(lab_env, monkeypatch, capsys):
+    svc = FakeService(_mcp_router(_STOCK + ["my_tool"], sse=False))
+    monkeypatch.setenv("LABCTL_MCP_USER_URL", svc.url)
+    try:
+        rc = cli.main(["check", "8"])
+    finally:
+        svc.stop()
+    assert rc == 0
+    assert "my_tool" in capsys.readouterr().out
+
+
+def test_check_byo_server_down(lab_env, monkeypatch, capsys):
+    monkeypatch.setenv("LABCTL_MCP_USER_URL", "http://127.0.0.1:1")
+    rc = cli.main(["check", "8"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "not answering" in out

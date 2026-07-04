@@ -3,6 +3,7 @@ import { useLab } from '@/lib/store'
 
 const ROWS: [string, string][] = [
   ['⌘ K', 'Open command palette'],
+  ['⌘ L', 'Toggle Learn Mode'],
   ['⌘ J', 'Toggle theme'],
   ['⇧⌘ H', 'Toggle Flying Blind'],
   ['⌘ + / ⌘ −', 'Density bump'],

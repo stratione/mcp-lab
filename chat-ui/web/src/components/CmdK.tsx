@@ -22,6 +22,8 @@ export function CmdK() {
   const flyingBlind = useLab((s) => s.flyingBlind)
   const setFlying = useLab((s) => s.setFlyingBlind)
   const workshopMode = useLab((s) => s.workshopMode)
+  const learnMode = useLab((s) => s.learnMode)
+  const setLearnMode = useLab((s) => s.setLearnMode)
   const workshopStep = useLab((s) => s.workshopStep)
   const setWorkshopStep = useLab((s) => s.setWorkshopStep)
   const setPending = useLab((s) => s.setPendingPrompt)
@@ -59,6 +61,9 @@ export function CmdK() {
                 })}
               >
                 Toggle Flying Blind ({flyingBlind ? 'on → off' : 'off → on'})
+              </CommandItem>
+              <CommandItem onSelect={go(() => setLearnMode(!learnMode))}>
+                Toggle Learn Mode ({learnMode ? 'on → off' : 'off → on'})
               </CommandItem>
               <CommandItem onSelect={go(clear)}>Clear chat</CommandItem>
             </CommandGroup>
