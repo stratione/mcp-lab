@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipyard — DevOps Fundamentals Lab (Phase 1 mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0B1519;
+    --bg-raise:  #101D23;
+    --panel:     #12222A;
+    --panel-2:   #162830;
+    --line:      #1F3540;
+    --line-soft: #182B33;
+    --ink:       #E9F1EE;
+    --ink-dim:   #93A8A9;
+    --ink-faint: #5D7375;
+    --amber:     #F5A623;
+    --amber-dim: #8A6521;
+    --green:     #3ECF8E;
+    --red:       #E5533C;
+    --violet:    #9D8CFF;
+    --cyan:      #4FC3E8;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --body: "Instrument Sans", system-ui, sans-serif;
+    --disp: "Archivo", system-ui, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { font-size:15px; }
+  body {
+    background:var(--bg); color:var(--ink); font-family:var(--body);
+    min-height:100vh; overflow-x:hidden;
+  }
+  ::selection { background:var(--amber); color:#0B1519; }
+
+  /* ---------- app frame ---------- */
+  .frame { display:grid; grid-template-columns:196px 1fr; min-height:100vh; }
+  @media (max-width: 860px){ .frame { grid-template-columns:1fr; } .rail-nav { display:none; } }
+
+  /* left nav */
+  .rail-nav {
+    border-right:1px solid var(--line); background:var(--bg-raise);
+    padding:20px 14px; display:flex; flex-direction:column; gap:4px;
+    position:sticky; top:0; height:100vh;
+  }
+  .brand {
+    font-family:var(--disp); font-weight:900; font-stretch:110%;
+    letter-spacing:.02em; font-size:1.22rem; padding:6px 10px 2px;
+  }
+  .brand .tick { color:var(--amber); }
+  .brand-sub {
+    font-family:var(--mono); font-size:.62rem; color:var(--ink-faint);
+    padding:0 10px 18px; letter-spacing:.08em;
+  }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding:9px 10px;
+    border-radius:8px; color:var(--ink-dim); font-size:.9rem; font-weight:500;
+    cursor:pointer; border:1px solid transparent; background:none; text-align:left;
+    font-family:var(--body); width:100%;
+  }
+  .nav-item:hover { color:var(--ink); background:var(--panel); }
+  .nav-item.active { color:var(--ink); background:var(--panel); border-color:var(--line); }
+  .nav-item.active .nv-dot { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+  .nv-dot { width:6px; height:6px; border-radius:50%; background:var(--line); flex:none; }
+  .nav-item:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+  .nav-foot { margin-top:auto; font-family:var(--mono); font-size:.66rem; color:var(--ink-faint); padding:10px; line-height:1.9; }
+  .nav-foot b { color:var(--ink-dim); font-weight:500; }
+
+  /* top bar */
+  .topbar {
+    display:flex; align-items:center; gap:14px; padding:14px 26px;
+    border-bottom:1px solid var(--line); background:var(--bg-raise);
+    position:sticky; top:0; z-index:20; flex-wrap:wrap;
+  }
+  .crumb { font-family:var(--disp); font-weight:800; font-size:1.02rem; letter-spacing:.01em; }
+  .chip {
+    font-family:var(--mono); font-size:.68rem; padding:4px 9px; border-radius:999px;
+    border:1px solid var(--line); color:var(--ink-dim); display:inline-flex; gap:7px; align-items:center;
+  }
+  .chip .dot { width:6px; height:6px; border-radius:50%; }
+  .dot-ok { background:var(--green); } .dot-warn { background:var(--amber); } .dot-off { background:var(--ink-faint); } .dot-bad { background:var(--red); }
+  .push { margin-left:auto; }
+  .live-chip { border-color:var(--amber-dim); color:var(--amber); }
+  .live-chip .dot { background:var(--amber); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity:.25; } }
+
+  main { padding:26px; max-width:1240px; }
+  .tab { display:none; }
+  .tab.active { display:block; animation:rise .35s ease both; }
+  @keyframes rise { from { opacity:0; transform:translateY(8px);} }
+  @media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation:none !important; transition:none !important; } }
+
+  .eyebrow {
+    font-family:var(--mono); font-size:.68rem; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--amber); margin-bottom:8px;
+  }
+  h1.page {
+    font-family:var(--disp); font-weight:900; font-stretch:115%;
+    font-size:clamp(1.6rem, 3vw, 2.2rem); letter-spacing:.005em; margin-bottom:6px;
+  }
+  .lede { color:var(--ink-dim); max-width:62ch; margin-bottom:26px; font-size:.95rem; }
+  .lede code { font-family:var(--mono); font-size:.85em; color:var(--ink); }
+
+  /* ---------- SIGNATURE: pipeline rail ---------- */
+  .board {
+    background:linear-gradient(180deg, var(--panel) 0%, var(--bg-raise) 100%);
+    border:1px solid var(--line); border-radius:14px; padding:30px 26px 22px; margin-bottom:22px;
+    position:relative; overflow:hidden;
+  }
+  .board::before { /* faint blueprint grid */
+    content:""; position:absolute; inset:0; opacity:.05; pointer-events:none;
+    background-image:linear-gradient(var(--ink) 1px, transparent 1px), linear-gradient(90deg, var(--ink) 1px, transparent 1px);
+    background-size:28px 28px;
+  }
+  .rail-wrap { position:relative; padding:10px 0 4px; }
+  .rail-track {
+    position:absolute; left:34px; right:34px; top:33px; height:2px;
+    background:repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 14px);
+  }
+  .rail-progress {
+    position:absolute; left:34px; top:32px; height:4px; width:52%;
+    background:linear-gradient(90deg, var(--green), var(--amber)); border-radius:2px;
+    box-shadow:0 0 12px rgba(245,166,35,.35);
+  }
+  .token {
+    position:absolute; top:26px; left:calc(34px + 52% - 8px); width:16px; height:16px; border-radius:50%;
+    background:var(--amber); border:3px solid var(--bg); box-shadow:0 0 0 2px var(--amber), 0 0 16px var(--amber);
+    animation:tokenpulse 1.4s ease-in-out infinite;
+  }
+  @keyframes tokenpulse { 50% { box-shadow:0 0 0 2px var(--amber), 0 0 26px var(--amber);} }
+  .stages { display:flex; justify-content:space-between; position:relative; }
+  .stage { width:118px; text-align:center; position:relative; }
+  .stg-node {
+    width:14px; height:14px; border-radius:50%; margin:26px auto 12px;
+    background:var(--panel-2); border:2px solid var(--line); position:relative; z-index:2;
+  }
+  .stage.done .stg-node   { background:var(--green); border-color:var(--green); }
+  .stage.run  .stg-node   { background:var(--amber); border-color:var(--amber); box-shadow:0 0 14px var(--amber); }
+  .stage.hold .stg-node   { background:var(--red); border-color:var(--red); }
+  .stg-name {
+    font-family:var(--disp); font-weight:800; font-size:.72rem; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--ink-dim);
+  }
+  .stage.done .stg-name, .stage.run .stg-name { color:var(--ink); }
+  .stg-meta { font-family:var(--mono); font-size:.62rem; color:var(--ink-faint); margin-top:5px; line-height:1.7; }
+  .stg-meta .ok { color:var(--green); } .stg-meta .running { color:var(--amber); } .stg-meta .blocked { color:var(--red); }
+  .stamp { /* waybill digest stamp */
+    display:inline-block; margin-top:6px; padding:2px 6px; border:1px dashed var(--line);
+    border-radius:4px; font-family:var(--mono); font-size:.6rem; color:var(--ink-dim);
+    transform:rotate(-1.2deg);
+  }
+  .stage.done .stamp { border-color:var(--amber-dim); color:var(--amber); }
+
+  .board-foot {
+    display:flex; gap:16px; align-items:center; margin-top:18px; padding-top:14px;
+    border-top:1px solid var(--line-soft); font-family:var(--mono); font-size:.7rem; color:var(--ink-dim);
+    flex-wrap:wrap;
+  }
+  .board-foot b { color:var(--ink); font-weight:500; }
+
+  /* two-col under board */
+  .cols { display:grid; grid-template-columns:1.5fr 1fr; gap:18px; }
+  @media (max-width: 980px){ .cols { grid-template-columns:1fr; } }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .panel-hd {
+    display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line);
+    font-family:var(--disp); font-weight:800; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase;
+  }
+  .panel-hd .sub { font-family:var(--mono); font-weight:400; text-transform:none; letter-spacing:0; font-size:.68rem; color:var(--ink-faint); }
+  .raw-toggle {
+    margin-left:auto; display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden;
+  }
+  .raw-toggle button {
+    background:none; border:0; color:var(--ink-dim); font-family:var(--mono); font-size:.64rem;
+    padding:4px 10px; cursor:pointer;
+  }
+  .raw-toggle button.on { background:var(--panel-2); color:var(--amber); }
+  .raw-toggle button:focus-visible { outline:2px solid var(--amber); outline-offset:-2px; }
+
+  pre.code {
+    font-family:var(--mono); font-size:.74rem; line-height:1.75; padding:16px 18px;
+    overflow-x:auto; color:var(--ink-dim); tab-size:2;
+  }
+  pre.code .k  { color:var(--cyan); }
+  pre.code .s  { color:var(--green); }
+  pre.code .c  { color:var(--ink-faint); font-style:italic; }
+  pre.code .a  { color:var(--amber); }
+
+  /* event feed */
+  .feed { list-style:none; max-height:340px; overflow-y:auto; }
+  .feed li {
+    display:flex; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line-soft);
+    font-family:var(--mono); font-size:.7rem; align-items:baseline;
+  }
+  .feed .t { color:var(--ink-faint); flex:none; }
+  .feed .tag { flex:none; width:64px; font-weight:600; }
+  .tag.git { color:var(--cyan); } .tag.ci { color:var(--amber); } .tag.reg { color:var(--violet); }
+  .tag.scan { color:var(--red); } .tag.promo { color:var(--green); } .tag.deploy { color:var(--green); }
+  .feed .msg { color:var(--ink-dim); line-height:1.6; }
+  .feed .msg b { color:var(--ink); font-weight:500; }
+  .feed li.new { background:rgba(245,166,35,.05); }
+
+  /* scan table */
+  table.scan { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:.72rem; }
+  table.scan th {
+    text-align:left; padding:9px 16px; color:var(--ink-faint); font-weight:500; font-size:.64rem;
+    letter-spacing:.1em; text-transform:uppercase; border-bottom:1px solid var(--line);
+  }
+  table.scan td { padding:9px 16px; border-bottom:1px solid var(--line-soft); color:var(--ink-dim); }
+  .sev { padding:1px 7px; border-radius:4px; font-size:.62rem; font-weight:600; }
+  .sev.crit { background:rgba(229,83,60,.15); color:var(--red); }
+  .sev.high { background:rgba(245,166,35,.14); color:var(--amber); }
+  .sev.med  { background:rgba(79,195,232,.12); color:var(--cyan); }
+  .fixed-in { color:var(--green); }
+
+  .byhand {
+    margin:0 16px 16px; border:1px solid var(--line); border-left:3px solid var(--amber);
+    border-radius:8px; padding:12px 14px; font-family:var(--mono); font-size:.72rem; color:var(--ink-dim);
+    background:var(--bg-raise);
+  }
+  .byhand .lbl { font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:7px; }
+  .byhand code { color:var(--ink); }
+  .byhand .out { color:var(--ink-faint); }
+
+  /* ---------- course map ---------- */
+  .mod-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:14px; margin-bottom:22px; }
+  .mod {
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px;
+    position:relative; transition:border-color .2s, transform .2s;
+  }
+  .mod:hover { border-color:var(--amber-dim); transform:translateY(-2px); }
+  .mod-num {
+    font-family:var(--disp); font-weight:900; font-stretch:120%; font-size:1.7rem;
+    color:var(--line); line-height:1; position:absolute; top:14px; right:14px;
+  }
+  .mod.enabled .mod-num { color:var(--amber-dim); }
+  .mod-eyebrow { font-family:var(--mono); font-size:.6rem; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
+  .mod h3 { font-family:var(--disp); font-weight:800; font-size:1rem; margin-bottom:6px; padding-right:44px; }
+  .mod p { font-size:.8rem; color:var(--ink-dim); line-height:1.55; margin-bottom:12px; min-height:38px; }
+  .mod-row { display:flex; align-items:center; gap:10px; }
+  .prog { flex:1; height:4px; border-radius:2px; background:var(--line-soft); overflow:hidden; }
+  .prog i { display:block; height:100%; background:var(--green); }
+  .prog-lbl { font-family:var(--mono); font-size:.62rem; color:var(--ink-faint); }
+  .switch {
+    width:34px; height:19px; border-radius:999px; background:var(--line); position:relative;
+    cursor:pointer; border:0; flex:none; transition:background .2s;
+  }
+  .switch::after {
+    content:""; position:absolute; top:2.5px; left:3px; width:14px; height:14px; border-radius:50%;
+    background:var(--ink-dim); transition:left .2s, background .2s;
+  }
+  .switch[aria-checked="true"] { background:var(--amber); }
+  .switch[aria-checked="true"]::after { left:17px; background:#0B1519; }
+  .switch:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+  .dep-note { font-family:var(--mono); font-size:.6rem; color:var(--ink-faint); margin-top:9px; }
+  .dep-note .req { color:var(--amber); }
+
+  /* lesson drawer */
+  .lesson { margin-top:4px; }
+  .lesson-hd { padding:16px 18px 4px; }
+  .lesson-hd .eyebrow { margin-bottom:5px; }
+  .lesson-hd h3 { font-family:var(--disp); font-weight:800; font-size:1.15rem; }
+  .lesson-body { padding:10px 18px 18px; color:var(--ink-dim); font-size:.88rem; line-height:1.65; }
+  .lesson-body p { margin-bottom:12px; max-width:70ch; }
+  .lesson-body strong { color:var(--ink); font-weight:600; }
+  .remotion {
+    border:1px solid var(--line); border-radius:10px; margin:6px 0 14px; overflow:hidden; background:var(--bg);
+  }
+  .remotion .scene {
+    height:170px; display:flex; align-items:center; justify-content:center; gap:26px; position:relative;
+  }
+  .rm-box {
+    width:60px; height:44px; border:2px solid var(--cyan); border-radius:7px; position:relative;
+    display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:.58rem; color:var(--cyan);
+  }
+  .rm-arrow { color:var(--ink-faint); font-family:var(--mono); animation:drift 2.4s ease-in-out infinite; }
+  @keyframes drift { 50% { transform:translateX(5px); color:var(--amber);} }
+  .rm-box.hot { border-color:var(--amber); color:var(--amber); box-shadow:0 0 18px rgba(245,166,35,.25); }
+  .remotion .bar {
+    display:flex; align-items:center; gap:10px; padding:8px 12px; border-top:1px solid var(--line);
+    font-family:var(--mono); font-size:.62rem; color:var(--ink-faint);
+  }
+  .remotion .play {
+    width:24px; height:24px; border-radius:50%; border:1px solid var(--amber); color:var(--amber);
+    display:flex; align-items:center; justify-content:center; font-size:.6rem; background:none; cursor:pointer;
+  }
+  .remotion .track { flex:1; height:3px; background:var(--line-soft); border-radius:2px; position:relative; }
+  .remotion .track i { position:absolute; left:0; top:0; bottom:0; width:34%; background:var(--amber); border-radius:2px; }
+
+  .verify-btn {
+    font-family:var(--disp); font-weight:800; font-size:.76rem; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--amber); color:#0B1519; border:0; border-radius:8px; padding:10px 18px; cursor:pointer;
+  }
+  .verify-btn:hover { filter:brightness(1.08); }
+  .verify-out {
+    margin-top:12px; border:1px solid var(--green); border-radius:8px; background:rgba(62,207,142,.05);
+    padding:12px 14px; font-family:var(--mono); font-size:.7rem; color:var(--ink-dim); line-height:1.8;
+  }
+  .verify-out .pass { color:var(--green); font-weight:600; }
+
+  /* ---------- environments ---------- */
+  .env-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:16px; margin-bottom:20px; }
+  .env {
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  }
+  .env-hd {
+    padding:14px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line);
+  }
+  .env-hd .name { font-family:var(--disp); font-weight:900; font-size:.95rem; letter-spacing:.06em; text-transform:uppercase; }
+  .env-hd .badge { font-family:var(--mono); font-size:.6rem; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--ink-dim); margin-left:auto; }
+  .env.prod .env-hd { border-bottom-color:var(--amber-dim); }
+  .env-body { padding:14px 16px; font-family:var(--mono); font-size:.7rem; color:var(--ink-dim); line-height:2.1; }
+  .env-body .row { display:flex; justify-content:space-between; gap:10px; }
+  .env-body .k { color:var(--ink-faint); }
+  .env-body .v { color:var(--ink); text-align:right; overflow:hidden; text-overflow:ellipsis; }
+  .env-body .v.drift { color:var(--amber); }
+  .env-body .v.ok { color:var(--green); }
+  .env-body .v.bad { color:var(--red); }
+  .env-actions { display:flex; gap:8px; padding:0 16px 16px; }
+  .btn-sm {
+    font-family:var(--mono); font-size:.66rem; padding:7px 12px; border-radius:7px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim);
+  }
+  .btn-sm:hover { color:var(--ink); border-color:var(--ink-faint); }
+  .btn-sm.primary { border-color:var(--amber-dim); color:var(--amber); }
+  .drift-banner {
+    border:1px solid var(--amber-dim); background:rgba(245,166,35,.06); border-radius:10px;
+    padding:12px 16px; font-family:var(--mono); font-size:.72rem; color:var(--amber);
+    display:flex; gap:10px; align-items:center; margin-bottom:20px;
+  }
+  .drift-banner span { color:var(--ink-dim); }
+
+  /* ---------- system ---------- */
+  table.sys { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:.72rem; }
+  table.sys th { text-align:left; padding:10px 16px; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); border-bottom:1px solid var(--line); font-weight:500; }
+  table.sys td { padding:10px 16px; border-bottom:1px solid var(--line-soft); color:var(--ink-dim); }
+  table.sys td.svc { color:var(--ink); }
+  .hdot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:8px; }
+  .logs {
+    font-family:var(--mono); font-size:.68rem; line-height:1.8; padding:14px 16px; color:var(--ink-dim);
+    max-height:230px; overflow-y:auto; background:var(--bg);
+  }
+  .logs .ts { color:var(--ink-faint); }
+  .logs .lvl-i { color:var(--cyan); } .logs .lvl-w { color:var(--amber); }
+
+  footer.note {
+    margin-top:30px; padding-top:16px; border-top:1px solid var(--line-soft);
+    font-family:var(--mono); font-size:.64rem; color:var(--ink-faint); line-height:1.9;
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <!-- ============ LEFT NAV ============ -->
+  <nav class="rail-nav" aria-label="Primary">
+    <div class="brand">SHIPYARD<span class="tick">_</span></div>
+    <div class="brand-sub">DEVOPS FUNDAMENTALS LAB</div>
+    <button class="nav-item active" data-tab="pipeline"><span class="nv-dot"></span>Pipeline Board</button>
+    <button class="nav-item" data-tab="course"><span class="nv-dot"></span>Course Map</button>
+    <button class="nav-item" data-tab="envs"><span class="nv-dot"></span>Environments</button>
+    <button class="nav-item" data-tab="system"><span class="nv-dot"></span>System</button>
+    <div class="nav-foot">
+      engine <b>docker 27.4</b><br>
+      tier <b>full · 2.1 GB</b><br>
+      labd <b>v0.1.0 · :8000</b>
+    </div>
+  </nav>
+
+  <div>
+    <!-- ============ TOP BAR ============ -->
+    <header class="topbar">
+      <span class="crumb" id="crumb">Pipeline Board</span>
+      <span class="chip"><span class="dot dot-ok"></span>12 / 13 services healthy</span>
+      <span class="chip"><span class="dot dot-warn"></span>promotion → prod: blocked by scan</span>
+      <span class="chip push live-chip"><span class="dot"></span>LIVE · /api/events</span>
+    </header>
+
+    <main>
+
+      <!-- ============ TAB: PIPELINE ============ -->
+      <section class="tab active" id="tab-pipeline">
+        <div class="eyebrow">demo-app · branch main · run #47</div>
+        <h1 class="page">One commit, end to end.</h1>
+        <p class="lede">Everything below is live state — the rail advances as real events arrive from Gitea, the CI runner, three registries, and the scanner. Click a stage to open its raw artifacts.</p>
+
+        <!-- SIGNATURE: the rail -->
+        <div class="board">
+          <div class="rail-wrap">
+            <div class="rail-track"></div>
+            <div class="rail-progress"></div>
+            <div class="token" aria-hidden="true"></div>
+            <div class="stages">
+              <div class="stage done">
+                <div class="stg-node"></div>
+                <div class="stg-name">Commit</div>
+                <div class="stg-meta"><span class="ok">✓ pushed</span><br>fix: bump base image<br><span class="stamp">a41f9c2</span></div>
+              </div>
+              <div class="stage done">
+                <div class="stg-node"></div>
+                <div class="stg-name">CI Build</div>
+                <div class="stg-meta"><span class="ok">✓ 58s</span><br>build.yml · lab-runner<br><span class="stamp">run #47</span></div>
+              </div>
+              <div class="stage done">
+                <div class="stg-node"></div>
+                <div class="stg-name">Registry dev</div>
+                <div class="stg-meta"><span class="ok">✓ pushed</span><br>demo-app:1.4.2<br><span class="stamp">sha256:9f2c…d1</span></div>
+              </div>
+              <div class="stage run">
+                <div class="stg-node"></div>
+                <div class="stg-name">Scan</div>
+                <div class="stg-meta"><span class="running">● scanning…</span><br>trivy server<br><span class="stamp">prev: 1C 3H</span></div>
+              </div>
+              <div class="stage">
+                <div class="stg-node"></div>
+                <div class="stg-name">Staging</div>
+                <div class="stg-meta">awaiting gate<br>policy: 0 critical<br><span class="stamp">1.4.1 live</span></div>
+              </div>
+              <div class="stage hold">
+                <div class="stg-node"></div>
+                <div class="stg-name">Prod</div>
+                <div class="stg-meta"><span class="blocked">✗ blocked</span><br>scan gate failed @1.4.1<br><span class="stamp">1.3.9 live</span></div>
+              </div>
+              <div class="stage">
+                <div class="stg-node"></div>
+                <div class="stg-name">Deployed</div>
+                <div class="stg-meta">3 environments<br>:8081 :8082 :8083<br><span class="stamp">drift: 2 vers</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="board-foot">
+            <span>last event <b>2s ago</b> — scan started on <b>registry-dev/demo-app:1.4.2</b></span>
+            <span class="push">by hand: <b>curl -s localhost:5001/v2/demo-app/tags/list</b></span>
+          </div>
+        </div>
+
+        <div class="cols">
+          <!-- artifact panel with raw toggle -->
+          <div class="panel">
+            <div class="panel-hd">
+              CI Workflow <span class="sub">.gitea/workflows/build.yml — real file in your repo</span>
+              <div class="raw-toggle" role="group" aria-label="View mode">
+                <button>Rendered</button><button class="on">Raw</button>
+              </div>
+            </div>
+            <pre class="code"><span class="k">name</span>: <span class="s">build demo-app</span>
+<span class="k">on</span>:
+  <span class="k">push</span>:
+    <span class="k">branches</span>: [<span class="s">main</span>]
+
+<span class="k">jobs</span>:
+  <span class="k">build</span>:
+    <span class="k">runs-on</span>: <span class="s">ubuntu-latest</span>   <span class="c"># resolves to mcp-lab-ci-base</span>
+    <span class="k">steps</span>:
+      - <span class="k">uses</span>: <span class="s">actions/checkout@v4</span>
+      - <span class="k">name</span>: <span class="s">run tests</span>
+        <span class="k">run</span>: <span class="a">python -m pytest -q</span>
+      - <span class="k">name</span>: <span class="s">build image</span>
+        <span class="k">run</span>: <span class="a">docker build -t registry-dev:5000/demo-app:${VERSION} .</span>
+      - <span class="k">name</span>: <span class="s">push to dev registry</span>
+        <span class="k">run</span>: <span class="a">docker push registry-dev:5000/demo-app:${VERSION}</span></pre>
+            <div class="byhand">
+              <span class="lbl">By hand — watch this run yourself</span>
+              <code>curl -s http://localhost:3000/api/v1/repos/student/demo-app/actions/runs</code><br>
+              <span class="out">→ {"id":47,"status":"success","duration":"58s", …}</span>
+            </div>
+          </div>
+
+          <!-- live event feed -->
+          <div class="panel">
+            <div class="panel-hd">Event Feed <span class="sub">SSE · /api/events</span></div>
+            <ul class="feed" id="feed">
+              <li class="new"><span class="t">14:32:09</span><span class="tag scan">scan</span><span class="msg">trivy started on <b>demo-app:1.4.2</b> (dev)</span></li>
+              <li><span class="t">14:32:07</span><span class="tag reg">registry</span><span class="msg">manifest pushed <b>sha256:9f2c…d1</b> → registry-dev</span></li>
+              <li><span class="t">14:31:58</span><span class="tag ci">ci</span><span class="msg">run <b>#47</b> success · 58s · 4 steps</span></li>
+              <li><span class="t">14:31:00</span><span class="tag ci">ci</span><span class="msg">run <b>#47</b> started on <b>lab-runner</b></span></li>
+              <li><span class="t">14:30:57</span><span class="tag git">git</span><span class="msg"><b>a41f9c2</b> pushed to main — “fix: bump base image to 3.12-slim”</span></li>
+              <li><span class="t">14:12:41</span><span class="tag promo">promo</span><span class="msg">promotion <b>1.4.1 → prod</b> <b style="color:var(--red)">rejected</b>: 1 CRITICAL (policy max 0)</span></li>
+              <li><span class="t">14:11:03</span><span class="tag scan">scan</span><span class="msg"><b>1.4.1</b>: 1 CRITICAL · 3 HIGH · 11 MEDIUM</span></li>
+              <li><span class="t">13:58:22</span><span class="tag deploy">deploy</span><span class="msg">staging updated → <b>demo-app:1.4.1</b> on :8082</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- scan detail -->
+        <div class="panel" style="margin-top:18px;">
+          <div class="panel-hd">
+            Scan Report <span class="sub">registry-dev/demo-app:1.4.1 · trivy 0.58 · why prod is blocked</span>
+            <div class="raw-toggle"><button class="on">Rendered</button><button>Raw JSON</button><button>SBOM</button></div>
+          </div>
+          <table class="scan">
+            <thead><tr><th>CVE</th><th>Severity</th><th>Package</th><th>Installed</th><th>Fixed in</th></tr></thead>
+            <tbody>
+              <tr><td>CVE-2025-31490</td><td><span class="sev crit">CRITICAL</span></td><td>libssl3</td><td>3.0.11-1</td><td class="fixed-in">3.0.15-1 ← patch lesson</td></tr>
+              <tr><td>CVE-2025-27113</td><td><span class="sev high">HIGH</span></td><td>libexpat1</td><td>2.5.0-1</td><td class="fixed-in">2.5.0-2</td></tr>
+              <tr><td>CVE-2024-56171</td><td><span class="sev high">HIGH</span></td><td>libxml2</td><td>2.9.14</td><td class="fixed-in">2.9.14+dfsg-1.3</td></tr>
+              <tr><td>CVE-2025-1094</td><td><span class="sev med">MEDIUM</span></td><td>libpq5</td><td>15.6-0</td><td class="fixed-in">15.10-0</td></tr>
+            </tbody>
+          </table>
+          <div class="byhand">
+            <span class="lbl">By hand — same scan from your terminal</span>
+            <code>docker run --rm --network mcp-lab-net aquasec/trivy image --server http://trivy:8080 registry-dev:5000/demo-app:1.4.1</code>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB: COURSE ============ -->
+      <section class="tab" id="tab-course">
+        <div class="eyebrow">nine modules · prerequisite chain · by hand first</div>
+        <h1 class="page">The course is the pipeline.</h1>
+        <p class="lede">Each module is a real container pack you switch on. The number is its position in the chain — module 05 can’t gate what module 04 never scanned.</p>
+
+        <div class="mod-grid">
+          <div class="mod enabled">
+            <div class="mod-num">01</div>
+            <div class="mod-eyebrow">foundation</div>
+            <h3>Git &amp; Collaboration</h3>
+            <p>Clone, branch, commit, open a PR against a real Gitea server you own.</p>
+            <div class="mod-row"><div class="prog"><i style="width:100%"></i></div><span class="prog-lbl">4/4</span><button class="switch" role="switch" aria-checked="true" aria-label="Toggle module 1"></button></div>
+          </div>
+          <div class="mod enabled">
+            <div class="mod-num">02</div>
+            <div class="mod-eyebrow">automation</div>
+            <h3>CI Pipelines as Code</h3>
+            <p>Write real workflow YAML; a real runner executes it; read real logs when it fails.</p>
+            <div class="mod-row"><div class="prog"><i style="width:100%"></i></div><span class="prog-lbl">5/5</span><button class="switch" role="switch" aria-checked="true" aria-label="Toggle module 2"></button></div>
+          </div>
+          <div class="mod enabled">
+            <div class="mod-num">03</div>
+            <div class="mod-eyebrow">artifacts</div>
+            <h3>Registries &amp; Images</h3>
+            <p>Push to dev, inspect manifests and digests, learn what a tag really points to.</p>
+            <div class="mod-row"><div class="prog"><i style="width:66%"></i></div><span class="prog-lbl">2/3</span><button class="switch" role="switch" aria-checked="true" aria-label="Toggle module 3"></button></div>
+          </div>
+          <div class="mod enabled">
+            <div class="mod-num">04</div>
+            <div class="mod-eyebrow">security</div>
+            <h3>Scanning</h3>
+            <p>Trivy scans your actual image. Real CVEs, real SBOM, downloadable raw report.</p>
+            <div class="mod-row"><div class="prog"><i style="width:33%"></i></div><span class="prog-lbl">1/3</span><button class="switch" role="switch" aria-checked="true" aria-label="Toggle module 4"></button></div>
+          </div>
+          <div class="mod">
+            <div class="mod-num">05</div>
+            <div class="mod-eyebrow">security</div>
+            <h3>Patching</h3>
+            <p>Bump the vulnerable base image, rebuild, rescan — watch the CVE count fall.</p>
+            <div class="mod-row"><div class="prog"><i style="width:0%"></i></div><span class="prog-lbl">0/3</span><button class="switch" role="switch" aria-checked="false" aria-label="Toggle module 5"></button></div>
+            <div class="dep-note">requires <span class="req">04-scan</span> enabled ✓</div>
+          </div>
+          <div class="mod">
+            <div class="mod-num">06</div>
+            <div class="mod-eyebrow">release</div>
+            <h3>Promotion</h3>
+            <p>Scan-gated copy dev → staging → prod. The gate is policy, not a checkbox.</p>
+            <div class="mod-row"><div class="prog"><i style="width:0%"></i></div><span class="prog-lbl">0/4</span><button class="switch" role="switch" aria-checked="false" aria-label="Toggle module 6"></button></div>
+            <div class="dep-note">requires <span class="req">04-scan</span> · <span class="req">03-registry</span></div>
+          </div>
+          <div class="mod">
+            <div class="mod-num">07</div>
+            <div class="mod-eyebrow">release</div>
+            <h3>Deploy</h3>
+            <p>Run your app from each registry — three environments, three ports, one browser.</p>
+            <div class="mod-row"><div class="prog"><i style="width:0%"></i></div><span class="prog-lbl">0/3</span><button class="switch" role="switch" aria-checked="false" aria-label="Toggle module 7"></button></div>
+            <div class="dep-note">requires <span class="req">06-promote</span></div>
+          </div>
+          <div class="mod">
+            <div class="mod-num">08</div>
+            <div class="mod-eyebrow">operations</div>
+            <h3>Day-2 Ops</h3>
+            <p>Stream logs, restart, roll prod back to the previous digest. Feel the pager.</p>
+            <div class="mod-row"><div class="prog"><i style="width:0%"></i></div><span class="prog-lbl">0/4</span><button class="switch" role="switch" aria-checked="false" aria-label="Toggle module 8"></button></div>
+            <div class="dep-note">requires <span class="req">07-deploy</span></div>
+          </div>
+        </div>
+
+        <!-- lesson reader -->
+        <div class="panel lesson">
+          <div class="lesson-hd">
+            <div class="eyebrow">module 04 · lesson 2 of 3</div>
+            <h3>Reading a scan like an engineer</h3>
+          </div>
+          <div class="lesson-body">
+            <p>A scanner doesn’t say your app is “insecure.” It says: <strong>this package, at this version, inside this image, has this known defect — and here is the version that fixes it.</strong> That’s an actionable sentence, and it’s the whole basis of the patch → rescan loop you’ll run in module 05.</p>
+
+            <div class="remotion" aria-label="Animated explainer: how a scanner gates prod">
+              <div class="scene">
+                <div class="rm-box">image</div>
+                <div class="rm-arrow">──▶</div>
+                <div class="rm-box hot">trivy</div>
+                <div class="rm-arrow">──▶</div>
+                <div class="rm-box" style="border-color:var(--red); color:var(--red);">1 CRIT</div>
+                <div class="rm-arrow">──▶</div>
+                <div class="rm-box" style="border-color:var(--ink-faint); color:var(--ink-faint);">⛔ prod</div>
+              </div>
+              <div class="bar">
+                <button class="play" aria-label="Play explainer">▶</button>
+                <div class="track"><i></i></div>
+                <span>How a scanner gates prod · 0:12 / 0:38 · Remotion</span>
+              </div>
+            </div>
+
+            <div class="byhand" style="margin:0 0 14px;">
+              <span class="lbl">By hand</span>
+              <code>curl -s http://localhost:8000/api/artifacts/scan/registry-dev/demo-app:1.4.1 | jq '.Results[].Vulnerabilities | length'</code>
+            </div>
+
+            <button class="verify-btn" id="verifyBtn">Verify lesson</button>
+            <div class="verify-out" id="verifyOut" hidden>
+              <span class="pass">✓ PASS</span> — check 04-scan/checks/02-read-report.sh<br>
+              <span style="color:var(--ink-faint)">evidence:</span> scan record exists for demo-app:1.4.1 · report has 15 findings · learner fetched raw JSON at 14:29:51<br>
+              <span style="color:var(--ink-faint)">next:</span> lesson 3 — “SBOM: the ingredients label”
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB: ENVIRONMENTS ============ -->
+      <section class="tab" id="tab-envs">
+        <div class="eyebrow">three registries · three running apps · one laptop</div>
+        <h1 class="page">Environments you can open in a browser.</h1>
+        <p class="lede">Each card is a real container running the image from its own registry. Drift between them is not a diagram — it’s three different digests serving three different pages.</p>
+
+        <div class="drift-banner">⚠ drift <span>— prod is 2 versions behind dev. 1.4.1 blocked by scan gate; patch in module 05 to unblock.</span></div>
+
+        <div class="env-grid">
+          <div class="env">
+            <div class="env-hd"><span class="hdot" style="background:var(--green)"></span><span class="name">dev</span><span class="badge">registry :5001</span></div>
+            <div class="env-body">
+              <div class="row"><span class="k">image</span><span class="v">demo-app:1.4.2</span></div>
+              <div class="row"><span class="k">digest</span><span class="v">sha256:9f2c…d1</span></div>
+              <div class="row"><span class="k">scan</span><span class="v ok">0C · 1H · pending↻</span></div>
+              <div class="row"><span class="k">app</span><span class="v ok">up 4m · localhost:8081</span></div>
+            </div>
+            <div class="env-actions"><button class="btn-sm primary">Open app ↗</button><button class="btn-sm">Logs</button><button class="btn-sm">Scan env</button></div>
+          </div>
+          <div class="env">
+            <div class="env-hd"><span class="hdot" style="background:var(--green)"></span><span class="name">staging</span><span class="badge">registry :5003</span></div>
+            <div class="env-body">
+              <div class="row"><span class="k">image</span><span class="v drift">demo-app:1.4.1</span></div>
+              <div class="row"><span class="k">digest</span><span class="v">sha256:77ab…3e</span></div>
+              <div class="row"><span class="k">scan</span><span class="v bad">1C · 3H · gate ✗</span></div>
+              <div class="row"><span class="k">app</span><span class="v ok">up 34m · localhost:8082</span></div>
+            </div>
+            <div class="env-actions"><button class="btn-sm primary">Open app ↗</button><button class="btn-sm">Logs</button><button class="btn-sm">Scan env</button></div>
+          </div>
+          <div class="env prod">
+            <div class="env-hd"><span class="hdot" style="background:var(--green)"></span><span class="name">prod</span><span class="badge">registry :5002</span></div>
+            <div class="env-body">
+              <div class="row"><span class="k">image</span><span class="v drift">demo-app:1.3.9</span></div>
+              <div class="row"><span class="k">digest</span><span class="v">sha256:c04d…9a</span></div>
+              <div class="row"><span class="k">scan</span><span class="v ok">0C · 2H · passed gate</span></div>
+              <div class="row"><span class="k">app</span><span class="v ok">up 2d · localhost:8083</span></div>
+            </div>
+            <div class="env-actions"><button class="btn-sm primary">Open app ↗</button><button class="btn-sm">Rollback</button><button class="btn-sm">Logs</button></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hd">Promotion Ledger <span class="sub">every copy between registries, with its gate decision</span></div>
+          <table class="scan">
+            <thead><tr><th>When</th><th>Image</th><th>From → To</th><th>Gate</th><th>Decision</th></tr></thead>
+            <tbody>
+              <tr><td>14:12</td><td>demo-app:1.4.1</td><td>staging → prod</td><td>scan: 1 CRITICAL &gt; max 0</td><td><span class="sev crit">REJECTED</span></td></tr>
+              <tr><td>13:58</td><td>demo-app:1.4.1</td><td>dev → staging</td><td>tests ✓ · scan advisory</td><td><span class="sev" style="background:rgba(62,207,142,.12);color:var(--green)">PROMOTED</span></td></tr>
+              <tr><td>2d ago</td><td>demo-app:1.3.9</td><td>staging → prod</td><td>scan: 0 CRITICAL ✓</td><td><span class="sev" style="background:rgba(62,207,142,.12);color:var(--green)">PROMOTED</span></td></tr>
+            </tbody>
+          </table>
+          <div class="byhand">
+            <span class="lbl">By hand — promotion is just an authenticated copy</span>
+            <code>skopeo copy docker://registry-staging:5000/demo-app:1.4.1 docker://registry-prod:5000/demo-app:1.4.1</code>
+            <span class="out">&nbsp;← the service does this for you, after checking the gate</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB: SYSTEM ============ -->
+      <section class="tab" id="tab-system">
+        <div class="eyebrow">13 containers · docker 27.4 · network mcp-lab-net</div>
+        <h1 class="page">Everything that’s running, and why.</h1>
+        <p class="lede">The lab hides nothing. Every service, its port, its health, its logs — the same visibility you’d demand from a production cluster.</p>
+
+        <div class="panel" style="margin-bottom:18px;">
+          <table class="sys">
+            <thead><tr><th>Service</th><th>Role</th><th>Port</th><th>Health</th><th>Module</th></tr></thead>
+            <tbody>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>gitea</td><td>git server + CI orchestrator</td><td>:3000</td><td>healthy · 2d</td><td>00-core</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>act-runner</td><td>CI job executor</td><td>—</td><td>healthy · idle</td><td>02-ci</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>registry-dev</td><td>image registry (dev)</td><td>:5001</td><td>healthy</td><td>03-registry</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>registry-staging</td><td>image registry (staging)</td><td>:5003</td><td>healthy</td><td>03-registry</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>registry-prod</td><td>image registry (prod)</td><td>:5002</td><td>healthy</td><td>03-registry</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--amber)"></span>trivy</td><td>vulnerability scanner</td><td>:8087</td><td>busy · scanning 1.4.2</td><td>04-scan</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>promotion-service</td><td>gated registry copier</td><td>:8002</td><td>healthy</td><td>06-promote</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>demo-app-dev</td><td>your app · dev env</td><td>:8081</td><td>up 4m</td><td>07-deploy</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>demo-app-staging</td><td>your app · staging env</td><td>:8082</td><td>up 34m</td><td>07-deploy</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>demo-app-prod</td><td>your app · prod env</td><td>:8083</td><td>up 2d</td><td>07-deploy</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>labd</td><td>control plane API</td><td>:8000</td><td>healthy</td><td>platform</td></tr>
+              <tr><td class="svc"><span class="hdot" style="background:var(--green)"></span>web</td><td>this interface</td><td>:3010</td><td>healthy</td><td>platform</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hd">Live Logs <span class="sub">demo-app-staging · SSE · /api/services/demo-app-staging/logs?follow=1</span></div>
+          <div class="logs">
+            <div><span class="ts">14:31:44</span> <span class="lvl-i">INFO</span>  GET /health 200 1ms</div>
+            <div><span class="ts">14:31:52</span> <span class="lvl-i">INFO</span>  GET /api/users 200 12ms — 7 rows</div>
+            <div><span class="ts">14:32:01</span> <span class="lvl-w">WARN</span>  slow query: SELECT * FROM users ORDER BY created_at (204ms)</div>
+            <div><span class="ts">14:32:04</span> <span class="lvl-i">INFO</span>  GET /health 200 1ms</div>
+            <div><span class="ts">14:32:10</span> <span class="lvl-i">INFO</span>  POST /api/users 201 18ms</div>
+            <div><span class="ts">14:32:14</span> <span class="lvl-i">INFO</span>  GET /health 200 1ms</div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="note">
+        MOCKUP — static single file, no backend. Every panel corresponds to a real labd endpoint in the Phase 1 spec
+        (docs/superpowers/specs/2026-08-04-devops-platform-phase1-design.md). Data shown is illustrative but shaped
+        exactly like the real artifacts: Gitea Actions runs, registry v2 manifests, Trivy findings, promotion ledger records.
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  // tab switching
+  const items = document.querySelectorAll('.nav-item');
+  const crumb = document.getElementById('crumb');
+  const names = { pipeline:'Pipeline Board', course:'Course Map', envs:'Environments', system:'System' };
+  items.forEach(btn => btn.addEventListener('click', () => {
+    items.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    crumb.textContent = names[btn.dataset.tab];
+  }));
+
+  // fake live feed: new scan event arrives after 4s
+  setTimeout(() => {
+    const feed = document.getElementById('feed');
+    if (!feed) return;
+    feed.querySelectorAll('.new').forEach(li => li.classList.remove('new'));
+    const li = document.createElement('li');
+    li.className = 'new';
+    li.innerHTML = '<span class="t">14:32:13</span><span class="tag scan">scan</span>' +
+      '<span class="msg"><b>1.4.2</b>: 0 CRITICAL · 1 HIGH · 9 MEDIUM — gate will pass ✓</span>';
+    feed.prepend(li);
+  }, 4000);
+
+  // demo module toggle (visual only)
+  document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', () => {
+    const on = sw.getAttribute('aria-checked') === 'true';
+    sw.setAttribute('aria-checked', String(!on));
+    sw.closest('.mod').classList.toggle('enabled', !on);
+  }));
+
+  // verify button demo
+  const vb = document.getElementById('verifyBtn');
+  if (vb) vb.addEventListener('click', () => {
+    document.getElementById('verifyOut').hidden = false;
+    vb.textContent = 'Verified ✓';
+    vb.style.background = 'var(--green)';
+  });
+</script>
+</body>
+</html>
